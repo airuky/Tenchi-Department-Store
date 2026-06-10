@@ -5,6 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>天地百貨店 — 宇宙から太古まで、ぜんぶ売り場。</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏬</text></svg>">
+<meta name="description" content="宇宙から太古まで、ぜんぶ売り場。ブラウザで遊べるトイゲーム9店舗が入居する縦型デパート。創業138億年・年中無休・全品0円(税込)。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="天地百貨店 — TENCHI DEPARTMENT STORE">
+<meta property="og:description" content="宇宙から太古まで、ぜんぶ売り場。屋上は宇宙、地下5階は太古、新館は夜の横丁。創業138億年・全品0円。">
+<meta property="og:url" content="https://airuky.github.io/Tenchi-Department-Store/">
+<meta property="og:image" content="https://airuky.github.io/Tenchi-Department-Store/docs/ogp.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="天地百貨店 — 宇宙から太古まで、ぜんぶ売り場。">
+<meta name="twitter:description" content="屋上は宇宙、地下5階は太古、新館は夜の横丁。全品0円(税込)。">
+<meta name="twitter:image" content="https://airuky.github.io/Tenchi-Department-Store/docs/ogp.png">
 <style>
 :root{
   --gold:#d9b86a; --gold-dim:#a8854a;
@@ -3313,6 +3325,9 @@ function stampYokocho(){
   setTimeout(()=>announce('スタンプ「夜」を押印いたしました(新館ご来館記念)',3600),5200);
 }
 if(localStorage.getItem('tenchi-stamp-yokocho'))addYoruSlot(true);
+
+/* ---------- 新館直通リンク(#yokocho で夜の横丁へ直行) ---------- */
+if(location.hash==='#yokocho') setTimeout(()=>openAnnex(),700);
 
 /* ---------- 増築後の再測量 ----------
    お得意さまカード・新館案内・横丁はあとから注入されて玄関が伸びるため、
