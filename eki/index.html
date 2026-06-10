@@ -1133,5 +1133,1005 @@
   }catch(e){}
 })();
 </script>
+
+<script>
+// ════ plugin: eki-kamotsu (wave2) ════ Plugin "eki-kamotsu" (貨物列車＋ラッシュ) for eki/index.html — append as a <script> before </body>, after the core script.  Freight: rolled at 25-35% on each core "train
+(() => {
+  "use strict";
+  if(!window.EKI) return;
+  const E = window.EKI;
+  const mk = E.mk, toast = E.toast, pick = E.pick, esc = E.esc;
+
+  /* layout constants mirrored from the core file (PLAT_Y/GATE_X/PORTAL_X/VW) */
+  const PLAT_Y = 460, GATE_X = 905, PORTAL_X = 34, VW = 1200;
+  const WORLD_KEYS = ["hoshizora","shinkai","shima","rekishi"];   // same 1-4 order as core
+  const CURR = {hoshizora:["currency-hoshizora","星屑"], shinkai:["currency-shinkai","真珠"],
+                shima:["currency-shima","貝がら"], rekishi:["currency-rekishi","信仰"]};
+
+  /* ---------------- cargo corpus (riddle-ish waybill labels) ---------------- */
+  const FREIGHT = {
+    hoshizora: [
+      {t:"星屑（ばら積み）・夜間のみ開封", h:"昼に開けると、ただの砂になるそうです"},
+      {t:"夢の素・上積み厳禁", h:"夜しか開いていない遊園地宛です"},
+      {t:"願いごとの控え・流星係気付", h:"宛先は、いちばん高い売り場です"},
+      {t:"補充用の星・こわれもの", h:"瞬きの間隔まで指定があります"},
+      {t:"夜光塗料（自家発光）・火気不要", h:"暗くするほど元気になる塗料です"},
+    ],
+    shinkai: [
+      {t:"鳴く塩・取扱注意", h:"濡れた場所の出身です。深いほうの"},
+      {t:"圧力に慣れた瓶・浮上厳禁", h:"浅いところでは破裂するそうです"},
+      {t:"発光プランクトン（活）・暗所厳守", h:"水圧が名物の売り場で待たれています"},
+      {t:"真珠の芽・水温注意", h:"育つと丸くなる予定だそうです"},
+    ],
+    shima: [
+      {t:"波の音（缶詰）・湿気厳禁", h:"開けると浜辺の匂いがするそうです"},
+      {t:"ヤシの実（時報用）・頭上注意", h:"落ちて時刻を知らせる係です"},
+      {t:"砂浜一式・足あと未使用", h:"まわり全部が海の住所宛です"},
+      {t:"貝がら（空き家）・入居者募集中", h:"鳥がいちばん偉いところへどうぞ"},
+    ],
+    rekishi: [
+      {t:"信仰（生もの）", h:"古いほど良いとされる売り場宛です"},
+      {t:"諸説（混載）・取り違え注意", h:"注釈ひとつで戦争が終わる土地へ"},
+      {t:"紀元前の埃・開封厳禁", h:"最新ニュースが千年前のところへ"},
+      {t:"中古の王冠（三日使用）・次の王さま宛", h:"王さまは三日ごとに代わるそうです"},
+    ],
+  };
+  const STENCILS = ["取扱注意","天地無用","急がない","ナマモノ","ワレモノ","この面が上"];
+  const CRATE_MANNERS = ["差出人は無記名","送り状が湿っている","中で何かが寝返りを打つ",
+    "角がすこし齧られている","切手が貼ってある（無効）","持つと予想より軽い","持つと予想より重い"];
+  const OK_LINES = [
+    "伝票に「急がない」と書いてあります。",
+    "受領印をいただきました。箱が静かになりました。",
+    "中身は無事です。最初から無事だったことにします。",
+    "積み替えなし、苦情なし。よい仕事です。",
+    "行き先を当てられて、箱はすこし照れています。",
+    "「ワレモノ注意」でしたが、割れていません。たぶん。",
+  ];
+  const NG_LINES = [
+    "箱が抗議のきしみ方をしました（送り状の続きが出てきました）",
+    "中身がはっきり首を振った気配です（送り状の続きが出てきました）",
+    "箱は不服そうです。宛先が違うようです（送り状の続きが出てきました）",
+  ];
+
+  /* ---------------- css ---------------- */
+  const style = document.createElement("style");
+  style.textContent = `
+  .eki-kamotsu-waybill{position:fixed;right:14px;bottom:214px;width:344px;z-index:5;
+    background:linear-gradient(165deg,#e7d6b4,#d6c099);color:#33291a;border-radius:10px;
+    padding:12px 14px;border:1px dashed rgba(80,60,30,.55);box-shadow:0 10px 30px rgba(0,0,0,.5);
+    font-size:13px;opacity:0;transform:translateY(10px);transition:.25s;pointer-events:none}
+  .eki-kamotsu-waybill.show{opacity:1;transform:none}
+  .eki-kamotsu-wlabel{font-size:9.5px;letter-spacing:.34em;color:#7d6a45}
+  .eki-kamotsu-wname{font-weight:700;font-size:14px;margin-top:5px;color:#2e2414}
+  .eki-kamotsu-wm{font-weight:400;font-size:11px;color:#73613f;margin-left:7px}
+  .eki-kamotsu-wriddle{margin-top:7px;font-size:14px;line-height:1.7}
+  .eki-kamotsu-whint{font-size:12px;color:#a0522d;margin-top:4px}
+  .eki-kamotsu-wcount{margin-top:7px;font-size:10.5px;letter-spacing:.18em;color:#7d6a45}
+  .eki-kamotsu-ink{position:absolute;right:12px;top:8px;width:50px;height:50px;
+    border:3px solid var(--inkc,#d9412c);color:var(--inkc,#d9412c);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;
+    pointer-events:none;mix-blend-mode:multiply;
+    animation:eki-kamotsu-slam .38s cubic-bezier(.2,1.5,.4,1) both}
+  @keyframes eki-kamotsu-slam{0%{transform:scale(2.4) rotate(-32deg);opacity:0}
+    62%{transform:scale(.9) rotate(var(--rot,-10deg));opacity:1}
+    100%{transform:scale(1) rotate(var(--rot,-10deg));opacity:.9}}`;
+  document.head.append(style);
+
+  const wb = document.createElement("div");
+  wb.className = "eki-kamotsu-waybill";
+  document.body.append(wb);
+
+  /* ---------------- records & shift stats ---------------- */
+  const REC_KEY = "eki-kamotsu-rec-v1";
+  function loadRec(){
+    try{ const r = JSON.parse(localStorage.getItem(REC_KEY) || "{}");
+      return {crates:r.crates|0, freights:r.freights|0};
+    }catch(e){ return {crates:0, freights:0}; }
+  }
+  const rec = loadRec();
+  function saveRec(){ try{ localStorage.setItem(REC_KEY, JSON.stringify(rec)); }catch(e){} }
+  const fs = {routed:0, wrong:0, attempts:0};          // tonight's 取扱貨物
+
+  /* ---------------- crate actors ---------------- */
+  let crateSeq = 1;
+  const crates = [], pending = [];                     // pending: waiting order
+  let active = null, suspendToasted = false;
+
+  function makeCrate(world, spec, x){
+    const g = mk("g"), inner = mk("g");
+    g.append(inner);
+    const w = 30 + Math.random()*12, h = 26 + Math.random()*8;
+    inner.append(
+      mk("ellipse", {cx:0, cy:-1, rx:w/2+3, ry:3, fill:"#000", opacity:.35}),
+      mk("rect", {x:-w/2, y:-h, width:w, height:h, rx:2, fill:"#4a3826", stroke:"#241a10", "stroke-width":1.4}),
+      mk("line", {x1:-w/2, y1:-h*2/3, x2:w/2, y2:-h*2/3, stroke:"#2e2317", "stroke-width":1}),
+      mk("line", {x1:-w/2, y1:-h/3, x2:w/2, y2:-h/3, stroke:"#2e2317", "stroke-width":1}),
+      mk("rect", {x:-w/2, y:-h, width:4, height:h, fill:"#3a2c1d"}),
+      mk("rect", {x:w/2-4, y:-h, width:4, height:h, fill:"#3a2c1d"})
+    );
+    const st = mk("text", {x:0, y:-h/2+3, "text-anchor":"middle", "font-size":5.5,
+      fill:"#e0d0a8", opacity:.6, "letter-spacing":".5"});
+    st.textContent = pick(STENCILS);
+    inner.append(st);
+    g.setAttribute("transform", `translate(${x} ${PLAT_Y})`);
+    g.style.cursor = "pointer";
+    E.layers.gFx.append(g);
+    g.animate([{opacity:0},{opacity:1}], {duration:400, easing:"ease-out"});
+    inner.animate([{transform:"translate(0,-30px)"},{transform:"translate(0,0)"}],
+      {duration:520, easing:"cubic-bezier(.25,1.4,.45,1)"});
+    const c = {id:crateSeq++, world, t:spec.t, h:spec.h, manner:pick(CRATE_MANNERS),
+      el:g, inner, x, targetX:x, state:"wait", misses:0, heldUntil:0, speed:80+Math.random()*30};
+    g.addEventListener("pointerdown", e => { e.preventDefault(); prioritize(c); });
+    crates.push(c);
+    pending.push(c);
+    return c;
+  }
+
+  function layoutPending(){
+    pending.forEach((c, i) => { if(c.state === "wait") c.targetX = 540 - i*46; });
+  }
+  function wobble(c){
+    try{
+      c.inner.animate([
+        {transform:"rotate(0deg)"}, {transform:"translate(0,-4px) rotate(-7deg)"},
+        {transform:"rotate(6deg)"}, {transform:"translate(0,-2px) rotate(-4deg)"},
+        {transform:"rotate(0deg)"}], {duration:650, easing:"ease-in-out"});
+    }catch(e){}
+  }
+  function prioritize(c){
+    try{
+      if(c.state !== "wait") return;
+      c.heldUntil = 0;
+      const i = pending.indexOf(c);
+      if(i > 0){ pending.splice(i, 1); pending.unshift(c); layoutPending(); }
+      if(E.queue.length){ toast("箱「お客さんが先でいいです」"); return; }
+      manage();
+      if(active && active !== c) toast(`木箱${c.id}号は次に見ます`);
+    }catch(e){}
+  }
+
+  /* ---------------- waybill card ---------------- */
+  function showWaybill(){
+    const c = active;
+    if(!c){ wb.classList.remove("show"); return; }
+    wb.innerHTML =
+      `<div class="eki-kamotsu-wlabel">貨物伝票 ｜ WAYBILL</div>`+
+      `<div class="eki-kamotsu-wname">木箱 ${c.id}号<span class="eki-kamotsu-wm">${esc(c.manner)}</span></div>`+
+      `<div class="eki-kamotsu-wriddle">「${esc(c.t)}」</div>`+
+      (c.misses > 0 ? `<div class="eki-kamotsu-whint">※ ${esc(c.h)}</div>` : "")+
+      `<div class="eki-kamotsu-wcount">この便のこり ${pending.length+1} 箱</div>`;
+    wb.classList.add("show");
+  }
+  function hideWaybill(){ wb.classList.remove("show"); }
+  function inkWaybill(worldKey, ok){
+    const m = document.createElement("div");
+    m.className = "eki-kamotsu-ink";
+    m.textContent = worldKey ? E.WORLDS[worldKey].char : "保";
+    m.style.setProperty("--inkc", ok ? "#d9412c" : "#8a8f9c");
+    m.style.setProperty("--rot", (-18 + Math.random()*22).toFixed(0) + "deg");
+    wb.append(m);
+    setTimeout(() => m.remove(), 1500);
+  }
+
+  /* presentation manager: crates only present when no passenger is queued */
+  function manage(){
+    const now = performance.now();
+    const busy = E.queue.length > 0, over = E.stats.shiftOver;
+    if(active && (busy || over)){
+      const c = active; active = null;
+      c.state = "wait"; pending.unshift(c); layoutPending(); hideWaybill();
+      if(busy && !suspendToasted){ suspendToasted = true; toast("旅客優先です。箱には待ってもらいます"); }
+    }
+    if(!busy) suspendToasted = false;
+    if(!active && !busy && !over && pending.length){
+      const i = pending.findIndex(c => !(c.heldUntil > now));
+      if(i >= 0){
+        const c = pending.splice(i, 1)[0];
+        c.state = "present"; c.heldUntil = 0; c.targetX = GATE_X - 48;
+        active = c; layoutPending(); showWaybill();
+      }
+    }
+    if(!active) hideWaybill();
+  }
+
+  /* ---------------- stamping crates (rides behind the core listeners) ---------------- */
+  function crateStamp(worldKey){
+    try{
+      if(!active || E.queue.length || E.stats.shiftOver) return;
+      const c = active;
+      const btn = document.querySelector(`.hanko[data-w="${worldKey}"]`);
+      if(btn){ btn.classList.remove("press"); void btn.offsetWidth; btn.classList.add("press"); }
+      const ok = c.world === worldKey;
+      fs.attempts++;
+      inkWaybill(worldKey, ok);
+      E.emit("freight:routed", {correct: ok});
+      if(ok){
+        fs.routed++; rec.crates++; saveRec();
+        if(consign){ consign.payout[c.world] = (consign.payout[c.world]||0) + 2; consign.handled++; }
+        active = null;
+        c.state = "exit"; c.targetX = PORTAL_X + 8;
+        toast(pick(OK_LINES));
+        manage();
+        if(consign && consign.handled >= consign.total) finishConsign();
+      } else {
+        c.misses++; fs.wrong++;
+        wobble(c);
+        toast(pick(NG_LINES));
+        showWaybill();                       // re-presents, now with the hint
+      }
+    }catch(e){ console.error("[eki-kamotsu]", e); }
+  }
+  function crateHold(){
+    try{
+      if(!active || E.queue.length || E.stats.shiftOver) return;
+      const c = active; active = null;
+      c.state = "wait"; c.heldUntil = performance.now() + 6000;
+      pending.push(c); layoutPending(); hideWaybill();
+      toast(`木箱${c.id}号は「急がない便」に回りました`);
+      manage();
+    }catch(e){}
+  }
+  for(const b of document.querySelectorAll(".hanko")){
+    const k = b.dataset.w;
+    if(k) b.addEventListener("click", () => crateStamp(k));
+  }
+  const holdBtn = document.getElementById("holdBtn");
+  if(holdBtn) holdBtn.addEventListener("click", crateHold);
+  document.addEventListener("keydown", e => {
+    if(e.metaKey || e.ctrlKey || e.altKey) return;
+    const i = "1234".indexOf(e.key);
+    if(i >= 0) crateStamp(WORLD_KEYS[i]);
+    else if(e.key === "b" || e.key === "B") crateHold();
+  });
+
+  /* ---------------- freight train ---------------- */
+  let freightTrain = null, consign = null, freightTimer = null, lastManual = -1e9;
+
+  function freightGroup(n){
+    const g = mk("g"), CW = 160, GAP = 7, doorXs = [];
+    for(let i = 0; i < n; i++){
+      const cx = i*(CW+GAP), car = mk("g");
+      car.append(
+        mk("rect", {x:cx, y:484, width:CW, height:90, rx:5, fill:"#271e2c", stroke:"#4a3a55", "stroke-width":1.5}),
+        mk("rect", {x:cx, y:484, width:CW, height:8, rx:4, fill:"#372b44"})
+      );
+      for(let px = cx+12; px < cx+CW-8; px += 16)
+        car.append(mk("line", {x1:px, y1:494, x2:px, y2:566, stroke:"#1b1422", opacity:.7}));
+      const dx = cx + CW/2 - 20;
+      car.append(mk("rect", {x:dx, y:498, width:40, height:66, rx:2, fill:"#100b18"}));
+      const door = mk("rect", {x:dx, y:498, width:40, height:66, rx:2, fill:"#322741", stroke:"#4a3a55"});
+      door.setAttribute("data-door", "1");
+      car.append(door);
+      const tx = mk("text", {x:cx+44, y:530, "text-anchor":"middle", fill:"#d9c27a",
+        opacity:.32, "font-size":10, "letter-spacing":"4"});
+      tx.textContent = "ヨゾラ貨物";
+      car.append(tx);
+      for(const wx of [cx+28, cx+CW-28])
+        car.append(mk("circle", {cx:wx, cy:580, r:9, fill:"#0b0e22", stroke:"#3a4070"}));
+      doorXs.push(dx + 20);
+      g.append(car);
+    }
+    const fx = n*(CW+GAP) - GAP;
+    g.append(mk("circle", {cx:fx-7, cy:556, r:4, fill:"#ffd98f", opacity:.8}),
+             mk("rect", {x:fx-26, y:474, width:8, height:12, rx:2, fill:"#372b44"}));   // 煙突
+    return {g, doorXs, width:fx};
+  }
+  function puff(x, y){
+    try{
+      const p = mk("ellipse", {cx:x, cy:y, rx:6, ry:4, fill:"#efe6d0", opacity:.7, filter:"url(#soft)"});
+      E.layers.gFx.append(p);
+      p.animate([{transform:"translate(0,0) scale(1)", opacity:.7},
+                 {transform:"translate(26px,-46px) scale(3)", opacity:0}],
+        {duration:1700, easing:"ease-out", fill:"forwards"}).onfinish = () => p.remove();
+      setTimeout(() => p.remove(), 2600);
+    }catch(e){}
+  }
+
+  function maybeScheduleFreight(){
+    if(consign || freightTrain || E.stats.shiftOver) return;
+    if(Math.random() >= 0.25 + Math.random()*0.10) return;     // 25-35% of trains
+    clearTimeout(freightTimer);
+    freightTimer = setTimeout(() => { try{ trySpawnFreight(false); }catch(e){} }, 6000 + Math.random()*4000);
+  }
+  function trySpawnFreight(manual){
+    if(consign || freightTrain){ if(manual) toast("貨物窓口「いま一本さばいています」"); return; }
+    if(E.stats.shiftOver){ if(manual) toast("貨物窓口は今夜の受付を終えました"); return; }
+    if(E.train){ if(manual) toast("貨物窓口「本線が空いたら回します」"); return; }
+    if(rush.state !== "idle"){ if(manual) toast("貨物窓口「いまは旅客が優先だそうです」"); return; }
+    spawnFreight();
+  }
+  function spawnFreight(){
+    const n = 3 + (Math.random()*2|0);
+    const {g, doorXs, width} = freightGroup(n);
+    E.layers.gTrain.append(g);
+    const stopX = 1180 - width;
+    g.setAttribute("transform", `translate(${-width-160} 0)`);
+    freightTrain = {el:g, state:"arriving", stopX, width, doorXs};
+    E.announce("貨物列車が到着します。お客様はご乗車になれません。");
+    const anim = g.animate(
+      [{transform:`translate(${-width-160}px,0)`}, {transform:`translate(${stopX}px,0)`}],
+      {duration:5200, easing:"cubic-bezier(.15,.7,.2,1)", fill:"forwards"});
+    const settle = () => { try{
+      if(!freightTrain || freightTrain.el !== g || freightTrain.state !== "arriving") return;
+      g.setAttribute("transform", `translate(${stopX} 0)`);
+      try{ anim.cancel(); }catch(e){}
+      freightArrived();
+    }catch(e){} };
+    anim.onfinish = settle;
+    setTimeout(settle, 5600);
+  }
+  function freightArrived(){
+    const f = freightTrain;
+    f.state = "stopped";
+    toast("ガタン……ゴトン……（貨物列車は急ぎません）");
+    for(const d of f.el.querySelectorAll("[data-door]"))
+      d.animate([{opacity:1},{opacity:.08}], {duration:600, easing:"ease-out", fill:"forwards"});
+    const total = 3 + (Math.random()*3|0);                     // 3-5 crates
+    consign = {total, handled:0, payout:{}};
+    const pool = [];
+    for(const k of WORLD_KEYS) for(const spec of FREIGHT[k]) pool.push({world:k, spec});
+    for(let i = pool.length-1; i > 0; i--){
+      const j = (Math.random()*(i+1))|0, t = pool[i]; pool[i] = pool[j]; pool[j] = t;
+    }
+    for(let i = 0; i < total; i++){
+      const item = pool[i], doorX = f.stopX + pick(f.doorXs);
+      setTimeout(() => { try{
+        if(E.stats.shiftOver || !consign) return;
+        makeCrate(item.world, item.spec, Math.max(60, Math.min(1140, doorX)));
+        layoutPending(); manage();
+      }catch(e){} }, 900 + i*680);
+    }
+    E.emit("freight:arrived", {total});
+  }
+  function departFreight(){
+    const f = freightTrain;
+    if(!f) return;
+    freightTrain = null;
+    try{
+      for(const d of f.el.querySelectorAll("[data-door]"))
+        d.animate([{opacity:.08},{opacity:1}], {duration:420, fill:"forwards"});
+      puff(f.stopX + f.width - 22, 478);
+      setTimeout(() => puff(f.stopX + f.width - 22, 478), 500);
+      setTimeout(() => { try{
+        const a = f.el.animate(
+          [{transform:`translate(${f.stopX}px,0)`}, {transform:`translate(${f.stopX+f.width+560}px,0)`}],
+          {duration:3800, easing:"cubic-bezier(.55,0,.85,.4)", fill:"forwards"});
+        a.onfinish = () => f.el.remove();
+        setTimeout(() => f.el.remove(), 4600);
+      }catch(e){ f.el.remove(); } }, 600);
+    }catch(e){ try{ f.el.remove(); }catch(_){} }
+  }
+  function payOut(payout, silent){
+    const parts = [];
+    for(const k of Object.keys(payout || {})){
+      const amt = payout[k]|0;
+      if(amt <= 0) continue;
+      try{
+        const key = CURR[k][0];
+        const cur = parseInt(localStorage.getItem(key) || "0", 10) || 0;
+        localStorage.setItem(key, String(Math.max(0, cur + amt)));
+      }catch(e){}
+      parts.push(`${E.WORLDS[k].emoji}${CURR[k][1]}+${amt}`);
+    }
+    if(parts.length && !silent) toast(`貨物会社より現物支給：${parts.join("　")}`);
+  }
+  function finishConsign(){
+    if(!consign) return;
+    const total = consign.total, payout = consign.payout;
+    consign = null;
+    rec.freights++; saveRec();
+    if(freightTrain){
+      toast("ポォーーーー……（長い汽笛。満足しているようです）");
+      departFreight();
+    } else toast("遠くで、長い汽笛がひとつ聞こえました");
+    setTimeout(() => { try{ payOut(payout, false); }catch(e){} }, 2800);
+    E.emit("freight:done", {total});
+  }
+
+  /* ---------------- rush (続行列車) ---------------- */
+  const rush = {state:"idle", secondGone:false, attempts:0, correct:0};
+  function addRushExtras(t){
+    const target = 6 + (Math.random()*3|0);                    // queue grows to 6-8
+    const need = Math.max(0, Math.min(4, target - E.queue.length));
+    for(let i = 0; i < need; i++){
+      setTimeout(() => { try{
+        if(E.stats.shiftOver) return;
+        const doorX = t.stopX + pick(t.doorXs);
+        const p = E.makePassenger({x: Math.max(60, Math.min(1140, doorX))});
+        E.enqueue(p);
+      }catch(e){} }, i*420);
+    }
+    if(need > 0) toast("続行列車からも、ぞろぞろ降りてきます");
+  }
+  function ticketWind(){
+    try{
+      for(let i = 0; i < 16; i++){
+        const g = mk("g");
+        const w = 9 + Math.random()*4, h = 6 + Math.random()*2;
+        g.append(mk("rect", {x:-w/2, y:-h/2, width:w, height:h, rx:1.5,
+          fill: Math.random() < .5 ? "#f6e3d2" : "#f3d4cf",
+          stroke:"rgba(120,80,60,.4)", "stroke-width":.6}));
+        g.append(mk("circle", {cx:w/2-2.5, cy:0, r:1.3, fill:"#d9412c", opacity:.55}));
+        g.setAttribute("opacity", "0.95");
+        E.layers.gFx.append(g);
+        const y0 = 140 + Math.random()*240;
+        const dur = 3600 + Math.random()*2600, delay = Math.random()*1100;
+        const a = g.animate([
+          {transform:`translate(${VW+40}px,${y0}px) rotate(0deg)`, opacity:0},
+          {transform:`translate(${900+Math.random()*100}px,${y0+30}px) rotate(${180+Math.random()*120}deg)`, opacity:1, offset:.18},
+          {transform:`translate(${540+Math.random()*120}px,${y0-20+Math.random()*60}px) rotate(390deg)`, opacity:1, offset:.5},
+          {transform:`translate(210px,${y0+50}px) rotate(560deg)`, opacity:.9, offset:.8},
+          {transform:`translate(-80px,${y0+90}px) rotate(720deg)`, opacity:0},
+        ], {duration:dur, delay, easing:"cubic-bezier(.3,.1,.6,.9)", fill:"forwards"});
+        a.onfinish = () => g.remove();
+        setTimeout(() => g.remove(), dur + delay + 800);
+      }
+    }catch(e){}
+  }
+  function evalRush(){
+    const a = rush.attempts, c = rush.correct;
+    rush.state = "idle";
+    if(a >= 4 && c/a >= 0.8){
+      toast("ラッシュを捌きました。手当は出ません（気持ちは出ます）");
+      ticketWind();
+      E.emit("rush:survived");
+    } else if(a > 0){
+      toast("続行列車の波は引きました。今夜のことは記録に残しません");
+    }
+  }
+
+  /* ---------------- bus wiring ---------------- */
+  E.on("train-arrived", t => { try{
+    if(rush.state === "incoming"){
+      rush.state = "active"; rush.secondGone = false; rush.attempts = 0; rush.correct = 0;
+      setTimeout(() => { try{ if(rush.state === "active") addRushExtras(t); }catch(e){} }, 2600);
+    } else if(rush.state === "idle" && E.minutes >= 60 && !consign && !freightTrain && Math.random() < 0.15){
+      rush.state = "announced";
+      setTimeout(() => { try{
+        if(rush.state === "announced")
+          E.announce("続行列車が接近しています。駅員は深呼吸をしてください。");
+      }catch(e){} }, 2800);
+    }
+  }catch(e){} });
+
+  E.on("train-departed", () => { try{
+    if(rush.state === "announced"){
+      rush.state = "incoming";
+      setTimeout(() => { try{
+        if(E.stats.shiftOver){ rush.state = "idle"; return; }
+        if(!E.spawnTrain()) rush.state = "idle";
+      }catch(e){ rush.state = "idle"; } }, 1600);
+    } else if(rush.state === "active"){
+      rush.secondGone = true;
+    } else if(rush.state === "idle"){
+      maybeScheduleFreight();
+    }
+  }catch(e){} });
+
+  E.on("passenger-stamped", d => { try{
+    if(rush.state === "active" && d){ rush.attempts++; if(d.correct) rush.correct++; }
+  }catch(e){} });
+
+  E.on("shift-end", () => { try{
+    rush.state = "idle";
+    clearTimeout(freightTimer);
+    if(fs.attempts > 0){
+      const com = document.querySelector("#results .rcom");
+      if(com) com.insertAdjacentHTML("beforebegin",
+        `<div class="rrow"><span>取扱貨物</span><span>${fs.routed}箱${fs.wrong ? `（誤送${fs.wrong}回）` : ""}</span></div>`);
+    }
+    if(consign){ payOut(consign.payout, true); consign = null; }    // 働いた分は静かに支払い
+    for(const c of [...crates]){
+      c.state = "gone";
+      const el = c.el;
+      try{ el.animate([{opacity:1},{opacity:0}], {duration:900, fill:"forwards"}).onfinish = () => el.remove();
+      }catch(e){ el.remove(); }
+      setTimeout(() => el.remove(), 1400);
+    }
+    crates.length = 0; pending.length = 0; active = null;
+    hideWaybill();
+    if(freightTrain) departFreight();
+  }catch(e){} });
+
+  E.on("shift-start", () => { try{
+    fs.routed = 0; fs.wrong = 0; fs.attempts = 0;
+    suspendToasted = false;
+  }catch(e){} });
+
+  /* lifetime row appended after core re-renders the records panel */
+  const recBtn = document.getElementById("recBtn");
+  if(recBtn) recBtn.addEventListener("click", () => { try{
+    const panel = document.getElementById("panel");
+    if(!panel || panel.classList.contains("hidden")) return;
+    const rows = document.getElementById("recRows");
+    if(rows) rows.insertAdjacentHTML("beforeend",
+      `<div class="prow"><span>取扱貨物（累計）</span><b>${rec.crates}箱</b></div>`);
+  }catch(e){} });
+
+  /* dock: 臨時貨物 (also handy for testing) */
+  E.addButton("📦 臨時貨物", () => { try{
+    if(performance.now() - lastManual < 30000){
+      toast("貨物窓口「そんなに急ぐ荷物は、ありません」"); return;
+    }
+    lastManual = performance.now();
+    trySpawnFreight(true);
+  }catch(e){} });
+
+  /* ---------------- own loop (wall-time dt, like the core) ---------------- */
+  let last = 0, manageT = 0;
+  function step(dt){
+    for(const c of [...crates]){
+      if(c.state === "gone") continue;
+      const d = c.targetX - c.x;
+      const sp = c.state === "exit" ? 240 : c.speed;
+      if(Math.abs(d) > 2){
+        c.x += Math.sign(d) * Math.min(Math.abs(d), sp*dt);
+        c.el.setAttribute("transform", `translate(${c.x.toFixed(1)} ${PLAT_Y})`);
+      } else if(c.state === "exit"){
+        c.state = "gone";
+        const w = E.WORLDS[c.world];
+        if(w) E.portalFlash(w.color);
+        const el = c.el;
+        try{ el.animate([{opacity:1},{opacity:0}], {duration:600, easing:"ease-in", fill:"forwards"})
+          .onfinish = () => el.remove();
+        }catch(e){ el.remove(); }
+        setTimeout(() => el.remove(), 900);
+        const i = crates.indexOf(c); if(i >= 0) crates.splice(i, 1);
+      }
+    }
+    manageT -= dt;
+    if(manageT <= 0){
+      manageT = 0.3;
+      manage();
+      if(freightTrain && freightTrain.state === "stopped" && E.train){
+        departFreight();
+        toast("貨物列車は本線を譲りました。箱は置いていくそうです");
+      }
+      if(rush.state === "active" && rush.secondGone && E.queue.length === 0 && !E.train) evalRush();
+    }
+  }
+  function loop(now){
+    const dt = Math.min(.1, (now - last)/1000 || 0);
+    last = now;
+    try{ step(dt); }catch(e){ console.error("[eki-kamotsu]", e); }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(t => { last = t; requestAnimationFrame(loop); });
+})();
+</script>
+
+<script>
+// ════ plugin: eki-note (wave2) ════ eki-note (駅ノート＋常連名簿), 429 lines, verified live in the browser against eki/index.html with zero console errors.  WHAT IT ADDS - 駅ノート prop on the bench's left arm
+(() => {
+  "use strict";
+  if(!window.EKI) return;
+  const E = window.EKI;
+  const {mk, esc, pick, toast, WORLDS} = E;
+  const WK = Object.keys(WORLDS);
+  const PLAT_Y = 460;
+
+  /* ================= 保存 ================= */
+  const KEY = "eki-note-v1";
+  function load(){
+    try{
+      const d = JSON.parse(localStorage.getItem(KEY) || "{}");
+      return {
+        entries: Array.isArray(d.entries) ? d.entries.slice(0, 60) : [],
+        roster:  Array.isArray(d.roster)  ? d.roster.slice(0, 40)  : [],
+        pending: Array.isArray(d.pending) ? d.pending.slice(0, 6)  : [],
+        bonus: d.bonus | 0,
+      };
+    }catch(e){ return {entries:[], roster:[], pending:[], bonus:0}; }
+  }
+  const data = load();
+  function save(){ try{ localStorage.setItem(KEY, JSON.stringify(data)); }catch(e){} }
+
+  const CURR = {hoshizora:"星屑", shinkai:"真珠", shima:"貝がら", rekishi:"信仰"};
+  function award(worldKey, n){
+    try{
+      const k = "currency-" + worldKey;
+      localStorage.setItem(k, String(Math.max(0, (parseInt(localStorage.getItem(k), 10) || 0) + n)));
+    }catch(e){}
+  }
+
+  /* ================= 文例 ================= */
+  const NOTE_GEN = [
+    "乗り換えを三回間違えて、ここが好きになりました",
+    "ベンチが少し冷たい。それがちょうどいい夜もあります",
+    "駅員さんへ。はんこの音で目が覚めました。いい音でした",
+    "忘れ物をしました。何を忘れたかは、忘れました",
+    "このノート、前のページの人は元気でしょうか",
+    "自動販売機のあたたかいの、最後の一本をもらいました。すみません",
+    "終電を逃したのではなく、夜を選んだのだと思うことにします",
+    "猫に道を聞いたら無視されました。正しい対応だと思います",
+    "ここの時計、少し遅れていますね。おかげで間に合いました",
+    "3番線を探しています。見つけた方は、そっとしておいてください",
+  ];
+  const NOTE_WORLD = {
+    hoshizora: [
+      "星空行きに乗ります。地上の灯りに、よろしく伝えてください",
+      "願いごとを三つ持ってきました。ひとつは駅に置いていきます",
+      "上ばかり見て歩いたら柱にぶつかりました。柱は無事です",
+    ],
+    shinkai: [
+      "深海行きに乗ります。傘は置いていきます。使ってください",
+      "息継ぎの練習をしてきました。向こうでは要らないそうですが",
+      "沈んだ手紙が向こうで待っているそうです。差出人は私です",
+    ],
+    shima: [
+      "島々行きです。砂時計の砂を補充しに帰ります",
+      "波の音を録音しに行きます。聞かせる相手はこれから探します",
+      "靴に前回の砂が残っていました。連れて帰ります",
+    ],
+    rekishi: [
+      "年代記行き。私のことも、いつか注釈になるのでしょうか",
+      "千年前のニュースの続報を見に行きます。気になっていたので",
+      "昔の自分に会ったら敬語を使うべきか、まだ考えています",
+    ],
+  };
+  const NOTE_THANKS = [
+    "ノート、読みました。検印が丁寧で安心しました",
+    "検印、見ました。あれは良い角度です",
+    "返事が来るとは思っていませんでした。また書きます",
+  ];
+  const REG_MANNERS = [
+    "改札の前で、慣れた会釈をした",
+    "切符を出す手つきに迷いがない",
+    "「いつもの」と言い慣れている",
+    "ベンチの定位置を目で確認した",
+    "駅員より先に改札に着いていた",
+  ];
+
+  /* ================= css ================= */
+  const style = document.createElement("style");
+  style.textContent = `
+  .eki-note-ovl{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    background:rgba(3,6,18,.62);backdrop-filter:blur(4px);z-index:9;opacity:0;pointer-events:none;transition:.3s}
+  .eki-note-ovl.show{opacity:1;pointer-events:auto}
+  .eki-note-card{width:min(440px,92vw);max-height:78vh;overflow-y:auto;background:var(--panel);
+    border:1px solid var(--panel-edge);border-radius:18px;padding:20px 22px;
+    box-shadow:0 24px 70px rgba(0,0,0,.6);scrollbar-width:thin}
+  .eki-note-card h3{margin:0 0 8px;font-size:13px;letter-spacing:.22em;color:var(--acc);font-weight:600}
+  .eki-note-card .btn{width:100%;margin-top:14px}
+  .eki-note-sub{font-size:11.5px;color:var(--dim);line-height:1.9;margin-bottom:6px}
+  .eki-note-khint{font-size:10px;color:var(--dim);opacity:.7;letter-spacing:.08em;
+    text-align:right;margin-bottom:10px}
+  .eki-note-empty{font-size:12.5px;color:var(--dim);text-align:center;line-height:2.2;padding:24px 0}
+  .eki-note-entry{position:relative;background:linear-gradient(160deg,#f6eedb,#e9dec2);color:#2c2a22;
+    border-radius:9px;border:1px dashed rgba(90,70,40,.45);padding:10px 12px 12px 50px;
+    margin-bottom:10px;font-size:12.5px;min-height:62px}
+  .eki-note-mark{position:absolute;left:9px;top:11px;width:30px;height:30px;border:2.4px solid var(--c,#8a8f9c);
+    color:var(--c,#8a8f9c);border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:14px;font-weight:700;mix-blend-mode:multiply;transform:rotate(-8deg)}
+  .eki-note-meta{font-weight:700;font-size:12.5px;color:#33301f}
+  .eki-note-meta span{font-weight:400;font-size:10px;color:#8c7a55;margin-left:7px;letter-spacing:.08em}
+  .eki-note-text{margin-top:5px;line-height:1.8;padding-right:42px}
+  .eki-note-kenin{position:absolute;right:9px;bottom:8px;cursor:pointer;border:1px solid #a8503c;
+    color:#a8503c;background:rgba(255,255,255,.4);border-radius:999px;padding:3px 10px;
+    font-size:11px;font-family:inherit;transition:.15s}
+  .eki-note-kenin:hover{background:#a8503c;color:#f6eedb;transform:translateY(-1px)}
+  .eki-note-seal{position:absolute;right:12px;bottom:7px;width:36px;height:36px;border:2.6px solid #d9412c;
+    color:#d9412c;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-size:13px;font-weight:700;line-height:1.1;mix-blend-mode:multiply;
+    transform:rotate(var(--rot,-10deg));pointer-events:none}
+  .eki-note-seal small{font-size:5.5px;letter-spacing:.12em;font-weight:600}
+  .eki-note-seal.eki-note-slam{animation:eki-note-slam .38s cubic-bezier(.2,1.5,.4,1) both}
+  @keyframes eki-note-slam{0%{transform:scale(2.4) rotate(-32deg);opacity:0}
+    62%{transform:scale(.9) rotate(var(--rot,-10deg));opacity:1}
+    100%{transform:scale(1) rotate(var(--rot,-10deg));opacity:.92}}
+  .eki-note-row{display:flex;align-items:center;gap:8px;font-size:13px;padding:8px 2px;
+    border-bottom:1px dashed rgba(255,255,255,.08)}
+  .eki-note-rname{flex:1;font-weight:600}
+  .eki-note-rcount{color:var(--acc);font-weight:600}
+  .eki-note-rlast{color:var(--dim);min-width:76px;text-align:right}
+  .eki-note-foot{font-size:11.5px;color:var(--dim);line-height:1.9;margin-top:12px}
+  .eki-note-tag{display:inline-block;border:1px solid #a8503c;color:#a8503c;border-radius:999px;
+    font-size:9px;padding:1px 7px;margin-left:7px;letter-spacing:.18em;vertical-align:2px;font-weight:600}
+  .eki-note-keychip{align-self:flex-end;font-size:10px;color:var(--dim);opacity:.55;
+    letter-spacing:.1em;margin-top:-4px;padding-right:6px;pointer-events:none;user-select:none}`;
+  document.head.appendChild(style);
+
+  /* ================= モーダル（ノート／名簿 共用） ================= */
+  const ovl = document.createElement("div");
+  ovl.className = "eki-note-ovl";
+  document.body.appendChild(ovl);
+  let view = null;                         // "note" | "roster" | null
+  function close(){
+    view = null;
+    ovl.classList.remove("show");
+    ovl.innerHTML = "";
+  }
+  ovl.addEventListener("pointerdown", e => { if(e.target === ovl) close(); });
+
+  function cardEl(){
+    const c = document.createElement("div");
+    c.className = "eki-note-card";
+    return c;
+  }
+  function closeBtn(c){
+    const b = document.createElement("button");
+    b.className = "btn";
+    b.textContent = "とじる";
+    b.addEventListener("click", close);
+    c.appendChild(b);
+  }
+  function sealEl(anim){
+    const s = document.createElement("div");
+    s.className = "eki-note-seal" + (anim ? " eki-note-slam" : "");
+    s.style.setProperty("--rot", (-16 + Math.random()*20).toFixed(0) + "deg");
+    s.innerHTML = `検<small>よぞら駅</small>`;
+    return s;
+  }
+
+  function entryEl(en){
+    const w = WORLDS[en.world];
+    const d = document.createElement("div");
+    d.className = "eki-note-entry";
+    d.dataset.id = en.id;
+    d.innerHTML =
+      `<div class="eki-note-mark" style="--c:${w ? w.color : "#8a8f9c"}">${esc(w ? w.char : "？")}</div>` +
+      `<div class="eki-note-meta">${esc(en.name)}<span>${esc(en.clock || "")}　${w ? esc(w.label) + "行き" : "行き先不明"}</span></div>` +
+      `<div class="eki-note-text">「${esc(en.text)}」</div>`;
+    if(en.replied){
+      d.appendChild(sealEl(false));
+    } else {
+      const b = document.createElement("button");
+      b.className = "eki-note-kenin";
+      b.textContent = "⌖ 検印";
+      b.title = "返事のかわりに、駅のはんこを押す";
+      b.addEventListener("click", () => stampEntry(en, d));
+      d.appendChild(b);
+    }
+    return d;
+  }
+
+  function stampEntry(en, d){
+    if(!en || en.replied) return;
+    en.replied = true;
+    if(data.pending.length < 6 && !data.pending.some(q => q.name === en.name))
+      data.pending.push({name: en.name, world: en.world});
+    save();
+    updateDot();
+    if(d){
+      const b = d.querySelector(".eki-note-kenin");
+      if(b) b.remove();
+      d.appendChild(sealEl(true));
+    }
+    toast(`${en.name}の書き込みに検印を押した。届くといいのですが`);
+    E.emit("note:stamped", en);
+  }
+
+  function openNotebook(){
+    view = "note";
+    ovl.innerHTML = "";
+    const c = cardEl();
+    c.innerHTML =
+      `<h3>📓 駅ノート</h3>` +
+      `<div class="eki-note-sub">改札を通った人が、ときどき何か書いていきます。検印を押すと、返事になります。</div>` +
+      `<div class="eki-note-khint">5 / N ＝ 上から順に検印　・　Esc ＝ とじる</div>`;
+    if(!data.entries.length)
+      c.innerHTML += `<div class="eki-note-empty">まだ何も書かれていません。<br>紙だけが、夜の準備をしています。</div>`;
+    for(const en of data.entries) c.appendChild(entryEl(en));
+    closeBtn(c);
+    ovl.appendChild(c);
+    ovl.classList.add("show");
+  }
+
+  function openRoster(){
+    view = "roster";
+    ovl.innerHTML = "";
+    const c = cardEl();
+    const rows = [...data.roster].sort((a, b) => (b.count - a.count) || ((b.t|0) - (a.t|0)));
+    let html =
+      `<h3>👥 常連名簿</h3>` +
+      `<div class="eki-note-sub">名前を覚えた人の控えです。「いつものところまで」と言われたら、ここで思い出してください。</div>`;
+    if(!rows.length)
+      html += `<div class="eki-note-empty">まだ誰も載っていません。<br>一度通った人から、順に覚えます。</div>`;
+    for(const r of rows){
+      const w = WORLDS[r.last];
+      html += `<div class="eki-note-row"><span class="eki-note-rname">${esc(r.name)}</span>` +
+        `<span class="eki-note-rcount">${r.count|0}回</span>` +
+        `<span class="eki-note-rlast">${w ? w.emoji + " " + esc(w.label) : "—"}</span></div>`;
+    }
+    html += `<div class="eki-note-foot">常連ボーナス累計　${data.bonus|0}回${data.bonus ? "。覚えられる駅は、いい駅です" : ""}</div>`;
+    c.innerHTML = html;
+    closeBtn(c);
+    ovl.appendChild(c);
+    ovl.classList.add("show");
+  }
+
+  /* ================= ベンチの駅ノート（小道具） ================= */
+  const book = mk("g", {class:"eki-note-book", transform:`translate(206 ${PLAT_Y - 26})`});
+  const bookIn = mk("g");
+  const bookTitle = mk("title");
+  bookTitle.textContent = "駅ノート（すこし湿っている）";
+  const bookChar = mk("text", {x:2, y:-2.4, "text-anchor":"middle", fill:"#d9c27a",
+    "font-size":5, "letter-spacing":"1"});
+  bookChar.textContent = "記";
+  bookIn.append(
+    mk("rect", {x:-16, y:-20, width:38, height:24, fill:"#000", opacity:0}),     // 当たり判定
+    mk("rect", {x:-11, y:-9, width:22, height:9, rx:1.6, fill:"#52402c",
+      stroke:"rgba(255,181,88,.45)", "stroke-width":.8}),
+    mk("rect", {x:-9.5, y:-7.4, width:19, height:1.6, rx:.8, fill:"#e9dec2", opacity:.9}),
+    mk("rect", {x:-11, y:-9, width:3.4, height:9, rx:1.6, fill:"#3a2c1e"}),
+    mk("ellipse", {cx:-4.5, cy:-4, rx:2.4, ry:1.4, fill:"#3a2c1e", opacity:.5}), // しみ
+    mk("rect", {x:12.5, y:-3.2, width:8.5, height:2, rx:1, fill:"#a8503c"}),     // 鉛筆
+    bookChar
+  );
+  const bookDot = mk("circle", {cx:10, cy:-13, r:2.4, fill:"#ffb558"});
+  bookDot.animate([{opacity:.25},{opacity:1},{opacity:.25}],
+    {duration:1700, iterations:Infinity, easing:"ease-in-out"});
+  book.append(bookTitle, bookIn, bookDot);
+  E.layers.gFx.append(book);
+  book.style.cursor = "pointer";
+  book.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    if(view === "note") close(); else openNotebook();
+  });
+  function updateDot(){
+    bookDot.style.display = data.entries.some(x => !x.replied) ? "" : "none";
+  }
+  function bumpBook(){
+    bookIn.animate(
+      [{transform:"translate(0,0)"},
+       {transform:"translate(0,-7px) rotate(-7deg)"},
+       {transform:"translate(0,0)"}],
+      {duration:620, easing:"cubic-bezier(.2,1.4,.4,1)"});
+    updateDot();
+  }
+
+  /* ================= 操作（トップバー・キー・ヒントチップ） ================= */
+  const topbar = document.querySelector(".topbar");
+  if(topbar){
+    const b = document.createElement("button");
+    b.className = "btn";
+    b.textContent = "👥 常連名簿";
+    b.addEventListener("click", () => { if(view === "roster") close(); else openRoster(); });
+    topbar.appendChild(b);
+  }
+  const booth = document.querySelector(".booth");
+  if(booth){
+    const chip = document.createElement("div");
+    chip.className = "eki-note-keychip";
+    chip.textContent = "⌨ 1〜4＝はんこ　B＝保留";
+    booth.appendChild(chip);
+  }
+  document.addEventListener("keydown", e => {
+    if(e.metaKey || e.ctrlKey || e.altKey || !view) return;
+    if(e.key === "Escape"){ close(); e.stopPropagation(); return; }
+    if(view === "note" && (e.key === "5" || e.key === "n" || e.key === "N")){
+      e.preventDefault();
+      const en = data.entries.find(x => !x.replied);
+      if(en) stampEntry(en, ovl.querySelector(`[data-id="${en.id}"]`));
+      else toast("検印待ちの書き込みはありません");
+    }
+    e.stopPropagation();   // ノートを読んでいる間、1〜4/B を改札に流さない
+  }, true);
+
+  /* ================= 書き込み・名簿の記録 ================= */
+  const gatePassed = new WeakSet();      // 改札を通って出た人（夜明けの立ち去りは除く）
+  const regulars = new WeakMap();        // p -> {fromNote, last}
+
+  function writeNote(p){
+    const w = WORLDS[p.exitWorld] ? p.exitWorld : pick(WK);
+    const flavored = NOTE_WORLD[w];
+    const text = (flavored && Math.random() < .55) ? pick(flavored) : pick(NOTE_GEN);
+    const en = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+      name: p.name, world: w, text, clock: E.clock, t: Date.now(), replied: false,
+    };
+    data.entries.unshift(en);
+    if(data.entries.length > 60) data.entries.length = 60;
+    save();
+    bumpBook();
+    toast(`${p.name}は、駅ノートに何か書き残していった`);
+    if(view === "note") openNotebook();
+    E.emit("note:written", en);
+  }
+
+  function remember(p){
+    let r = data.roster.find(x => x.name === p.name);
+    if(!r){
+      r = {name: p.name, count: 0, last: "shima", t: 0};
+      data.roster.unshift(r);
+      if(data.roster.length > 40) data.roster.length = 40;
+    }
+    r.count++;
+    r.t = Date.now();
+    if(WORLDS[p.exitWorld]) r.last = p.exitWorld;
+    save();
+  }
+
+  E.on("passenger-stamped", ev => {
+    const p = ev && ev.passenger;
+    if(!p) return;
+    // 正解で通過、または2回目の間違いで「自分で行きます」→ どちらも改札を通る
+    if(ev.correct || p.misses >= 1) gatePassed.add(p);
+    const info = regulars.get(p);
+    if(info && ev.correct && p.misses === 0){
+      data.bonus++;
+      save();
+      const wk = WORLDS[ev.world] ? ev.world : "shima";
+      award(wk, 2);
+      setTimeout(() => {
+        try{
+          p.inner.animate(
+            [{transform:"rotate(0)"},
+             {transform:"rotate(32deg) translate(0,4px)", offset:.3},
+             {transform:"rotate(30deg) translate(0,4px)", offset:.72},
+             {transform:"rotate(0)"}],
+            {duration:1500, easing:"ease-in-out"});
+        }catch(err){}
+      }, 80);
+      setTimeout(() =>
+        toast(`${p.name}は深々と、長めのおじぎをした　＋2 ${CURR[wk]}`), 980);
+    }
+  });
+
+  E.on("passenger-exit", p => {
+    if(!p || !gatePassed.has(p)) return;
+    remember(p);
+    if(Math.random() < .35) writeNote(p);
+  });
+
+  /* ================= 常連の帰還 ================= */
+  let tonight = data.pending.splice(0);  // 検印した相手は、次の夜に来るかもしれない
+  save();
+  E.on("shift-start", () => { tonight = data.pending.splice(0); save(); });
+
+  E.on("train-arrived", t => {
+    if(!t || E.stats.shiftOver) return;
+    let cand = null, fromNote = false;
+    if(tonight.length && Math.random() < .7){
+      cand = tonight.shift();
+      fromNote = true;
+    } else if(data.roster.length && Math.random() < .22){   // 降車2〜4人 × 一人あたり約8%
+      cand = pick(data.roster);
+    }
+    if(!cand) return;
+    if(E.passengers.some(q => q.name === cand.name)){
+      if(fromNote) tonight.push(cand);     // 同名の人がいる夜は、次の列車で
+      return;
+    }
+    const last = WORLDS[cand.last || cand.world] ? (cand.last || cand.world) : pick(WK);
+    setTimeout(() => {
+      try{
+        if(E.stats.shiftOver) return;
+        const x = Math.max(60, Math.min(1140, t.stopX + pick(t.doorXs)));
+        const p = E.makePassenger({
+          name: cand.name,
+          manner: fromNote ? "ノートの返事を確かめに来た" : pick(REG_MANNERS),
+          world: last,
+          riddle: {t: "いつものところまで", h: "名簿に書いてあります。見ても、反則ではありません"},
+          x,
+        });
+        regulars.set(p, {fromNote, last});
+        E.enqueue(p);
+        E.emit("regular:returned", p);
+        toast(fromNote ? `${p.name}「${pick(NOTE_THANKS)}」` : `${p.name}が、今夜も来た`);
+      }catch(err){}
+    }, 1500 + Math.random()*900);
+  });
+
+  /* ================= 切符の「常連」タグ ================= */
+  const ticketEl = document.getElementById("ticket");
+  if(ticketEl && typeof MutationObserver === "function"){
+    new MutationObserver(() => {
+      const p = E.queue[0];
+      if(!p || p.state !== "gate" || !regulars.has(p)) return;
+      const pn = ticketEl.querySelector(".pname");
+      if(!pn || pn.querySelector(".eki-note-tag")) return;
+      const tag = document.createElement("span");
+      tag.className = "eki-note-tag";
+      tag.textContent = "常連";
+      pn.insertBefore(tag, pn.querySelector(".pm"));
+    }).observe(ticketEl, {childList: true});
+  }
+
+  updateDot();
+})();
+</script>
+
 </body>
 </html>

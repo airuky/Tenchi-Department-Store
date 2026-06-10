@@ -22,7 +22,13 @@ body{
 /* ---------- sections (world strata) ---------- */
 section{position:relative; z-index:1; pointer-events:none; display:flex; align-items:center; justify-content:center; padding:8vh 5vw}
 section a, section button, .card, .guide, .reno{pointer-events:auto}
-#hero{min-height:108vh; flex-direction:column; gap:3.2rem}
+#hero{min-height:108vh; flex-direction:row; flex-wrap:wrap; align-content:center; justify-content:center; gap:2.4rem 2rem}
+#hero .hero-sub,#hero .scrollhint{flex-basis:100%}
+#hero .logo{flex-basis:auto}
+#hero .hero-sub,#hero .scrollhint{text-align:center}
+#hero .guide,#hero .tenchi-members{flex:0 1 360px; min-width:min(340px,86vw); align-self:stretch; margin:0}
+#hero .guide a,#hero .guide .dead{font-size:.86rem}
+#hero .guide .fl{min-width:2.8em}
 #floor-r{min-height:115vh; justify-content:flex-start}
 #floor-2f{min-height:120vh; justify-content:flex-end}
 #floor-1f{min-height:30vh}
@@ -2207,6 +2213,1121 @@ try{
   if(after) after.after(annex);
   else { const hero = document.getElementById('hero'); if(hero) hero.append(annex); }
 }catch(err){ console.error('[tenchi-annex]', err); }
+})();
+</script>
+
+<style>
+/* ════ 新館「夜の横丁」 ════ */
+#yokocho{position:fixed; inset:0; z-index:45; display:none; flex-direction:column; background:#06060f; overscroll-behavior:contain}
+#yokocho.open{display:flex}
+#yk-world{position:absolute; inset:0; width:100%; height:100%}
+.yk-head{position:relative; z-index:2; display:flex; align-items:center; gap:1rem; padding:.8rem 1.2rem; pointer-events:none}
+.yk-sign{
+  background:linear-gradient(#3a2c18,#241a0e); border:2px solid #6b5526; color:#ffd9a0;
+  padding:.5em 1.4em; border-radius:8px; letter-spacing:.3em; font-weight:700; font-size:.95rem;
+  box-shadow:0 6px 20px rgba(0,0,0,.6); font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
+}
+.yk-sign small{font-size:.6em; letter-spacing:.2em; opacity:.7}
+.yk-hint{font-size:.7rem; color:#8a8aa8}
+.yk-back{
+  pointer-events:auto; margin-left:auto; background:rgba(20,22,48,.9); color:#d9b86a;
+  border:1px solid rgba(217,184,106,.5); border-radius:99px; padding:.55em 1.4em;
+  font-family:inherit; font-weight:700; font-size:.85rem; cursor:pointer;
+}
+.yk-back:hover{background:rgba(217,184,106,.2)}
+.yk-scroll{
+  position:relative; z-index:1; flex:1; display:flex; align-items:center; gap:9vw;
+  overflow-x:auto; overflow-y:hidden; padding:0 14vw; scrollbar-width:none;
+}
+.yk-scroll::-webkit-scrollbar{display:none}
+.yk-shop{
+  flex:0 0 min(380px,82vw); position:relative; border-radius:14px; padding:1.25rem;
+  background:rgba(13,13,32,.88); border:1px solid var(--acc); backdrop-filter:blur(6px);
+  box-shadow:0 24px 60px rgba(0,0,0,.65), 0 0 30px -18px var(--acc); transition:transform .3s;
+  color:#e4e2f0;
+}
+.yk-shop:hover{transform:translateY(-6px)}
+.yk-chip{
+  position:absolute; top:-13px; left:16px; font-size:.72rem; font-weight:700; letter-spacing:.15em;
+  background:var(--acc); color:#0c0c20; padding:.3em .95em; border-radius:99px;
+}
+.yk-shop canvas{width:100%; aspect-ratio:7/4; border-radius:9px; display:block; background:#000; margin-bottom:.8rem}
+.yk-shop h3{font-size:1.3rem; letter-spacing:.05em; margin:.1rem 0}
+.yk-en{font-size:.62rem; letter-spacing:.32em; opacity:.55; font-weight:600}
+.yk-copy{font-size:.85rem; line-height:1.85; margin:.6rem 0 .7rem; opacity:.92}
+.yk-goods{list-style:none; padding:0; font-size:.74rem; opacity:.8; display:flex; flex-wrap:wrap; gap:.35em .9em; margin:0 0 1rem}
+.yk-goods li::before{content:"〈取扱〉"; opacity:.6; font-size:.9em}
+.yk-go{
+  display:inline-block; text-decoration:none; font-weight:700; font-size:.9rem; cursor:pointer;
+  background:var(--acc); color:#10102a; padding:.6em 1.6em; border-radius:99px; border:none;
+  font-family:inherit; letter-spacing:.1em; transition:transform .15s, filter .15s;
+}
+.yk-go:hover{transform:scale(1.06); filter:brightness(1.15)}
+.yk-noren{position:fixed; inset:0; z-index:70; display:flex; pointer-events:none; visibility:hidden}
+.yk-noren.run{visibility:visible}
+.yk-noren i{
+  flex:1; background:linear-gradient(180deg,#222a5e,#10142e 70%,#0a0c20);
+  border-right:2px solid rgba(0,0,0,.5); transform:translateY(-105%);
+  transition:transform .55s cubic-bezier(.6,0,.3,1);
+}
+.yk-noren.run i{transform:translateY(0)}
+.yk-noren i:nth-child(2){transition-delay:.07s}
+.yk-noren i:nth-child(3){transition-delay:.14s}
+.yk-noren i:nth-child(4){transition-delay:.21s}
+.yk-noren i:nth-child(5){transition-delay:.28s}
+.yk-noren b{
+  position:absolute; left:50%; top:36%; transform:translate(-50%,-50%); writing-mode:vertical-rl;
+  color:#f0ead2; font-size:2rem; letter-spacing:.4em; font-weight:600; opacity:0; transition:opacity .4s .45s;
+  font-family:"Hiragino Mincho ProN","Yu Mincho",serif; text-shadow:0 0 24px rgba(0,0,0,.8);
+}
+.yk-noren.run b{opacity:1}
+.yk-photo{
+  pointer-events:auto; margin-left:auto; background:rgba(20,22,48,.9); color:#d9b86a;
+  border:1px solid rgba(217,184,106,.5); border-radius:99px; padding:.55em 1.2em;
+  font-family:inherit; font-weight:700; font-size:.85rem; cursor:pointer;
+}
+.yk-photo:hover{background:rgba(217,184,106,.2)}
+.yk-modal{position:absolute; inset:0; z-index:3; display:none; align-items:center; justify-content:center; background:rgba(2,2,10,.6); backdrop-filter:blur(2px)}
+.yk-modal.on{display:flex}
+.yk-modal-card{
+  background:#1a1626; border:1px solid #6b5526; border-radius:12px; padding:1.2rem 1.4rem;
+  width:min(480px,92vw); max-height:86vh; overflow:auto; color:#f0e8d2;
+  box-shadow:0 30px 80px rgba(0,0,0,.7);
+}
+.yk-modal-card h4{color:#ffd9a0; letter-spacing:.25em; margin-bottom:.4rem; font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
+.yk-m-note{font-size:.8rem; opacity:.8; margin-bottom:.8rem; line-height:1.7}
+.yk-m-btn{
+  display:block; width:100%; text-align:left; margin:.45em 0; background:rgba(255,217,160,.07);
+  border:1.5px dashed rgba(255,217,160,.45); color:#ffe9c8; border-radius:8px; padding:.7em 1em;
+  cursor:pointer; font-family:inherit; font-size:.9rem; font-weight:700; text-decoration:none;
+}
+.yk-m-btn:hover{background:rgba(255,217,160,.18)}
+.yk-m-btn small{display:block; font-size:.74em; font-weight:400; opacity:.65; margin-top:.15em}
+.yk-omikuji{background:#f7f2e2; color:#3a3020; border-radius:6px; padding:1rem 1.2rem; margin:.6rem 0; display:flex; gap:1.1rem}
+.yk-omikuji .res{
+  writing-mode:vertical-rl; font-size:1.5rem; font-weight:700; color:#c4392e;
+  border-right:2px solid #c4392e; padding-right:.5rem; font-family:"Hiragino Mincho ProN",serif; letter-spacing:.2em;
+}
+.yk-omikuji .rows{font-size:.78rem; line-height:2.1}
+.yk-omikuji .rows b{color:#7a3c10}
+.yk-photo-out img{max-width:100%; border-radius:4px; box-shadow:0 10px 30px rgba(0,0,0,.5)}
+@media (max-width:760px){ .yk-scroll{gap:7vw; padding:0 9vw} .yk-hint{display:none} }
+</style>
+
+<script>
+(()=>{
+'use strict';
+/* ════ 増築: 新館「夜の横丁」UI — 横スクロールの夜の路地 ════ */
+try{
+const TAU=Math.PI*2;
+const rnd=(a=1,b)=>b===undefined?Math.random()*a:a+Math.random()*(b-a);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+
+const SHOPS=[
+ {key:'shokudo', dir:'ikai-shokudo', fl:'夜1F', name:'異界食堂', en:'IKAI DINER',
+  copy:'夜にだけ開く食堂。常連は人間とは限りません。お冷やは出ますが、誰が注いだかは聞かないでください。',
+  goods:['月見うどん(月は本物)','おかわり(無限)','常連(異界)'], acc:'#ff9d5c'},
+ {key:'eki', dir:'eki', fl:'駅', name:'終電後の駅', en:'AFTER THE LAST TRAIN',
+  copy:'地下連絡通路の先、終電が出たあとのホーム。次の電車は来ませんが、何かは来ます。',
+  goods:['発車標(回送のみ)','ベンチ(冷たい)','アナウンス(誰の声?)'], acc:'#7fd4a8'},
+ {key:'nagaya', dir:'nagaya', fl:'別2F', name:'おばけ長屋の大家さん', en:'OBAKE NAGAYA',
+  copy:'妖怪可・敷金礼金なし・家賃は思い出払い。大家さんとして、店子たちの夜の暮らしを見守ってください。',
+  goods:['空き部屋(わけあり)','店子(妖怪)','家賃(思い出)'], acc:'#b48ae8'},
+ {key:'yakei', dir:'yakei', fl:'夜勤', name:'百貨店の夜警', en:'NIGHT WATCH',
+  copy:'当館の夜のすがた。閉店後の売り場を見回るお仕事です。マネキンの位置は、メモしておくことをおすすめします。',
+  goods:['懐中電灯(電池残少)','巡回ルート(変わる)','異常(なし※)'], acc:'#ffd76a'},
+ {key:'niwa', dir:'koke-niwa', fl:'庭', name:'苔庭と砂紋', en:'ZEN GARDEN',
+  copy:'屋上庭園の別亭。砂紋を引いて、苔を眺めて、「何もしない」をするところ。閉店時間はありません。',
+  goods:['砂紋(引き放題)','苔(ふかふか)','静けさ(完備)'], acc:'#9fd86a'},
+];
+
+/* ---------- DOM組み立て ---------- */
+const ov=document.createElement('div');
+ov.id='yokocho';
+ov.innerHTML=
+  '<canvas id="yk-world"></canvas>'+
+  '<div class="yk-head">'+
+    '<span class="yk-sign">新館 — 夜の横丁 <small>ANNEX</small></span>'+
+    '<span class="yk-hint">⟷ 横にお進みください(ホイール可)。屋台・自販機・妖怪・猫はクリックできます(自己責任)</span>'+
+    '<button class="yk-photo">📷 記念写真(無料)</button>'+
+    '<button class="yk-back">← 本館へ戻る</button>'+
+  '</div>'+
+  '<div class="yk-scroll">'+
+    SHOPS.map(s=>
+      `<div class="yk-shop" data-shop="${s.key}" style="--acc:${s.acc}">`+
+        `<span class="yk-chip">${s.fl} ｜ 夜間営業</span>`+
+        `<canvas id="yk-mini-${s.key}" width="560" height="320"></canvas>`+
+        `<div class="yk-en">${s.en}</div><h3>${s.name}</h3>`+
+        `<p class="yk-copy">${s.copy}</p>`+
+        '<ul class="yk-goods">'+s.goods.map(g=>`<li>${g}</li>`).join('')+'</ul>'+
+        `<a class="yk-go" href="${s.dir}/index.html">のれんをくぐる →</a>`+
+      '</div>'
+    ).join('')+
+  '</div>';
+document.body.appendChild(ov);
+const noren=document.createElement('div');
+noren.className='yk-noren';
+noren.innerHTML='<i></i><i></i><i></i><i></i><i></i><b></b>';
+document.body.appendChild(noren);
+const scroller=ov.querySelector('.yk-scroll');
+
+/* ---------- 音(本館の音設定 tenchi-sound を読む) ---------- */
+let AC=null, ambTimer=0;
+const sndMode=()=>parseInt(localStorage.getItem('tenchi-sound')||'0',10);
+function ac(){ if(!AC)AC=new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==='suspended')AC.resume(); return AC; }
+function blip(f,dur,delay,type,vol){
+  if(sndMode()<1)return;
+  const a=ac(),o=a.createOscillator(),g=a.createGain(),t0=a.currentTime+delay;
+  o.type=type; o.frequency.value=f; o.connect(g); g.connect(a.destination);
+  g.gain.setValueAtTime(0,t0); g.gain.linearRampToValueAtTime(vol,t0+.015);
+  g.gain.exponentialRampToValueAtTime(.0001,t0+dur);
+  o.start(t0); o.stop(t0+dur+.05);
+}
+const chirp=()=>{ for(let i=0;i<4;i++) blip(4200+rnd(-200,200),.05,i*.07,'sine',.025); };       // コオロギ
+const chime=()=>{ blip(2093,1.6,0,'triangle',.03); blip(3135,1.4,.02,'sine',.012); };           // 風鈴
+const MIYAKO=[293.66,311.13,392,440,466.16,587.33];   // 都節音階
+function pluck(){
+  const f=MIYAKO[rnd(MIYAKO.length)|0];
+  blip(f,1.1,0,'triangle',.035);
+  if(Math.random()<.3)blip(MIYAKO[rnd(MIYAKO.length)|0],1,.2,'triangle',.022);
+}
+function ambStart(){
+  if(ambTimer)return;
+  ambTimer=setInterval(()=>{
+    if(!ykOpen)return;
+    if(Math.random()<.55)chirp();
+    if(Math.random()<.07)chime();
+    if(Math.random()<.2)pluck();
+  },1400);
+}
+function ambStop(){ clearInterval(ambTimer); ambTimer=0; }
+function speak(text){
+  if(sndMode()<2||!('speechSynthesis' in window))return;
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang='ja-JP'; u.pitch=1.18; u.rate=1.04;
+  const v=speechSynthesis.getVoices().find(v=>v.lang&&v.lang.startsWith('ja'));
+  if(v)u.voice=v;
+  speechSynthesis.speak(u);
+}
+
+/* ---------- 館内放送(本館のトーストを間借り) ---------- */
+let annT=0;
+function announce(text,ms=4200){
+  const el=document.getElementById('announce'); if(!el)return;
+  el.textContent=text; el.classList.add('show');
+  clearTimeout(annT); annT=setTimeout(()=>el.classList.remove('show'),ms);
+}
+
+/* ---------- 路地の世界(背景Canvas) ---------- */
+const cv=ov.querySelector('#yk-world'), cx=cv.getContext('2d');
+let W=0,H=0,alleyW=2400,shopAt={};
+function resize(){
+  const dpr=Math.min(2,devicePixelRatio||1);
+  W=ov.clientWidth||innerWidth; H=ov.clientHeight||innerHeight;
+  cv.width=W*dpr; cv.height=H*dpr; cx.setTransform(dpr,0,0,dpr,0,0);
+  measure();
+}
+function measure(){
+  alleyW=scroller.scrollWidth;
+  shopAt={};
+  ov.querySelectorAll('.yk-shop').forEach(el=>{
+    shopAt[el.dataset.shop]={x:el.offsetLeft+el.offsetWidth/2, w:el.offsetWidth};
+  });
+  DECO.clock=(shopAt.shokudo&&shopAt.eki)?(shopAt.shokudo.x+shopAt.eki.x)/2:600;
+  DECO.vend=(shopAt.eki&&shopAt.nagaya)?(shopAt.eki.x+shopAt.nagaya.x)/2:1200;
+  DECO.yatai=alleyW-150;
+}
+const stars=Array.from({length:130},()=>({x:rnd(1),y:rnd(.55),r:rnd(.5,1.6),tw:rnd(TAU),sp:rnd(.5,2)}));
+const far=Array.from({length:40},(_,i)=>({x:i*180+rnd(-40,40),w:rnd(80,150),h:rnd(.18,.4),win:rnd()<.7}));
+const puddles=Array.from({length:14},(_,i)=>({x:i*420+rnd(0,300),w:rnd(40,110)}));
+const cat={x:300,dir:1,state:'walk',until:0,startle:0};
+const flies=Array.from({length:4},()=>({x:rnd(-80,80),y:rnd(-30,30),ph:rnd(TAU)}));
+let train=null, ghost={a:0,ph:rnd(TAU)};
+/* 夜のにぎわい: 状態 */
+const DECO={};
+const moon={mode:'sky',p:0,goneT:0,blink:0};
+const assembly={on:false,phase:'gather',cats:[],t:0};
+const fxBub=[];
+let walker=null, walkerBoost=1, fox=null, warmT=0, flash=0, catTaps=0;
+let musubi=parseInt(localStorage.getItem('yk-musubi')||'0',10);
+const pickA=a=>a[rnd(a.length)|0];
+const WALKER_LINES={
+  kasa:'唐傘お化け「相合傘、いかがです?」(片足なので歩幅が合いません)',
+  ittan:'一反木綿「フワッ」(挨拶のようです)',
+  chochin:'提灯お化け「灯り、お安くしときますよ」(電気代0円)',
+  noppera:'のっぺらぼう「……」(顔は自宅に忘れてきたそうです)',
+};
+
+function drawAlley(t,dt){
+  const sx=scroller.scrollLeft;
+  // 空
+  const g=cx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#04040e'); g.addColorStop(.55,'#0a0a20'); g.addColorStop(1,'#141128');
+  cx.fillStyle=g; cx.fillRect(0,0,W,H);
+  for(const s of stars){
+    cx.globalAlpha=.3+.6*Math.abs(Math.sin(t*s.sp+s.tw));
+    cx.fillStyle='#cfd4f4'; cx.beginPath();
+    cx.arc((s.x*W*1.4-sx*.05+W*1.4)%(W*1.4)-W*.2, s.y*H*.6, s.r,0,TAU); cx.fill();
+  }
+  cx.globalAlpha=1;
+  // 月(注文されると落ちます)
+  drawMoon(t,dt,sx);
+  // 遠景ビル(視差.35) + 通過電車
+  const gy=H*.72;
+  cx.fillStyle='#0c0c1c';
+  for(const b of far){
+    const x=b.x-sx*.35;
+    if(x<-200||x>W+200)continue;
+    cx.fillRect(x,gy-H*b.h,b.w,H*b.h);
+  }
+  if(!train && Math.random()<.0015) train={x:-300,v:rnd(600,900)};
+  if(train){
+    train.x+=train.v*dt;
+    const ty=gy-H*.1, x=train.x-sx*.35;
+    cx.fillStyle='rgba(255,235,180,.75)';
+    for(let i=0;i<9;i++)cx.fillRect(x+i*26,ty,16,8);
+    cx.fillStyle='rgba(255,120,80,.9)'; cx.fillRect(x-8,ty,5,8);
+    if(train.x>alleyW+W*3)train=null;
+  }
+  cx.fillStyle='rgba(200,190,150,.5)';
+  for(const b of far){
+    if(!b.win)continue;
+    const x=b.x-sx*.35;
+    if(x<-200||x>W+200)continue;
+    cx.fillRect(x+b.w*.3,gy-H*b.h+14,4,5); cx.fillRect(x+b.w*.6,gy-H*b.h+30,4,5);
+  }
+  // 地面(石畳)
+  cx.fillStyle='#17141f'; cx.fillRect(0,gy,W,H-gy);
+  cx.strokeStyle='rgba(255,255,255,.05)'; cx.lineWidth=1;
+  for(let x=-((sx)%70);x<W;x+=70){
+    cx.beginPath(); cx.moveTo(x,gy); cx.lineTo(x-24,H); cx.stroke();
+  }
+  cx.beginPath(); cx.moveTo(0,gy+22); cx.lineTo(W,gy+22); cx.stroke();
+  // 水たまり(提灯の色を映す)
+  for(const p of puddles){
+    const x=p.x-sx; if(x<-150||x>W+150)continue;
+    cx.fillStyle='rgba(255,150,90,.08)';
+    cx.beginPath(); cx.ellipse(x,gy+40,p.w,9+Math.sin(t*2+p.x)*1.5,0,0,TAU); cx.fill();
+    cx.fillStyle='rgba(180,200,255,.06)';
+    cx.beginPath(); cx.ellipse(x,gy+40,p.w*.55,5,0,0,TAU); cx.fill();
+  }
+  // 提灯の列(電線がたわむ)
+  const poleGap=300;
+  for(let wx=Math.floor(sx/poleGap)*poleGap-poleGap; wx<sx+W+poleGap; wx+=poleGap){
+    const x0=wx-sx, x1=wx+poleGap-sx, ym=H*.18;
+    cx.strokeStyle='rgba(120,110,130,.5)'; cx.lineWidth=1.5;
+    cx.beginPath(); cx.moveTo(x0,ym); cx.quadraticCurveTo((x0+x1)/2,ym+26,x1,ym); cx.stroke();
+    for(let k=1;k<4;k++){
+      const f=k/4, lx=lerp(x0,x1,f), ly=ym+26*4*f*(1-f)*.9+10;
+      const sway=Math.sin(t*1.3+wx+k)*3, red=(k+wx/poleGap)%2<1;
+      const lxx=lx+sway;
+      const lg=cx.createRadialGradient(lxx,ly+10,0,lxx,ly+10,34);
+      lg.addColorStop(0,red?'rgba(255,120,70,.4)':'rgba(255,220,150,.35)'); lg.addColorStop(1,'rgba(255,120,70,0)');
+      cx.fillStyle=lg; cx.beginPath(); cx.arc(lxx,ly+10,34,0,TAU); cx.fill();
+      cx.strokeStyle='rgba(0,0,0,.6)'; cx.lineWidth=1.5;
+      cx.beginPath(); cx.moveTo(lx,ly-2); cx.lineTo(lxx,ly+3); cx.stroke();
+      cx.fillStyle=red?'#c4392e':'#e8d8a8';
+      cx.beginPath(); cx.ellipse(lxx,ly+12,8,11,0,0,TAU); cx.fill();
+      cx.fillStyle='rgba(0,0,0,.35)'; cx.fillRect(lxx-4,ly+1,8,3); cx.fillRect(lxx-4,ly+21,8,2);
+    }
+  }
+  // 店ごとのにぎやかし
+  for(const s of SHOPS){
+    const at=shopAt[s.key]; if(!at)continue;
+    const x=at.x-sx;
+    if(x<-300||x>W+300)continue;
+    if(s.key==='shokudo'){           // 湯気
+      for(let i=0;i<3;i++){
+        const p=(t*.25+i*.33)%1, sxx=x-60+Math.sin(t*2+i*2)*8;
+        cx.globalAlpha=(1-p)*.25;
+        cx.fillStyle='#d8e2ea';
+        cx.beginPath(); cx.arc(sxx,H*.3-p*90,7+p*12,0,TAU); cx.fill();
+      }
+      cx.globalAlpha=1;
+    }else if(s.key==='eki'){         // 信号
+      const on=Math.floor(t*.7)%2;
+      cx.fillStyle=on?'rgba(255,80,70,.9)':'rgba(60,30,30,.8)';
+      cx.beginPath(); cx.arc(x+at.w*.55,H*.27,4,0,TAU); cx.fill();
+      cx.fillStyle=on?'rgba(40,60,40,.8)':'rgba(110,255,140,.9)';
+      cx.beginPath(); cx.arc(x+at.w*.55,H*.31,4,0,TAU); cx.fill();
+    }else if(s.key==='nagaya'){      // 屋根の上の👻
+      ghost.a=clamp(Math.sin(t*.5+ghost.ph)*1.4-.4,0,1);
+      if(ghost.a>0){
+        cx.globalAlpha=ghost.a*.8; cx.font='26px serif'; cx.textAlign='center';
+        cx.fillText('👻',x+Math.sin(t*.8)*20,H*.24+Math.sin(t*1.7)*6);
+        cx.globalAlpha=1;
+      }
+    }else if(s.key==='yakei'){       // 懐中電灯の光
+      const a=Math.sin(t*.55)*.5+Math.PI*1.5;
+      const ox=x-at.w*.4, oy=H*.7;
+      const grd=cx.createRadialGradient(ox,oy,0,ox,oy,260);
+      grd.addColorStop(0,'rgba(255,240,180,.14)'); grd.addColorStop(1,'rgba(255,240,180,0)');
+      cx.fillStyle=grd;
+      cx.beginPath(); cx.moveTo(ox,oy);
+      cx.arc(ox,oy,260,a-.22,a+.22); cx.closePath(); cx.fill();
+    }else if(s.key==='niwa'){        // 蛍
+      for(const f of flies){
+        f.x+=Math.sin(t*.7+f.ph)*.4; f.y+=Math.cos(t*.9+f.ph)*.3;
+        const a=.4+.6*Math.abs(Math.sin(t*1.6+f.ph));
+        cx.globalAlpha=a; cx.fillStyle='#d8ff9a';
+        cx.beginPath(); cx.arc(x+f.x,H*.4+f.y,2,0,TAU); cx.fill();
+      }
+      cx.globalAlpha=1;
+    }
+  }
+  // 猫(路地の主)
+  if(cat.startle>0)cat.startle-=dt;
+  if(cat.state==='walk'){
+    cat.x+=38*cat.dir*dt*(cat.startle>0?4:1);
+    if(cat.x>alleyW-100)cat.dir=-1;
+    if(cat.x<100)cat.dir=1;
+    if(Math.random()<.002&&cat.startle<=0){cat.state='sit'; cat.until=t+rnd(2,5);}
+  }else if(t>cat.until)cat.state='walk';
+  const cxx=cat.x-sx, cy=gy+30;
+  if(cxx>-60&&cxx<W+60){
+    cx.save(); cx.translate(cxx,cy); cx.scale(cat.dir,1);
+    cx.fillStyle='#0a0a12';
+    cx.beginPath(); cx.ellipse(0,0,16,8,0,0,TAU); cx.fill();
+    cx.beginPath(); cx.arc(14,-8,7,0,TAU); cx.fill();
+    cx.beginPath(); cx.moveTo(10,-13); cx.lineTo(12,-19); cx.lineTo(15,-13); cx.fill();
+    cx.beginPath(); cx.moveTo(16,-13); cx.lineTo(19,-18); cx.lineTo(21,-12); cx.fill();
+    cx.strokeStyle='#0a0a12'; cx.lineWidth=3; cx.lineCap='round';
+    cx.beginPath(); cx.moveTo(-14,-2);
+    cx.quadraticCurveTo(-24,-6+Math.sin(t*3)*6,-26,-16+Math.sin(t*2.2)*4); cx.stroke();
+    if(cat.state==='sit'){
+      cx.fillStyle='#aef0c0';
+      cx.beginPath(); cx.arc(15,-9,1.2,0,TAU); cx.arc(18.5,-9,1.2,0,TAU); cx.fill();
+    }
+    cx.restore();
+  }
+  drawDeco(t,dt,sx);
+  drawWalkers(t,dt,sx);
+  drawAssembly(t,dt,sx);
+  drawFx(t,dt,sx);
+}
+
+/* ---------- 月の状態機械 ---------- */
+function drawMoonBody(x,y,r,alpha){
+  cx.globalAlpha=alpha===undefined?1:alpha;
+  const mg=cx.createRadialGradient(x,y,0,x,y,r*3.4);
+  mg.addColorStop(0,'rgba(255,246,214,.9)'); mg.addColorStop(.25,'rgba(255,246,214,.25)'); mg.addColorStop(1,'rgba(255,246,214,0)');
+  cx.fillStyle=mg; cx.beginPath(); cx.arc(x,y,r*3.4,0,TAU); cx.fill();
+  cx.fillStyle='#fdf3cf'; cx.beginPath(); cx.arc(x,y,r,0,TAU); cx.fill();
+  cx.fillStyle='rgba(200,190,150,.35)';
+  cx.beginPath(); cx.arc(x-r*.3,y-r*.2,r*.19,0,TAU); cx.arc(x+r*.27,y+r*.3,r*.27,0,TAU); cx.fill();
+  cx.globalAlpha=1;
+}
+function drawMoon(t,dt,sx){
+  const hx=W*.78-sx*.04, hy=H*.16;
+  if(moon.blink>0)moon.blink-=dt;
+  if(moon.mode==='sky'){
+    if(moon.blink>0&&Math.sin(t*40)>0)return;   // 「謎」を飲むと瞬く
+    drawMoonBody(hx,hy,26);
+  }else if(moon.mode==='falling'){
+    moon.p+=dt/1.8;
+    const p=Math.min(1,moon.p), tx=DECO.yatai-sx-20, ty=H*.72-72;
+    drawMoonBody(lerp(hx,tx,p),lerp(hy,ty,p*p),26-14*p);
+    if(p>=1){
+      moon.mode='gone'; moon.goneT=40;
+      for(let i=0;i<14;i++)fxBub.push({x:DECO.yatai-20+rnd(-22,22),y:H*.72-70,vy:-rnd(20,70),life:rnd(.6,1.5),r:rnd(2,5),col:'255,235,170'});
+      announce('お月さま、どんぶりに着水いたしました。本日の月見うどんでございます。',4800);
+    }
+  }else if(moon.mode==='gone'){
+    moon.goneT-=dt;
+    cx.fillStyle='rgba(0,0,8,.2)'; cx.fillRect(0,0,W,H*.62);   // 月のない夜は少し暗い
+    if(moon.goneT<=0){ moon.mode='rising'; moon.p=0; announce('次のお月さまが入荷いたしました。ゆっくり昇ります。',3800); }
+  }else{ // rising
+    moon.p+=dt/6;
+    const p=Math.min(1,moon.p);
+    drawMoonBody(hx,lerp(H*.7,hy,1-Math.pow(1-p,2)),26,.3+.7*p);
+    if(p>=1)moon.mode='sky';
+  }
+}
+
+/* ---------- 路地の置き物(時計・自販機・屋台・おみくじ) ---------- */
+function drawDeco(t,dt,sx){
+  const gy=H*.72;
+  { // 逆回転時計
+    const x=DECO.clock-sx;
+    if(x>-70&&x<W+70){
+      cx.strokeStyle='#3a3548'; cx.lineWidth=5;
+      cx.beginPath(); cx.moveTo(x,gy); cx.lineTo(x,gy-126); cx.stroke();
+      cx.fillStyle='#10101e'; cx.beginPath(); cx.arc(x,gy-150,24,0,TAU); cx.fill();
+      cx.strokeStyle='#caa86a'; cx.lineWidth=2; cx.beginPath(); cx.arc(x,gy-150,24,0,TAU); cx.stroke();
+      cx.fillStyle='#e8e2d0';
+      for(let i=0;i<12;i++){const a=i/12*TAU; cx.fillRect(x+Math.cos(a)*19-1,gy-150+Math.sin(a)*19-1,2,2);}
+      cx.strokeStyle='#e8e2d0'; cx.lineWidth=2.4; cx.lineCap='round';
+      cx.beginPath(); cx.moveTo(x,gy-150); cx.lineTo(x+Math.cos(-t*.7)*16,gy-150+Math.sin(-t*.7)*16); cx.stroke();
+      cx.beginPath(); cx.moveTo(x,gy-150); cx.lineTo(x+Math.cos(-t*.06-2)*10,gy-150+Math.sin(-t*.06-2)*10); cx.stroke();
+      cx.fillStyle='#1a1626'; cx.fillRect(x-46,gy-116,92,20);
+      cx.fillStyle='#caa86a'; cx.font='11px serif'; cx.textAlign='center';
+      cx.fillText('現在時刻: 丑三つ時',x,gy-102);
+    }
+  }
+  { // 夜光自販機
+    const x=DECO.vend-sx;
+    if(x>-100&&x<W+100){
+      const vg=cx.createRadialGradient(x,gy-58,0,x,gy-58,130);
+      vg.addColorStop(0,'rgba(180,225,255,.2)'); vg.addColorStop(1,'rgba(180,225,255,0)');
+      cx.fillStyle=vg; cx.beginPath(); cx.arc(x,gy-58,130,0,TAU); cx.fill();
+      cx.fillStyle='#0c1018'; cx.fillRect(x-38,gy-4,76,6);
+      cx.fillStyle='#dce8f2'; cx.fillRect(x-35,gy-118,70,114);
+      cx.fillStyle='#a8d8f0'; cx.fillRect(x-29,gy-110,58,46);
+      const cans=[['#c4392e','汁'],['#3a6ad8','ラ'],['#555','謎'],['#f0e2c8','吉']];
+      cans.forEach((cn,i)=>{
+        const cxn=x-23+(i%2)*26, cyn=gy-104+Math.floor(i/2)*22;
+        cx.fillStyle=cn[0]; cx.fillRect(cxn,cyn,16,18);
+        cx.fillStyle=i===3?'#3a3020':'#fff'; cx.font='10px serif'; cx.textAlign='center';
+        cx.fillText(cn[1],cxn+8,cyn+13);
+      });
+      cx.fillStyle='#c4392e'; cx.fillRect(x-29,gy-58,27,5);
+      cx.fillStyle='#3a6ad8'; cx.fillRect(x+2,gy-58,27,5);
+      cx.fillStyle='#10141e'; cx.fillRect(x-29,gy-48,58,30);
+      cx.fillStyle=Math.sin(t*2.6)>0?'#6aff8a':'#1e3a26';
+      cx.beginPath(); cx.arc(x+22,gy-36,2.5,0,TAU); cx.fill();
+      cx.fillStyle='#8a96ad'; cx.font='9px sans-serif'; cx.textAlign='center';
+      cx.fillText('つり銭は夢で',x-3,gy-28);
+    }
+  }
+  { // 屋台「月見」(店主: タヌキ)
+    const x=DECO.yatai-sx;
+    if(x>-170&&x<W+170){
+      const wob=Math.sin(t*1.1)*2;
+      cx.fillStyle='#2a1c10'; cx.fillRect(x-70,gy-60,140,52);
+      cx.strokeStyle='#caa86a'; cx.lineWidth=3;
+      cx.beginPath(); cx.arc(x-46,gy+2,12,0,TAU); cx.stroke();
+      cx.beginPath(); cx.arc(x+46,gy+2,12,0,TAU); cx.stroke();
+      cx.fillStyle='#7a3c20'; cx.fillRect(x-74,gy-66,148,8);
+      cx.strokeStyle='#5a3a20'; cx.lineWidth=4;
+      cx.beginPath(); cx.moveTo(x-64,gy-66); cx.lineTo(x-64,gy-148); cx.moveTo(x+64,gy-66); cx.lineTo(x+64,gy-148); cx.stroke();
+      cx.fillStyle='#8a2a22'; cx.beginPath();
+      cx.moveTo(x-80,gy-148); cx.lineTo(x+80,gy-148); cx.lineTo(x+70,gy-128); cx.lineTo(x-70,gy-128); cx.fill();
+      for(let i=0;i<2;i++){
+        const nx=x-30+i*36, sw=Math.sin(t*1.4+i)*3;
+        cx.fillStyle='#1c2350'; cx.beginPath();
+        cx.moveTo(nx,gy-128); cx.lineTo(nx+26,gy-128);
+        cx.lineTo(nx+26+sw,gy-96); cx.lineTo(nx+sw,gy-96); cx.fill();
+        cx.fillStyle='#f0e2c8'; cx.font='15px serif'; cx.textAlign='center';
+        cx.fillText('月見'[i],nx+13+sw,gy-108);
+      }
+      const ll=x-52+wob;
+      cx.strokeStyle='rgba(0,0,0,.6)'; cx.lineWidth=1.5;
+      cx.beginPath(); cx.moveTo(x-52,gy-128); cx.lineTo(ll,gy-118); cx.stroke();
+      const yg=cx.createRadialGradient(ll,gy-106,0,ll,gy-106,30);
+      yg.addColorStop(0,'rgba(255,150,70,.45)'); yg.addColorStop(1,'rgba(255,150,70,0)');
+      cx.fillStyle=yg; cx.beginPath(); cx.arc(ll,gy-106,30,0,TAU); cx.fill();
+      cx.fillStyle='#c4392e'; cx.beginPath(); cx.ellipse(ll,gy-106,7,10,0,0,TAU); cx.fill();
+      // タヌキ店主
+      const tx2=x+30, ty2=gy-86+Math.sin(t*2)*1.5;
+      cx.fillStyle='#6a4a2a';
+      cx.beginPath(); cx.arc(tx2,ty2,13,0,TAU); cx.fill();
+      cx.beginPath(); cx.arc(tx2-9,ty2-10,4,0,TAU); cx.arc(tx2+9,ty2-10,4,0,TAU); cx.fill();
+      cx.fillStyle='#3a2a18';
+      cx.beginPath(); cx.ellipse(tx2-5,ty2-2,3.4,4.4,.4,0,TAU); cx.ellipse(tx2+5,ty2-2,3.4,4.4,-.4,0,TAU); cx.fill();
+      cx.fillStyle='#f0e2c8'; cx.beginPath(); cx.arc(tx2-5,ty2-2,1.4,0,TAU); cx.arc(tx2+5,ty2-2,1.4,0,TAU); cx.fill();
+      cx.fillStyle='#1a120a'; cx.beginPath(); cx.arc(tx2,ty2+3,2,0,TAU); cx.fill();
+      // 鍋と湯気 / 月入りどんぶり
+      cx.fillStyle='#3a3a44'; cx.beginPath(); cx.ellipse(x-20,gy-70,16,7,0,0,TAU); cx.fill();
+      for(let i=0;i<3;i++){
+        const p=(t*.4+i*.33)%1;
+        cx.globalAlpha=(1-p)*.3; cx.fillStyle='#d8e2ea';
+        cx.beginPath(); cx.arc(x-20+Math.sin(t*3+i)*5,gy-78-p*46,4+p*7,0,TAU); cx.fill();
+      }
+      cx.globalAlpha=1;
+      if(moon.mode==='gone'){
+        const bg2=cx.createRadialGradient(x-20,gy-72,0,x-20,gy-72,26);
+        bg2.addColorStop(0,'rgba(255,246,200,.7)'); bg2.addColorStop(1,'rgba(255,246,200,0)');
+        cx.fillStyle=bg2; cx.beginPath(); cx.arc(x-20,gy-72,26,0,TAU); cx.fill();
+        cx.fillStyle='#fdf3cf'; cx.beginPath(); cx.arc(x-20,gy-72,8,0,TAU); cx.fill();
+      }
+      cx.fillStyle='#caa86a'; cx.font='10px serif'; cx.textAlign='center';
+      cx.fillText('屋台「月見」',x,gy+22);
+    }
+  }
+  // 電線に結ばれたおみくじ(永続)
+  if(musubi>0){
+    const ym=H*.18;
+    for(let i=0;i<Math.min(musubi,40);i++){
+      const wxm=(i*173+97)%Math.max(600,alleyW), xm=wxm-sx;
+      if(xm<-20||xm>W+20)continue;
+      const f=(wxm%300)/300, sag=26*4*f*(1-f)*.9;
+      cx.save(); cx.translate(xm,ym+sag+4); cx.rotate(Math.sin(t*2+i)*.15);
+      cx.fillStyle='#f0ead2'; cx.fillRect(-2,-1,4,10); cx.restore();
+    }
+  }
+}
+
+/* ---------- 妖怪通行人 ---------- */
+function drawWalkers(t,dt,sx){
+  if(!walker&&Math.random()<.0007*walkerBoost){
+    const fromLeft=Math.random()<.5;
+    walker={type:pickA(['kasa','ittan','chochin','noppera']), x:fromLeft?-80:alleyW+80, dir:fromLeft?1:-1, ph:rnd(TAU)};
+  }
+  if(!walker)return;
+  walker.x+={kasa:55,ittan:90,chochin:40,noppera:70}[walker.type]*walker.dir*dt;
+  if(walker.x<-120||walker.x>alleyW+120){walker=null;return;}
+  const x=walker.x-sx, gy=H*.72;
+  if(x<-100||x>W+100)return;
+  cx.save();
+  if(walker.type==='kasa'){
+    const hop=-Math.abs(Math.sin(t*5))*14;
+    cx.translate(x,gy+18+hop); cx.scale(walker.dir,1);
+    cx.fillStyle='#7a4a8a'; cx.beginPath(); cx.arc(0,-40,26,Math.PI,0); cx.fill();
+    cx.strokeStyle='#4a2a55'; cx.lineWidth=2;
+    for(let i=-2;i<=2;i++){cx.beginPath(); cx.moveTo(0,-40); cx.lineTo(i*12,-40+26-Math.abs(i)*4); cx.stroke();}
+    cx.fillStyle='#fff'; cx.beginPath(); cx.arc(-4,-32,5,0,TAU); cx.fill();
+    cx.fillStyle='#222'; cx.beginPath(); cx.arc(-4,-32,2.2,0,TAU); cx.fill();
+    cx.strokeStyle='#e86a6a'; cx.lineWidth=3;
+    cx.beginPath(); cx.moveTo(2,-26); cx.quadraticCurveTo(6,-18,3,-12); cx.stroke();
+    cx.strokeStyle='#caa86a'; cx.lineWidth=3.5;
+    cx.beginPath(); cx.moveTo(0,-14); cx.lineTo(0,8); cx.stroke();
+    cx.fillStyle='#7a3c20'; cx.fillRect(-8,8,16,4);
+  }else if(walker.type==='ittan'){
+    const y0=H*.34+Math.sin(t*1.6)*10;
+    cx.fillStyle='rgba(240,240,248,.85)'; cx.beginPath();
+    cx.moveTo(x,y0-7);
+    for(let i=0;i<=5;i++)cx.lineTo(x-walker.dir*i*22,y0+Math.sin(t*4-i)*8-7);
+    for(let i=5;i>=0;i--)cx.lineTo(x-walker.dir*i*22,y0+Math.sin(t*4-i)*8+7);
+    cx.fill();
+    cx.fillStyle='#222';
+    cx.beginPath(); cx.arc(x+walker.dir*2,y0-1,1.8,0,TAU); cx.arc(x-walker.dir*6,y0-1,1.8,0,TAU); cx.fill();
+  }else if(walker.type==='chochin'){
+    const bob=Math.sin(t*3)*8;
+    cx.translate(x,gy-46+bob);
+    const lg2=cx.createRadialGradient(0,0,0,0,0,46);
+    lg2.addColorStop(0,'rgba(255,190,90,.3)'); lg2.addColorStop(1,'rgba(255,190,90,0)');
+    cx.fillStyle=lg2; cx.beginPath(); cx.arc(0,0,46,0,TAU); cx.fill();
+    cx.fillStyle='#e8a83a'; cx.beginPath(); cx.ellipse(0,0,20,26,0,0,TAU); cx.fill();
+    cx.strokeStyle='rgba(120,70,20,.6)'; cx.lineWidth=1.5;
+    for(let i=-2;i<=2;i++){cx.beginPath(); cx.ellipse(0,i*9,20,4,0,0,TAU); cx.stroke();}
+    cx.fillStyle='#222'; cx.beginPath(); cx.arc(-6,-6,2.5,0,TAU); cx.fill();
+    cx.fillStyle='#c4392e'; cx.beginPath(); cx.ellipse(0,16,6,9,0,0,Math.PI); cx.fill();
+  }else{ // のっぺらぼう(会社員)
+    cx.translate(x,gy+16); cx.scale(walker.dir,1);
+    const step=Math.sin(t*7)*4;
+    cx.fillStyle='#1a1d2a'; cx.fillRect(-9,-44,18,32);
+    cx.strokeStyle='#1a1d2a'; cx.lineWidth=5; cx.lineCap='round';
+    cx.beginPath(); cx.moveTo(-4,-12); cx.lineTo(-6,4+step); cx.moveTo(4,-12); cx.lineTo(6,4-step); cx.stroke();
+    cx.fillStyle='#e8cfae'; cx.beginPath(); cx.arc(0,-54,9,0,TAU); cx.fill();
+    cx.fillStyle='#2a2d3a'; cx.fillRect(8,-26,12,16);
+  }
+  cx.restore();
+}
+
+/* ---------- 猫の集会 ---------- */
+function drawCatAt(x,y,dir,sit,t,ph){
+  cx.save(); cx.translate(x,y); cx.scale(dir||1,1);
+  cx.fillStyle='#0a0a12';
+  cx.beginPath(); cx.ellipse(0,0,16,8,0,0,TAU); cx.fill();
+  cx.beginPath(); cx.arc(14,-8,7,0,TAU); cx.fill();
+  cx.beginPath(); cx.moveTo(10,-13); cx.lineTo(12,-19); cx.lineTo(15,-13); cx.fill();
+  cx.beginPath(); cx.moveTo(16,-13); cx.lineTo(19,-18); cx.lineTo(21,-12); cx.fill();
+  cx.strokeStyle='#0a0a12'; cx.lineWidth=3; cx.lineCap='round';
+  cx.beginPath(); cx.moveTo(-14,-2);
+  cx.quadraticCurveTo(-24,-6+Math.sin(t*3+ph)*6,-26,-16+Math.sin(t*2.2+ph)*4); cx.stroke();
+  if(sit){
+    cx.fillStyle='#aef0c0';
+    cx.beginPath(); cx.arc(15,-9,1.2,0,TAU); cx.arc(18.5,-9,1.2,0,TAU); cx.fill();
+  }
+  cx.restore();
+}
+function startAssembly(){
+  if(assembly.on)return;
+  assembly.on=true; assembly.phase='gather'; assembly.t=0;
+  const c0=clamp(scroller.scrollLeft+W/2,260,Math.max(300,alleyW-260));
+  assembly.cats=Array.from({length:6},(_,i)=>({
+    i, ph:rnd(TAU),
+    x:c0+(i%2?1:-1)*(W*.7+rnd(60,260)),
+    tx:c0+Math.cos(i/6*TAU)*76,
+    face:Math.cos(i/6*TAU)>0?-1:1,
+  }));
+  announce('猫の集会が始まりました。議題:「最近のお客様について」',4800);
+}
+function drawAssembly(t,dt,sx){
+  if(!assembly.on){
+    if(Math.random()<.00002)startAssembly();
+    return;
+  }
+  const gy=H*.72;
+  let allIn=true, allOut=true;
+  for(const c of assembly.cats){
+    const d=c.tx-c.x;
+    if(Math.abs(d)>4){ c.x+=Math.sign(d)*120*dt; allIn=false; }
+    if(c.x>-280&&c.x<alleyW+280)allOut=false;
+    const sitting=assembly.phase==='sit';
+    drawCatAt(c.x-sx, gy+16+(c.i%3)*9, sitting?c.face:(Math.sign(d)||1), sitting, t, c.ph);
+  }
+  if(assembly.phase==='gather'&&allIn){assembly.phase='sit'; assembly.t=0;}
+  else if(assembly.phase==='sit'){
+    assembly.t+=dt;
+    if(assembly.t>20){
+      assembly.phase='leave';
+      for(const c of assembly.cats)c.tx=c.x<scroller.scrollLeft+W/2?-300:alleyW+300;
+      announce('猫の集会は散会いたしました。議事録はございません。',3800);
+    }
+  }else if(assembly.phase==='leave'&&allOut)assembly.on=false;
+}
+
+/* ---------- きつね・泡・温もり・フラッシュ ---------- */
+function drawFx(t,dt,sx){
+  const gy=H*.72;
+  if(fox){
+    fox.x+=420*dt;
+    const x=fox.x-sx;
+    if(fox.x>alleyW+200)fox=null;
+    else if(x>-80&&x<W+80){
+      cx.save(); cx.translate(x,gy+22);
+      cx.fillStyle='#d8742a';
+      cx.beginPath(); cx.ellipse(0,0,18,7,0,0,TAU); cx.fill();
+      cx.beginPath(); cx.arc(16,-6,6,0,TAU); cx.fill();
+      cx.beginPath(); cx.moveTo(13,-10); cx.lineTo(15,-16); cx.lineTo(18,-10); cx.fill();
+      cx.beginPath(); cx.moveTo(17,-10); cx.lineTo(20,-15); cx.lineTo(22,-9); cx.fill();
+      cx.beginPath(); cx.moveTo(-16,-2); cx.quadraticCurveTo(-30,-8,-34,-2); cx.quadraticCurveTo(-30,2,-16,2); cx.fill();
+      cx.fillStyle='#f7f2e2'; cx.beginPath(); cx.arc(-32,-2,4,0,TAU); cx.fill();
+      cx.restore();
+    }
+  }
+  for(let i=fxBub.length-1;i>=0;i--){
+    const b=fxBub[i];
+    b.y+=(b.vy||-40)*dt; b.life-=dt;
+    if(b.life<=0){fxBub.splice(i,1);continue;}
+    cx.globalAlpha=Math.min(.7,b.life);
+    cx.strokeStyle=`rgba(${b.col||'200,230,255'},.8)`; cx.lineWidth=1.2;
+    cx.beginPath(); cx.arc(b.scr?b.x:b.x-sx,b.y,b.r,0,TAU); cx.stroke();
+  }
+  cx.globalAlpha=1;
+  if(warmT>0){
+    warmT-=dt;
+    cx.fillStyle=`rgba(255,140,60,${Math.min(.12,warmT*.05)})`; cx.fillRect(0,0,W,H);
+  }
+  if(flash>0){
+    flash-=dt*2.6;
+    cx.fillStyle=`rgba(255,255,255,${clamp(flash,0,1)})`; cx.fillRect(0,0,W,H);
+  }
+}
+
+/* ---------- 売店モーダル(屋台/自販機/おみくじ/写真) ---------- */
+const modal=document.createElement('div');
+modal.className='yk-modal';
+modal.innerHTML='<div class="yk-modal-card"></div>';
+ov.appendChild(modal);
+const modalCard=modal.querySelector('.yk-modal-card');
+modal.addEventListener('click',e=>{ if(e.target===modal)closeModal(); });
+function openModal(html){ modalCard.innerHTML=html; modal.classList.add('on'); }
+function closeModal(){ modal.classList.remove('on'); }
+function yataiHtml(){
+  const ok=moon.mode==='sky';
+  return '<h4>屋台「月見」</h4>'+
+    '<p class="yk-m-note">タヌキ店主「へい、らっしゃい。お代は葉っぱでも結構です」</p>'+
+    `<button class="yk-m-btn" data-act="tsukimi">月見うどん ¥0 <small>${ok?'月、落とします(空から直送)':'※月はただいま入荷待ちでございます'}</small></button>`+
+    '<button class="yk-m-btn" data-act="kitsune">きつねうどん ¥0 <small>きつねは出払っております</small></button>'+
+    '<button class="yk-m-btn" data-act="oden">おでん(気持ち) ¥0 <small>心がだいたい2℃あたたまります</small></button>'+
+    '<button class="yk-m-btn" data-act="close">店を出る</button>';
+}
+function vendHtml(){
+  return '<h4>夜光自販機</h4>'+
+    '<p class="yk-m-note">ブゥゥン……(夜通し働く音がします)</p>'+
+    '<button class="yk-m-btn" data-act="oshiruko">おしるこ(熱) ¥0 <small>缶が湯たんぽを兼ねております</small></button>'+
+    '<button class="yk-m-btn" data-act="ramune">ラムネ(冷) ¥0 <small>泡は天然です(諸説あります)</small></button>'+
+    '<button class="yk-m-btn" data-act="nazo">謎(常温) ¥0 <small>中身は謎です</small></button>'+
+    `<button class="yk-m-btn" data-act="omikuji">おみくじ ¥0 <small>電線に結べます(現在${musubi}枚)</small></button>`+
+    '<button class="yk-m-btn" data-act="close">立ち去る</button>';
+}
+function omikujiHtml(){
+  const res=pickA(['大吉','吉','中吉','小吉','末吉','凶','大凶のち晴れ']);
+  const rows=[
+    ['恋愛',pickA(['のっぺらぼうに見つめられています(たぶん)','「月がきれいですね」と言うと月が落ちます','進展は次の満月入荷後'])],
+    ['金運',pickA(['全品0円につき変動なし','レシートが化石になる頃、上向きます','つり銭は夢で受け取れます'])],
+    ['脱走運',pickA(['タコに学びましょう','帽子のふりが有効です','非常口は下り専用、上りは気合い'])],
+    ['探し物',pickA(['深海にあります','だいたい縄文時代に置いてきています','猫が知っていますが、教えません'])],
+  ];
+  return '<h4>おみくじ</h4>'+
+    `<div class="yk-omikuji"><span class="res">${res}</span><div class="rows">`+
+    rows.map(r=>`<div><b>${r[0]}</b> — ${r[1]}</div>`).join('')+
+    '</div></div>'+
+    '<button class="yk-m-btn" data-act="musubu">電線に結ぶ(伝統)</button>'+
+    '<button class="yk-m-btn" data-act="close">持ち帰る(お守りになります)</button>';
+}
+modalCard.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]'); if(!b)return;
+  const act=b.dataset.act;
+  if(act==='close')closeModal();
+  else if(act==='tsukimi'){
+    closeModal();
+    if(moon.mode!=='sky')announce('申し訳ございません。月はただいま入荷待ちでございます。',3800);
+    else{
+      moon.mode='falling'; moon.p=0;
+      announce('タヌキ店主「月見一丁!」— 空から直送いたします。',4200);
+      speak('月見、一丁。');
+    }
+  }
+  else if(act==='kitsune'){
+    closeModal(); fox={x:scroller.scrollLeft-80};
+    announce('きつねは出払っております。— 今、走っていったのがそうです。',4200);
+  }
+  else if(act==='oden'){
+    closeModal(); warmT=8;
+    for(let i=0;i<8;i++)fxBub.push({x:DECO.yatai+rnd(-30,30),y:H*.66,vy:-rnd(20,50),life:rnd(.8,1.6),r:rnd(2,5),col:'230,235,240'});
+    announce('おでん(気持ち)でございます。心が約2℃あたたまりました。',4000);
+  }
+  else if(act==='oshiruko'){ closeModal(); warmT=8; blip(110,.18,0,'square',.12);
+    announce('ゴトン。— おしるこ(熱)。缶は湯たんぽを兼ねております。',4000); }
+  else if(act==='ramune'){ closeModal(); blip(110,.18,0,'square',.12);
+    for(let i=0;i<24;i++)fxBub.push({x:rnd(W),y:rnd(H*.4,H*.85),vy:-rnd(30,80),life:rnd(1,2.4),r:rnd(2,5),scr:1});
+    announce('ゴトン。— ラムネ(冷)。泡は天然でございます(諸説)。',4000); }
+  else if(act==='nazo'){
+    closeModal(); blip(110,.18,0,'square',.12);
+    const r=Math.random();
+    if(r<.34){ moon.blink=2; announce('ゴトン。— 「謎」。……月が、瞬きました。',4200); }
+    else if(r<.67){ cat.startle=1.5; cat.state='walk'; announce('ゴトン。— 「謎」。……猫が何かに気づいたようです。',4200); }
+    else{ walkerBoost=30; setTimeout(()=>walkerBoost=1,4000); announce('ゴトン。— 「謎」。……何かが、こちらへ歩いてきます。',4200); }
+  }
+  else if(act==='omikuji'){ blip(660,.1,0,'triangle',.05); openModal(omikujiHtml()); }
+  else if(act==='musubu'){
+    musubi++; localStorage.setItem('yk-musubi',musubi); closeModal();
+    announce(`おみくじを電線に結びました(累計${musubi}枚)。風の強い日は増えて見えます。`,4200);
+  }
+  else if(act==='photo'){ closeModal(); setTimeout(takePhoto,150); }
+});
+
+/* ---------- 心霊写真館 ---------- */
+function ghostFigure(g,x,y,s){
+  const gr=g.createRadialGradient(x,y,0,x,y,44*s);
+  gr.addColorStop(0,'rgba(240,240,255,.16)'); gr.addColorStop(1,'rgba(240,240,255,0)');
+  g.fillStyle=gr;
+  g.beginPath(); g.arc(x,y,16*s,0,TAU); g.fill();
+  g.beginPath(); g.ellipse(x,y+40*s,20*s,36*s,0,0,TAU); g.fill();
+}
+function buildPhoto(){
+  const pw=Math.min(W,900), phh=Math.round(pw*H/W);
+  const c=document.createElement('canvas'); c.width=pw+44; c.height=phh+96;
+  const g=c.getContext('2d');
+  g.fillStyle='#f4f0e6'; g.fillRect(0,0,c.width,c.height);
+  g.save(); g.translate(22,22);
+  g.drawImage(cv,0,0,pw,phh);
+  g.fillStyle='rgba(90,60,30,.16)'; g.fillRect(0,0,pw,phh);
+  const vg=g.createRadialGradient(pw/2,phh/2,phh*.3,pw/2,phh/2,phh*.85);
+  vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,.4)');
+  g.fillStyle=vg; g.fillRect(0,0,pw,phh);
+  g.fillStyle='rgba(255,255,255,.05)';
+  for(let i=0;i<500;i++)g.fillRect(Math.random()*pw,Math.random()*phh,1.2,1.2);
+  const ghosted=Math.random()<.34;
+  if(ghosted){
+    const n=1+(Math.random()*2|0);
+    for(let i=0;i<n;i++)ghostFigure(g,rnd(pw*.15,pw*.85),rnd(phh*.3,phh*.75),rnd(.7,1.4));
+  }
+  g.fillStyle='#ff8a3a'; g.font='bold 17px monospace'; g.textAlign='right';
+  g.shadowColor='rgba(255,120,40,.7)'; g.shadowBlur=4;
+  g.fillText(`'${pickA(['87','93','95','98'])} ${1+(Math.random()*12|0)}.${1+(Math.random()*28|0)} 02:22`,pw-14,phh-14);
+  g.shadowBlur=0; g.restore();
+  g.fillStyle='#6a6258'; g.font='15px "Hiragino Mincho ProN",serif'; g.textAlign='center';
+  g.fillText('— 夜の横丁にて —',c.width/2,phh+66);
+  return {url:c.toDataURL('image/png'), ghosted};
+}
+function takePhoto(){
+  const shot=buildPhoto();
+  flash=1; blip(1600,.04,0,'square',.08); blip(700,.06,.05,'square',.06);
+  setTimeout(()=>{
+    openModal('<h4>記念写真</h4>'+
+      '<p class="yk-m-note">※店舗棟は写りません(プライバシー保護)。現像結果について当館は責任を負いかねます。</p>'+
+      `<div class="yk-photo-out"><img src="${shot.url}" alt="夜の横丁の記念写真"></div>`+
+      `<a class="yk-m-btn" download="yokocho-photo.png" href="${shot.url}">📥 保存する(無料)</a>`+
+      '<button class="yk-m-btn" data-act="photo">📷 もう一枚</button>'+
+      '<button class="yk-m-btn" data-act="close">閉じる</button>');
+    if(shot.ghosted)setTimeout(()=>announce('……おや。今、何か写り込みましたね。',4200),1600);
+  },420);
+}
+ov.querySelector('.yk-photo').addEventListener('click',takePhoto);
+
+/* ---------- 店先の実演(ミニCanvas×5) ---------- */
+const minis={};
+SHOPS.forEach(s=>{ minis[s.key]=ov.querySelector('#yk-mini-'+s.key).getContext('2d'); });
+let boardIdx=0, eyes={x:0,y:0,a:0}, streak=null, leaf=null;
+const BOARD=['回　送','––:––','まもなく','(無 音)'];
+function drawMinis(t,dt){
+  { // 異界食堂: 丼と湯気とのれん
+    const c=minis.shokudo;
+    c.fillStyle='#160d07'; c.fillRect(0,0,560,320);
+    const wg=c.createRadialGradient(280,210,0,280,210,260);
+    wg.addColorStop(0,'rgba(255,150,70,.18)'); wg.addColorStop(1,'rgba(255,150,70,0)');
+    c.fillStyle=wg; c.fillRect(0,0,560,320);
+    c.fillStyle='#2c1a0e'; c.fillRect(0,230,560,90);
+    c.fillStyle='#7a3c20'; c.beginPath();
+    c.moveTo(200,228); c.quadraticCurveTo(280,292,360,228); c.fill();
+    c.fillStyle='#f7eecf'; c.beginPath(); c.ellipse(280,226,68,10,0,0,TAU); c.fill();
+    c.fillStyle='#ffd76a'; c.beginPath(); c.arc(300,224,12,0,TAU); c.fill();
+    c.strokeStyle='#caa86a'; c.lineWidth=3;
+    c.beginPath(); c.moveTo(360,180); c.lineTo(420,212); c.moveTo(366,172); c.lineTo(426,202); c.stroke();
+    for(let i=0;i<6;i++){
+      const p=(t*.3+i*.17)%1;
+      c.globalAlpha=(1-p)*.4; c.fillStyle='#e8eef4';
+      c.beginPath(); c.arc(280+Math.sin(t*2+i)*16-((i%3)-1)*30,210-p*150,6+p*14,0,TAU); c.fill();
+    }
+    c.globalAlpha=1;
+    for(let i=0;i<4;i++){
+      const sway=Math.sin(t*1.4+i)*5;
+      c.fillStyle='#8a2a22'; c.beginPath();
+      c.moveTo(40+i*125,0); c.lineTo(40+i*125+110,0);
+      c.lineTo(40+i*125+110+sway,64); c.lineTo(40+i*125+sway,64); c.fill();
+      c.fillStyle='#f0e2c8'; c.font='20px serif'; c.textAlign='center';
+      c.fillText('異界食堂'[i]||'',40+i*125+55+sway,42);
+    }
+    c.fillStyle=Math.sin(t*3)>0?'#ff6a4a':'#5a2a1a';
+    c.beginPath(); c.arc(520,90,5,0,TAU); c.fill();
+    c.fillStyle='#caa86a'; c.font='11px sans-serif'; c.fillText('営業中',520,112);
+  }
+  { // 終電後の駅: 発車標と信号
+    const c=minis.eki;
+    c.fillStyle='#0a0e16'; c.fillRect(0,0,560,320);
+    boardIdx=Math.floor(t/2.5)%BOARD.length;
+    c.fillStyle='#05070c'; c.fillRect(120,40,320,70);
+    c.strokeStyle='#2a3548'; c.lineWidth=2; c.strokeRect(120,40,320,70);
+    c.fillStyle='#9fe8b0'; c.font='13px monospace'; c.textAlign='left';
+    c.fillText('次発',140,66);
+    c.font='bold 26px monospace'; c.textAlign='center';
+    c.globalAlpha=.75+.25*Math.sin(t*9);
+    c.fillText(BOARD[boardIdx],300,96); c.globalAlpha=1;
+    if(!streak&&Math.random()<.005)streak={x:-80};
+    if(streak){
+      streak.x+=900*dt;
+      c.fillStyle='rgba(255,235,180,.5)';
+      for(let i=0;i<7;i++)c.fillRect(streak.x+i*22,150,14,7);
+      if(streak.x>700)streak=null;
+    }
+    c.fillStyle='#1a2030'; c.fillRect(0,230,560,90);
+    c.fillStyle='#caa83a'; for(let x=10;x<560;x+=34)c.fillRect(x,238,22,5);
+    const on=Math.floor(t*.7)%2;
+    c.fillStyle='#10141e'; c.fillRect(470,140,10,92);
+    c.fillStyle=on?'#ff5a4a':'#3a1e1c'; c.beginPath(); c.arc(475,150,8,0,TAU); c.fill();
+    c.fillStyle=on?'#1e3a26':'#6aff8a'; c.beginPath(); c.arc(475,174,8,0,TAU); c.fill();
+    c.fillStyle='#3a4458'; c.fillRect(60,200,120,30); c.fillRect(70,228,8,12); c.fillRect(162,228,8,12);
+    c.fillStyle='#8a96ad'; c.font='11px sans-serif'; c.textAlign='center'; c.fillText('ベンチ(冷たい)',120,260);
+  }
+  { // おばけ長屋: 窓の明かり
+    const c=minis.nagaya;
+    c.fillStyle='#0d0a16'; c.fillRect(0,0,560,320);
+    c.fillStyle='#241a30'; c.beginPath();
+    c.moveTo(20,110); c.lineTo(280,52); c.lineTo(540,110); c.fill();
+    c.fillStyle='#1c1428'; c.fillRect(40,110,480,180);
+    for(let i=0;i<4;i++){
+      const wx=80+i*120, lit=Math.sin(t*.6+i*2.3)>.2;
+      c.fillStyle=lit?'rgba(255,214,140,.85)':'#0e0a18';
+      c.fillRect(wx,150,72,86);
+      c.strokeStyle='#3a2c50'; c.lineWidth=3;
+      c.strokeRect(wx,150,72,86);
+      c.beginPath(); c.moveTo(wx+36,150); c.lineTo(wx+36,236); c.moveTo(wx,193); c.lineTo(wx+72,193); c.stroke();
+      if(lit&&Math.sin(t*.4+i*5)>.75){
+        c.font='30px serif'; c.textAlign='center'; c.globalAlpha=.8;
+        c.fillText('👻',wx+36,206); c.globalAlpha=1;
+      }
+    }
+    c.save(); c.translate(496,96); c.rotate(Math.sin(t*1.1)*.12);
+    c.fillStyle='#caa86a'; c.fillRect(-4,-6,8,30);
+    c.fillStyle='#f0e2c8'; c.fillRect(-34,24,68,26);
+    c.fillStyle='#5a3a20'; c.font='bold 13px serif'; c.textAlign='center'; c.fillText('空室あり',0,42);
+    c.restore();
+  }
+  { // 百貨店の夜警: 巡回の光
+    const c=minis.yakei;
+    c.fillStyle='#04050a'; c.fillRect(0,0,560,320);
+    c.strokeStyle='#141a26'; c.lineWidth=2;
+    for(let row=0;row<3;row++){ c.strokeRect(40,60+row*80,480,54); }
+    const bx=280+Math.sin(t*.6)*200;
+    if(eyes.a<=0&&Math.random()<.004){eyes={x:rnd(80,480),y:rnd(70,260),a:1};}
+    const grd=c.createRadialGradient(bx,170,0,bx,170,150);
+    grd.addColorStop(0,'rgba(255,240,180,.3)'); grd.addColorStop(1,'rgba(255,240,180,0)');
+    c.fillStyle=grd; c.beginPath(); c.arc(bx,170,150,0,TAU); c.fill();
+    c.strokeStyle='rgba(255,240,180,.35)';
+    for(let row=0;row<3;row++){
+      c.beginPath(); c.moveTo(Math.max(40,bx-130),60+row*80+54); c.lineTo(Math.min(520,bx+130),60+row*80+54); c.stroke();
+    }
+    if(eyes.a>0){
+      if(Math.abs(eyes.x-bx)<120)eyes.a-=dt*4; else if(Math.random()<.01)eyes.a-=dt;
+      c.globalAlpha=Math.max(0,eyes.a); c.fillStyle='#aef0c0';
+      c.beginPath(); c.arc(eyes.x-5,eyes.y,2.4,0,TAU); c.arc(eyes.x+5,eyes.y,2.4,0,TAU); c.fill();
+      c.globalAlpha=1;
+    }
+    c.fillStyle='#8a96ad'; c.font='11px sans-serif'; c.textAlign='left';
+    c.fillText('巡回中… 異常なし(※)',46,306);
+  }
+  { // 苔庭と砂紋: 砂紋が引かれていく
+    const c=minis.niwa;
+    c.fillStyle='#8a8470'; c.fillRect(0,0,560,320);
+    c.strokeStyle='rgba(60,56,44,.35)'; c.lineWidth=2;
+    for(let y=24;y<320;y+=18){ c.beginPath(); c.moveTo(0,y); c.lineTo(560,y); c.stroke(); }
+    const stones=[[170,150,46],[390,200,34]];
+    const p=(t%14)/14;
+    for(const [sx2,sy2,sr] of stones){
+      for(let r=sr+16;r<sr+70;r+=16){
+        const prog=clamp(p*3-(r-sr-16)/54,0,1);
+        if(prog<=0)continue;
+        c.beginPath(); c.arc(sx2,sy2,r,-Math.PI/2,-Math.PI/2+prog*TAU); c.stroke();
+        if(prog<1){
+          const a=-Math.PI/2+prog*TAU;
+          c.fillStyle='rgba(60,56,44,.6)';
+          c.beginPath(); c.arc(sx2+Math.cos(a)*r,sy2+Math.sin(a)*r,3,0,TAU); c.fill();
+        }
+      }
+      c.fillStyle='#4a4438'; c.beginPath();
+      c.ellipse(sx2,sy2,sr,sr*.72,.3,0,TAU); c.fill();
+      c.fillStyle='rgba(122,140,86,.8)'; c.beginPath();
+      c.ellipse(sx2-sr*.3,sy2-sr*.3,sr*.5,sr*.3,.3,0,TAU); c.fill();
+    }
+    if(!leaf&&Math.random()<.003)leaf={x:rnd(60,500),y:-10,rot:rnd(TAU)};
+    if(leaf){
+      leaf.y+=22*dt; leaf.x+=Math.sin(t*2)*1.2; leaf.rot+=dt*2;
+      c.save(); c.translate(leaf.x,leaf.y); c.rotate(leaf.rot);
+      c.fillStyle='#a8743a'; c.beginPath(); c.ellipse(0,0,7,3.4,0,0,TAU); c.fill(); c.restore();
+      if(leaf.y>330)leaf=null;
+    }
+    c.fillStyle='rgba(60,56,44,.7)'; c.font='12px serif'; c.textAlign='right';
+    c.fillText('— 何もしない、をする —',540,302);
+  }
+}
+
+/* ---------- 開閉・ループ ---------- */
+let ykOpen=false, raf=0, lastT=0;
+function loop(ms){
+  if(!ykOpen)return;
+  const t=ms/1000, dt=Math.min(.05,t-lastT||.016); lastT=t;
+  cx.clearRect(0,0,W,H);
+  drawAlley(t,dt);
+  drawMinis(t,dt);
+  raf=requestAnimationFrame(loop);
+}
+function openAnnex(focusKey){
+  if(ykOpen)return;
+  ykOpen=true;
+  ov.classList.add('open');
+  document.body.style.overflow='hidden';
+  resize(); ambStart();
+  raf=requestAnimationFrame(loop);
+  announce('渡り廊下を経由して、新館「夜の横丁」へご案内いたします。お静かにどうぞ。',4600);
+  speak('新館、夜の横丁でございます。お静かにどうぞ。');
+  stampYokocho();
+  if(new Date().getHours()===2){   // 本物の丑三つ時
+    walkerBoost=5;
+    setTimeout(()=>announce('……本物の丑三つ時にようこそ。本日は妖怪のお客様が多めでございます。',5400),5600);
+  }
+  if(focusKey){
+    const el=ov.querySelector(`.yk-shop[data-shop="${focusKey}"]`);
+    if(el)setTimeout(()=>el.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'}),80);
+  }
+}
+function closeAnnex(){
+  if(!ykOpen)return;
+  ykOpen=false;
+  cancelAnimationFrame(raf);
+  ov.classList.remove('open');
+  document.body.style.overflow='';
+  ambStop();
+  announce('本館へお戻りでございます。おかえりなさいませ。',3000);
+}
+ov.querySelector('.yk-back').addEventListener('click',closeAnnex);
+addEventListener('keydown',e=>{
+  if(e.key!=='Escape'||!ykOpen)return;
+  if(modal.classList.contains('on'))closeModal();
+  else closeAnnex();
+});
+addEventListener('resize',()=>{ if(ykOpen)resize(); });
+scroller.addEventListener('wheel',e=>{
+  if(Math.abs(e.deltaY)>Math.abs(e.deltaX)){ e.preventDefault(); scroller.scrollLeft+=e.deltaY; }
+},{passive:false});
+// 路地のものに触る(屋台・自販機・妖怪・猫)
+scroller.addEventListener('click',e=>{
+  if(e.target.closest('.yk-shop'))return;
+  const gy=H*.72;
+  const wx=e.clientX+scroller.scrollLeft, wy=e.clientY;
+  if(Math.abs(wx-DECO.yatai)<95&&wy>H*.42){            // 屋台
+    blip(520,.1,0,'triangle',.05);
+    openModal(yataiHtml());
+    return;
+  }
+  if(Math.abs(wx-DECO.vend)<55&&wy>H*.45){             // 自販機
+    blip(1320,.05,0,'square',.04);
+    openModal(vendHtml());
+    return;
+  }
+  if(walker&&Math.abs(wx-walker.x)<50){                // 妖怪
+    announce(WALKER_LINES[walker.type],3800);
+    blip(330,.15,0,'triangle',.05);
+    return;
+  }
+  if(Math.abs(wx-cat.x)<46&&Math.abs(wy-(gy+30))<46){  // 猫
+    cat.startle=1.2; cat.state='walk'; cat.dir=Math.random()<.5?-1:1;
+    catTaps++;
+    if(catTaps>=3){
+      catTaps=0;
+      startAssembly();
+    }else{
+      announce(catTaps===2?'猫「にゃ……(次は呼ぶぞ、という顔をしています)」':'猫「にゃっ」(夜の横丁の主です。雑に触らないでください)',3400);
+    }
+    blip(880,.12,0,'sine',.05); blip(1240,.1,.1,'sine',.04);
+  }
+});
+
+/* ---------- のれん転換(入店演出) ---------- */
+ov.querySelectorAll('.yk-go').forEach(a=>a.addEventListener('click',e=>{
+  e.preventDefault();
+  const shop=SHOPS.find(s=>a.getAttribute('href').startsWith(s.dir));
+  noren.querySelector('b').textContent=shop?shop.name:'いらっしゃいませ';
+  noren.classList.add('run');
+  blip(660,.3,0,'triangle',.06); blip(880,.4,.15,'triangle',.05);
+  speak('いってらっしゃいませ。');
+  setTimeout(()=>{ location.href=a.getAttribute('href'); },1050);
+}));
+addEventListener('pageshow',e=>{ if(e.persisted)noren.classList.remove('run'); });
+
+/* ---------- 既存導線の配線替え ---------- */
+// 玄関の「新館のご案内」→ 横丁経由に
+document.querySelectorAll('.tenchi-annex a').forEach(a=>{
+  const shop=SHOPS.find(s=>(a.getAttribute('href')||'').startsWith(s.dir));
+  if(!shop)return;
+  a.addEventListener('click',e=>{ e.preventDefault(); openAnnex(shop.key); });
+});
+// エレベーターに「新」ボタン
+const elev=document.querySelector('.elev'), sndBtn=document.querySelector('.elev .sound');
+if(elev&&sndBtn){
+  const b=document.createElement('button');
+  b.textContent='新'; b.title='新館連絡通路(夜の横丁)';
+  b.addEventListener('click',()=>openAnnex());
+  elev.insertBefore(b,sndBtn);
+}
+
+/* ---------- スタンプ「夜」(新館ご来館記念) ---------- */
+function addYoruSlot(got){
+  const slots=document.querySelector('.stamps .slots');
+  if(!slots||slots.querySelector('[data-stamp="yokocho"]'))return;
+  const d=document.createElement('div');
+  d.className='slot'; d.dataset.stamp='yokocho';
+  d.innerHTML='新館<span class="hanko">夜</span>';
+  slots.appendChild(d);
+  if(got)d.classList.add('got');
+  else setTimeout(()=>{ d.classList.add('got'); blip(140,.12,0,'square',.1); },700);
+}
+function stampYokocho(){
+  if(localStorage.getItem('tenchi-stamp-yokocho'))return;
+  localStorage.setItem('tenchi-stamp-yokocho','1');
+  addYoruSlot(false);
+  setTimeout(()=>announce('スタンプ「夜」を押印いたしました(新館ご来館記念)',3600),5200);
+}
+if(localStorage.getItem('tenchi-stamp-yokocho'))addYoruSlot(true);
+
+/* ---------- 増築後の再測量 ----------
+   お得意さまカード・新館案内・横丁はあとから注入されて玄関が伸びるため、
+   本館の世界計測(海面・地層の位置)がズレる。注入が落ち着いたら resize を
+   発火して本館スクリプトに再測量させる。以後も高さが変わるたび自動追従。 */
+const remeasure=()=>window.dispatchEvent(new Event('resize'));
+setTimeout(remeasure,0);
+setTimeout(remeasure,400);
+let lastDocH=document.documentElement.scrollHeight;
+new ResizeObserver(()=>{
+  const h=document.documentElement.scrollHeight;
+  if(Math.abs(h-lastDocH)>4){ lastDocH=h; remeasure(); }
+}).observe(document.body);
+
+}catch(err){ console.error('[yokocho]', err); }
 })();
 </script>
 </body>

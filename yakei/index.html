@@ -1075,5 +1075,823 @@
   setTimeout(() => toast("23:00。見回りを開始する。"), 1400);
 })();
 </script>
+
+<script>
+// ════ plugin: yakei-teate (wave2) ════ Append before </body> in yakei/index.html. 323 lines, node --check passed. Integration details: (1) 手当 hooks "anomaly-resolved"; pays 3-6 of a floor-weighted sh
+(() => {
+  "use strict";
+  if(!window.YAKEI) return;
+  const Y = window.YAKEI;
+  const G = Y.guard;
+  const esc = Y.esc;
+
+  // ================= shared currencies =================
+  const CUR = {
+    hoshizora:{ ls:"currency-hoshizora", name:"星屑",   emoji:"✨" },
+    shinkai:  { ls:"currency-shinkai",   name:"真珠",   emoji:"🫧" },
+    shima:    { ls:"currency-shima",     name:"貝がら", emoji:"🐚" },
+    rekishi:  { ls:"currency-rekishi",   name:"信仰",   emoji:"🕯" },
+  };
+  const CUR_IDS = Object.keys(CUR);
+  function curGet(id){
+    try{
+      const v = parseInt(localStorage.getItem(CUR[id].ls), 10);
+      return Number.isFinite(v) ? Math.max(0, v) : 0;
+    }catch(e){ return 0; }
+  }
+  function curSet(id, v){
+    try{ localStorage.setItem(CUR[id].ls, String(Math.max(0, Math.round(v)))); }catch(e){}
+  }
+
+  // ================= css =================
+  const style = document.createElement("style");
+  style.textContent = `
+  .yakei-teate-map{position:fixed;top:64px;right:14px;z-index:5;display:flex;flex-direction:column;gap:4px;
+    background:var(--panel);border:1px solid var(--panel-edge);border-radius:12px;padding:6px;
+    backdrop-filter:blur(10px);box-shadow:0 10px 30px rgba(0,0,0,.4)}
+  .yakei-teate-cell{position:relative;width:46px;height:26px;border:1px solid rgba(255,210,122,.14);
+    border-radius:6px;cursor:pointer;background:rgba(255,255,255,.02);transition:.18s}
+  .yakei-teate-cell:hover{border-color:rgba(255,210,122,.5);background:rgba(26,24,16,.6)}
+  .yakei-teate-cell.yakei-teate-cur{border-color:rgba(255,210,122,.85)}
+  .yakei-teate-fk{position:absolute;left:4px;top:2px;font-size:8px;color:var(--dim);
+    letter-spacing:.06em;pointer-events:none}
+  .yakei-teate-ping{position:absolute;width:6px;height:6px;border-radius:50%;
+    transform:translate(-50%,-50%);pointer-events:none;
+    animation:yakei-teate-pulse 1.6s ease-in-out infinite}
+  @keyframes yakei-teate-pulse{
+    0%,100%{opacity:.35;box-shadow:0 0 2px 0 currentColor}
+    50%{opacity:1;box-shadow:0 0 9px 2px currentColor}}
+  .yakei-teate-pin{position:absolute;font-size:12px;line-height:1;pointer-events:none;
+    transition:top .35s;filter:drop-shadow(0 1px 2px rgba(0,0,0,.8))}
+  .yakei-teate-soubi{position:fixed;left:14px;bottom:62px;width:320px;z-index:6;
+    max-height:calc(100vh - 120px);overflow-y:auto;scrollbar-width:thin;
+    background:var(--panel);border:1px solid var(--panel-edge);border-radius:16px;padding:14px;
+    backdrop-filter:blur(14px);box-shadow:0 18px 50px rgba(0,0,0,.5);transition:transform .3s,opacity .3s}
+  .yakei-teate-soubi.hidden{transform:translateY(16px);opacity:0;pointer-events:none}
+  .yakei-teate-soubi h2{margin:2px 4px 10px;font-size:13px;letter-spacing:.14em;color:var(--dim);font-weight:600}
+  .yakei-teate-wallet{display:flex;gap:6px;flex-wrap:wrap;margin:0 2px 8px}
+  .yakei-teate-wchip{border:1px solid var(--panel-edge);border-radius:999px;padding:3px 10px;
+    font-size:11.5px;color:var(--dim);background:rgba(255,255,255,.03);font-variant-numeric:tabular-nums}
+  .yakei-teate-wchip b{color:var(--ink);font-weight:600;margin-left:3px}
+  .yakei-teate-item{display:flex;align-items:center;gap:10px;padding:9px 4px;
+    border-top:1px solid rgba(255,210,122,.1)}
+  .yakei-teate-ibody{flex:1;min-width:0}
+  .yakei-teate-iname{font-size:13px;letter-spacing:.04em}
+  .yakei-teate-idesc{font-size:11px;color:var(--dim);line-height:1.7;margin-top:2px}
+  .yakei-teate-buy{padding:5px 12px;font-size:12px}
+  .yakei-teate-owned{font-size:11.5px;color:var(--acc);letter-spacing:.06em;white-space:nowrap}
+  .yakei-teate-note{font-size:10.5px;color:var(--dim);margin:9px 4px 0;letter-spacing:.05em;line-height:1.7}
+  .yakei-teate-sumpay{font-size:12px;color:#d9d4c4;margin-top:12px;
+    border-left:2px solid rgba(255,210,122,.3);padding-left:10px}
+  .yakei-teate-lt{font-size:11px;color:var(--dim);letter-spacing:.14em;display:block;margin-bottom:6px}
+  .yakei-teate-paychips{display:flex;gap:6px;flex-wrap:wrap}
+  body.yakei-teate-mahobin #vignette.on{opacity:.5;animation:yakei-teate-blink 5.5s ease-in-out infinite}
+  @keyframes yakei-teate-blink{0%,100%{opacity:.5}50%{opacity:.38}}`;
+  document.head.append(style);
+
+  // ================= 装備 (permanent gear) =================
+  const SKEY = "yakei-teate-soubi-v1";
+  const owned = (() => {
+    try{
+      const o = JSON.parse(localStorage.getItem(SKEY));
+      return o && typeof o === "object" && !Array.isArray(o) ? o : {};
+    }catch(e){ return {}; }
+  })();
+  function saveOwned(){ try{ localStorage.setItem(SKEY, JSON.stringify(owned)); }catch(e){} }
+
+  // -- effect hooks: mutate the same DOM/state the core reads, no fn patching --
+  let lensDone = false;
+  function applyLens(){           // widen the flashlight cone (+35% vertical spread)
+    if(lensDone) return;
+    lensDone = true;
+    try{
+      const polys = [Y.defs.querySelector("#yk-darkmask polygon"),  // mask hole cone
+                     Y.gGuard.querySelector("polygon")];            // visible beam
+      for(const p of polys){
+        if(!p) continue;
+        const pts = (p.getAttribute("points") || "").trim().split(/\s+/).map(pair => {
+          const xy = pair.split(",");
+          const x = parseFloat(xy[0]), yv = parseFloat(xy[1]);
+          if(!Number.isFinite(x) || !Number.isFinite(yv)) return pair;
+          return x + "," + (yv * 1.35).toFixed(1);
+        }).join(" ");
+        p.setAttribute("points", pts);
+      }
+    }catch(e){}
+  }
+  function applyMahobin(){        // halve the 3:00 vignette (speed half handled in loop)
+    try{ document.body.classList.add("yakei-teate-mahobin"); }catch(e){}
+  }
+  function applyDenchi(){         // brighter cone & beam — pure looks
+    try{
+      const b = Y.defs.querySelector("#yk-beam stop");
+      if(b) b.setAttribute("stop-opacity", ".4");
+      const cone = Y.defs.querySelectorAll("#yk-holeCone stop");
+      if(cone[1]) cone[1].setAttribute("stop-color", "#616161");
+      const rad = Y.defs.querySelectorAll("#yk-holeRad stop");
+      if(rad[1]) rad[1].setAttribute("stop-color", "#3c3c3c");
+    }catch(e){}
+  }
+
+  const ITEMS = [
+    { id:"lens", icon:"🔭", name:"広角レンズ", cost:25,
+      desc:"懐中電灯の光がひとまわり広くなる（幅 +35%）",
+      tw:"広角レンズを装備した。夜が、横に広い。",
+      dw:"経費で広角レンズを購入した。世界の端がすこし見えるようになった。",
+      apply:applyLens },
+    { id:"shoes", icon:"👟", name:"静かな靴", cost:20,
+      desc:"歩く速さ +25%。足音は据え置き",
+      tw:"静かな靴に履き替えた。床が褒めてくれた気がする。",
+      dw:"静かな靴を導入。足音の引き継ぎ事項が一件減った。",
+      apply:null },
+    { id:"mahobin", icon:"🫖", name:"魔法瓶", cost:30,
+      desc:"3:00の眠気が半分になる",
+      tw:"魔法瓶を装備。3時と互角に戦える。",
+      dw:"魔法瓶を導入した。中身は職務上の秘密である。",
+      apply:applyMahobin },
+    { id:"denchi", icon:"🔋", name:"予備電池", cost:15,
+      desc:"光がすこし明るくなる。それだけ。それがいい",
+      tw:"予備電池を装填。光が、誇らしげだ。",
+      dw:"予備電池を購入。明るさは士気に計上する。",
+      apply:applyDenchi },
+  ];
+  for(const it of ITEMS) if(owned[it.id] && it.apply) it.apply();   // restore on load
+
+  const soubiPanel = document.createElement("div");
+  soubiPanel.className = "yakei-teate-soubi hidden";
+  document.body.append(soubiPanel);
+
+  function renderSoubi(){
+    let h = `<h2>装備 — 夜警手当でそろえる</h2><div class="yakei-teate-wallet">`;
+    for(const id of CUR_IDS){
+      h += `<span class="yakei-teate-wchip">${esc(CUR[id].emoji)} ${esc(CUR[id].name)}<b>${curGet(id)|0}</b></span>`;
+    }
+    h += `</div>`;
+    for(const it of ITEMS){
+      h += `<div class="yakei-teate-item"><div class="yakei-teate-ibody">`+
+        `<div class="yakei-teate-iname">${esc(it.icon)} ${esc(it.name)}</div>`+
+        `<div class="yakei-teate-idesc">${esc(it.desc)}</div></div>`+
+        (owned[it.id]
+          ? `<span class="yakei-teate-owned">✓ 装備中</span>`
+          : `<button class="btn yakei-teate-buy" data-id="${esc(it.id)}">${it.cost|0} で購入</button>`)+
+        `</div>`;
+    }
+    h += `<div class="yakei-teate-note">支払いはいちばん多い通貨から自動で精算。領収書は出ない。返品は夜明けまで不可。</div>`;
+    soubiPanel.innerHTML = h;
+    soubiPanel.querySelectorAll(".yakei-teate-buy").forEach(b =>
+      b.addEventListener("click", () => buy(b.dataset.id)));
+  }
+  function buy(id){
+    const it = ITEMS.find(x => x.id === id);
+    if(!it || owned[it.id]) return;
+    let best = null, bv = -1;
+    for(const cid of CUR_IDS){ const v = curGet(cid); if(v > bv){ bv = v; best = cid; } }
+    if(!best || bv < it.cost){
+      Y.toast("持ち合わせが足りない。経理に前借りは通じない。");
+      return;
+    }
+    curSet(best, bv - it.cost);                       // never below zero (checked above)
+    owned[it.id] = 1; saveOwned();
+    if(it.apply) it.apply();
+    Y.toast(`${it.tw}（${CUR[best].emoji}${it.cost}で精算）`);
+    Y.writeDiary(it.dw);
+    Y.ding([784, 1175]);
+    Y.emit("soubi:bought", {item:it.id, name:it.name, cost:it.cost, paidWith:best});
+    renderSoubi();
+  }
+  Y.addButton("🔦 装備", () => {
+    if(soubiPanel.classList.contains("hidden")) renderSoubi();
+    soubiPanel.classList.toggle("hidden");
+  });
+
+  // ================= 夜警手当 (allowance per resolved anomaly) =================
+  let nightPay = Object.create(null);
+  const HOME = {0:"hoshizora", 1:"shima", 3:"shinkai", 4:"rekishi"};  // 1F=改装中: 経理も未分類
+  const QUIPS = [
+    "（経理の趣味だそうです）",
+    "（明細は手書きでした）",
+    "（現物支給です）",
+    "（振込先：胸ポケット）",
+    "（査定基準は非公開）",
+    "（源泉徴収はありません）",
+  ];
+  Y.on("anomaly-resolved", a => {
+    const fl = a && typeof a.floor === "number" ? a.floor : G.floor;
+    const home = HOME[fl];
+    const id = (home && Math.random() < .72) ? home : CUR_IDS[(Math.random()*CUR_IDS.length)|0];
+    const amt = 3 + ((Math.random()*4)|0);            // 3..6
+    curSet(id, curGet(id) + amt);
+    nightPay[id] = (nightPay[id]|0) + amt;
+    const c = CUR[id];
+    setTimeout(() => {                                 // let the core's "done" toast breathe first
+      try{ Y.toast(`手当が出ました: ${c.emoji}${amt}${Y.pick(QUIPS)}`); }catch(e){}
+    }, 1600);
+    if(!soubiPanel.classList.contains("hidden")) renderSoubi();
+    Y.emit("teate:paid", {currency:id, amount:amt, name:c.name, emoji:c.emoji});
+  });
+
+  // ================= ミニマップ =================
+  const PAD = 6, CW = 46, CH = 26, GAP = 4;
+  const map = document.createElement("div");
+  map.className = "yakei-teate-map";
+  map.title = "ミニマップ — クリックでエレベーター移動";
+  const cells = [];
+  for(let i = 0; i < 5; i++){
+    const c = document.createElement("div");
+    c.className = "yakei-teate-cell";
+    const k = document.createElement("span");
+    k.className = "yakei-teate-fk";
+    k.textContent = Y.floors[i].key;
+    c.append(k);
+    c.addEventListener("click", () => { try{ Y.gotoFloor(i); }catch(e){} });
+    map.append(c);
+    cells.push(c);
+  }
+  const pin = document.createElement("div");
+  pin.className = "yakei-teate-pin";
+  pin.textContent = "📍";
+  map.append(pin);
+  document.body.append(map);
+
+  function paintMapFloor(){
+    cells.forEach((c, i) => c.classList.toggle("yakei-teate-cur", i === G.floor));
+  }
+  paintMapFloor();
+  Y.on("floor-changed", paintMapFloor);
+
+  const pings = new Map();
+  function addPing(a){
+    if(!a || a.id == null || pings.has(a.id)) return;
+    const d = document.createElement("div");
+    d.className = "yakei-teate-ping";
+    const col = `hsl(${a.type && a.type.hue != null ? a.type.hue : 48},90%,68%)`;
+    d.style.background = col;
+    d.style.color = col;                               // currentColor drives the glow pulse
+    d.style.left = (10 + (a.xr == null ? .5 : a.xr) * 80).toFixed(1) + "%";
+    d.style.top = "62%";
+    const fi = Math.max(0, Math.min(4, a.floor|0));
+    cells[fi].append(d);
+    pings.set(a.id, d);
+  }
+  function dropPing(a){
+    const d = a && pings.get(a.id);
+    if(d){ d.remove(); pings.delete(a.id); }
+  }
+  Y.on("anomaly-spawn", addPing);
+  Y.on("anomaly-resolved", dropPing);
+  for(const a of Y.anomalies) addPing(a);              // in case we loaded mid-night
+
+  // far-floor sound toasts get a direction arrow (re-toast right after the core's)
+  Y.on("anomaly-spawn", a => {
+    if(!a || a.floor === G.floor || !a.type || !a.type.far) return;
+    Y.toast(a.type.far + (a.floor < G.floor ? " ↑" : " ↓"));
+  });
+
+  // ================= morning summary: the night's pay =================
+  Y.on("night-end", () => {
+    for(const d of pings.values()) d.remove();         // missed anomalies leave no pings
+    pings.clear();
+    try{
+      const sumEl = document.getElementById("summary");
+      if(sumEl){
+        const ids = CUR_IDS.filter(id => (nightPay[id]|0) > 0);
+        const div = document.createElement("div");
+        div.className = "yakei-teate-sumpay";
+        let h = `<span class="yakei-teate-lt">夜警手当</span>`;
+        if(ids.length){
+          h += `<div class="yakei-teate-paychips">`;
+          for(const id of ids)
+            h += `<span class="sumchip">${esc(CUR[id].emoji)} ${esc(CUR[id].name)}<b>+${nightPay[id]|0}</b></span>`;
+          h += `</div>`;
+        }else{
+          h += `今夜は未払い（経理も寝ていた）`;
+        }
+        div.innerHTML = h;
+        const nap = sumEl.querySelector("#napBtn");
+        if(nap) sumEl.insertBefore(div, nap); else sumEl.append(div);
+      }
+    }catch(e){}
+    nightPay = Object.create(null);
+  });
+
+  // ================= per-frame: gear speed bonus + map pin =================
+  // The core moves the guard at 170*mul px/s (mul=.7 when sleepy) by mutating guard.xr.
+  // We add our bonus the same way: shoes +25%; mahobin restores half the sleepy
+  // penalty (.7 -> ~.85 effective). Elapsed wall time, dt clamped like the core.
+  let lastT = performance.now();
+  function loop(now){
+    const dt = Math.min(.1, (now - lastT)/1000 || 0);
+    lastT = now;
+    try{
+      if(G.moving && !G.riding){
+        let bonus = 0;
+        if(owned.shoes) bonus += .25;
+        if(owned.mahobin && G.sleepy) bonus += .214;
+        if(bonus > 0){
+          const mul = G.sleepy ? .7 : 1;
+          const bw = Math.max(1, Y.W * .86);           // same building width the core computes
+          G.xr = Math.max(.03, Math.min(.97, G.xr + G.dir*170*mul*bonus*dt/bw));
+        }
+      }
+      const fi = Math.max(0, Math.min(4, G.floor|0));
+      pin.style.top = (PAD + fi*(CH + GAP) + CH - 15) + "px";
+      pin.style.left = (PAD + Math.max(0, Math.min(1, G.xr))*(CW - 16)) + "px";
+    }catch(e){}
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(t => { lastT = t; requestAnimationFrame(loop); });
+})();
+</script>
+
+<script>
+// ════ plugin: yakei-yoru (wave2) ════ Append before </body> after the core script. Uses only the YAKEI API plus state mutation in the core's style: anomalies array splice (as resolveAnomaly/endNight
+(() => {
+  "use strict";
+  if(!window.YAKEI) return;
+  try{
+  const Y = window.YAKEI;
+  const { mk, esc, pick, toast, floorY, writeDiary, spawnAnomaly, on, emit, ding, addButton } = Y;
+  const PK = "yakei-yoru";
+
+  // ---------- persistence ----------
+  const SKEY = PK + "-stats-v1";
+  let stats = { fullmoon:0, blackout:0, rain:0, quiet:0, catResolved:0, pets:0 };
+  try{ const r = JSON.parse(localStorage.getItem(SKEY)); if(r && typeof r === "object") stats = Object.assign(stats, r); }catch(err){}
+  const saveStats = () => { try{ localStorage.setItem(SKEY, JSON.stringify(stats)); }catch(err){} };
+
+  // ---------- css / dom ----------
+  const style = document.createElement("style");
+  style.textContent =
+    `.${PK}-card{position:fixed;left:50%;top:36%;transform:translate(-50%,-50%);z-index:9;pointer-events:none;text-align:center;opacity:0;transition:opacity 1.1s ease;width:min(92vw,560px)}.${PK}-card.show{opacity:1}`+
+    `.${PK}-t{font-size:clamp(26px,5vw,38px);letter-spacing:.3em;color:var(--ink);font-weight:600;text-shadow:0 0 34px rgba(255,210,122,.5),0 0 90px rgba(127,168,216,.35)}`+
+    `.${PK}-s{font-size:11px;color:var(--dim);letter-spacing:.42em;margin-top:9px}.${PK}-d{font-size:13px;color:#d9d4c4;margin-top:14px;letter-spacing:.08em;line-height:1.9;text-shadow:0 0 14px rgba(0,0,0,.95)}`+
+    `.${PK}-toast{position:fixed;left:50%;bottom:66px;transform:translateX(-50%) translateY(16px);background:var(--panel);border:1px solid var(--panel-edge);border-radius:999px;padding:9px 18px;font-size:13px;backdrop-filter:blur(10px);opacity:0;transition:.3s;z-index:9;pointer-events:none}`+
+    `.${PK}-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}`;
+  document.head.append(style);
+  const card = document.createElement("div"); card.className = PK + "-card";
+  const myToastEl = document.createElement("div"); myToastEl.className = PK + "-toast";
+  document.body.append(card, myToastEl);
+  let myToastT = null, cardT = null;
+  function myToast(m){
+    myToastEl.textContent = m; myToastEl.classList.add("show");
+    clearTimeout(myToastT); myToastT = setTimeout(() => myToastEl.classList.remove("show"), 3200);
+  }
+
+  // ---------- geometry (mirrors core resize()) / flashlight internals ----------
+  const geom = () => ({ W:Y.W, H:Y.H, bx:Y.W*.07, bw:Y.W*.86, fh:floorY(1)-floorY(0) });
+  const elevXr = g => 1 - 34/Math.max(60, g.bw);
+  const inQuiet = () => { const o = Y.gAnoms.style.opacity; return o !== "" && o !== "1"; };
+  const maskHole = Y.defs.querySelector("#yk-darkmask g");   // mask hole + visible beam (state, not functions)
+  const beamEl = Y.gGuard.querySelector("polygon");
+  function setLight(onoff){
+    if(maskHole) maskHole.style.visibility = onoff ? "" : "hidden";
+    if(beamEl) beamEl.style.visibility = onoff ? "" : "hidden";
+  }
+  // my layer above the darkness (core's resize only clears its own glow subgroups)
+  const glowLayer = mk("g");
+  glowLayer.style.pointerEvents = "none";
+  Y.gGlow.append(glowLayer);
+
+  // ---------- 特異夜 ----------
+  const KINDS = {
+    fullmoon:{ t:"満月の夜", en:"FULL MOON NIGHT", d:"月明かりで、異変がうっすら見える。数は増える。手当は倍。", open:"23:00。月が満ちている。店の中まで、うっすら明るい。今夜は忙しくなる予感がする。手当は倍だと聞いた。" },
+    blackout:{ t:"停電の夜", en:"BLACKOUT NIGHT", d:"懐中電灯が、ときどき、ためらう。非常灯を頼りに。", open:"23:00。電力会社いわく「今夜は不安定」。懐中電灯がときどき沈黙する。非常灯のオレンジだけが律儀だ。" },
+    rain:{ t:"雨の夜", en:"RAINY NIGHT", d:"閉店後の店に、雨。足音が、すこし濡れる。", open:"23:00。雨。閉店後の店に降る雨は、誰のためでもなく降る。傘の忘れ物に注意、と申し送りにある。" },
+    quiet:{ t:"静かすぎる夜", en:"TOO QUIET", d:"今夜は、何も起きない。それが、いちばん難しい。", open:"23:00。今夜は静かすぎる、と前任者のメモにある。静かなのは良いことのはずだが、ペンだけが重い。" },
+  };
+  const QUIET_REF = [
+    "何も起きない夜は、何も起きなかったことを書く。これがいちばん難しい。",
+    "静かだ。静けさに理由を探すのをやめられたら、夜警は一人前らしい。",
+    "巡回、異状なし。異状がないことを三度たしかめた。三度目はただの癖だ。",
+    "今夜の暗がりは、ただの暗がりだった。それでいい。それがいい。",
+    "書くことがないので、1Fの自販機が今夜も律儀に灯っていることを書いておく。",
+  ];
+
+  // 傘忘れ — registered additively; spawned only by this plugin on rainy nights
+  Y.lore.ANOM.kasawasure = {
+    floor:2, label:"傘の忘れ物", hue:205, harmless:true,
+    far:"……1Fの入口あたりで、雨音が一つぶん濃い気がします",
+    done:"傘は遺失物として、お預かりした",
+    diary:[
+      "入口に傘が一本、開いたまま立っていた。閉店後に降り出した雨を、誰かの代わりに眺めていたらしい。",
+      "忘れ物の傘を照らすと、申し訳なさそうにすぼまった。遺失物棚で雨宿りしてもらう。",
+      "傘の忘れ物。持ち主は濡れて帰ったのだろうか。傘のほうが乾いたまま心配していた。",
+      "傘が雨音に合わせて小さく揺れていた。踊っていたのかもしれない。お預かりとする。",
+    ],
+    draw(g){
+      const u = mk("g");
+      u.append(
+        mk("path",{d:"M -11 -13 A 11 11 0 0 1 11 -13 A 3.67 3.67 0 0 1 3.67 -13 A 3.67 3.67 0 0 1 -3.67 -13 A 3.67 3.67 0 0 1 -11 -13 Z", fill:"#7fa8d8"}),
+        mk("line",{x1:0, y1:-24, x2:0, y2:-27, stroke:"#9fc8e8","stroke-width":1.4}),
+        mk("line",{x1:0, y1:-13, x2:0, y2:0, stroke:"#52688c","stroke-width":1.5}),
+        mk("path",{d:"M 0 0 q 3.4 .4 3.8 -3", stroke:"#52688c","stroke-width":1.5, fill:"none"}));
+      const dr = mk("circle",{cx:8, cy:-11, r:1, fill:"#9fc8e8"});
+      dr.animate([{transform:"translateY(0)", opacity:0},{opacity:.8, offset:.3},{transform:"translateY(10px)", opacity:0}], {duration:1700, iterations:Infinity, easing:"ease-in"});
+      u.append(dr);
+      u.style.transformOrigin = "0px 0px";
+      u.animate([{transform:"rotate(-3deg)"},{transform:"rotate(3deg)"},{transform:"rotate(-3deg)"}], {duration:4200, iterations:Infinity, easing:"ease-in-out"});
+      g.append(u);
+      g.setAttribute("filter","url(#yk-glow)");
+    },
+  };
+
+  let kind = null, endedFlag = false;
+  let fmNext = 0, flickNext = 0, flickUntil = 0, flickAnnounced = false;
+  let umbrella = null, quietPlan = null, quietIdx = 0, splashT = 0;
+  let rainLayer = null, lampLayer = null, moonLayer = null;
+  const ghosts = new Map();   // anomaly.id -> {a, el}
+
+  function rainStart(){
+    rainStop();
+    rainLayer = mk("g"); rainLayer.style.pointerEvents = "none";
+    Y.gFx.append(rainLayer);
+    const g = geom();
+    for(let i=0;i<38;i++){
+      const x = g.bx - 8 + Math.random()*(g.bw + 16), dur = 750 + Math.random()*650;
+      const ln = mk("line",{x1:x, y1:-34, x2:x-3, y2:-24+Math.random()*8, stroke:"#7fa8d8","stroke-width":1, opacity:(.15+Math.random()*.22).toFixed(2), "stroke-linecap":"round"});
+      ln.animate([{transform:"translate(0,0)"},{transform:`translate(-14px, ${g.H+80}px)`}], {duration:dur, iterations:Infinity, easing:"linear", delay:-Math.random()*dur});
+      rainLayer.append(ln);
+    }
+  }
+  const rainStop = () => { if(rainLayer){ rainLayer.remove(); rainLayer = null; } };
+  function lampsStart(){
+    lampsStop();
+    lampLayer = mk("g");
+    glowLayer.append(lampLayer);
+    const g = geom();
+    for(let i=0;i<5;i++){
+      const x = g.bx + 16, y = floorY(i);
+      const r = mk("rect",{x:x-5, y:y-42, width:10, height:6, rx:2, fill:"#ff9a5a", opacity:.55, filter:"url(#yk-glow)"});
+      r.animate([{opacity:.3},{opacity:.62},{opacity:.3}],{duration:1900+i*340, iterations:Infinity, easing:"ease-in-out"});
+      lampLayer.append(r, mk("ellipse",{cx:x, cy:y-2, rx:13, ry:2.6, fill:"#ff9a5a", opacity:.1}));
+    }
+  }
+  const lampsStop = () => { if(lampLayer){ lampLayer.remove(); lampLayer = null; } };
+  function moonStart(){
+    moonStop();
+    moonLayer = mk("g");
+    glowLayer.append(moonLayer);
+    const g = geom(), mx = g.bx + g.bw*.64, my = 70 + g.fh*.32;
+    const halo = mk("circle",{cx:mx, cy:my, r:26, fill:"#f3ead0", opacity:.1, filter:"url(#yk-glow)"});
+    halo.animate([{opacity:.07},{opacity:.17},{opacity:.07}],{duration:5200, iterations:Infinity, easing:"ease-in-out"});
+    moonLayer.append(halo, mk("circle",{cx:mx, cy:my, r:13, fill:"#f3ead0", opacity:.92}),
+      mk("circle",{cx:mx-4, cy:my-3, r:2.4, fill:"#d9cfb2", opacity:.5}),
+      mk("circle",{cx:mx+4, cy:my+4, r:1.7, fill:"#d9cfb2", opacity:.45}),
+      mk("circle",{cx:mx+3, cy:my-5, r:1.2, fill:"#d9cfb2", opacity:.4}));
+  }
+  const moonStop = () => { if(moonLayer){ moonLayer.remove(); moonLayer = null; } };
+
+  function addGhost(a){
+    try{
+      if(!a || ghosts.has(a.id)) return;
+      const fig = a.root && a.root.firstChild;
+      if(!fig) return;
+      const el = mk("g",{opacity:".2", transform:a.root.getAttribute("transform") || ""});
+      el.style.pointerEvents = "none";
+      el.append(fig.cloneNode(true));
+      glowLayer.append(el);
+      ghosts.set(a.id, {a, el});
+    }catch(err){}
+  }
+  function removeGhost(a){
+    const gh = a && ghosts.get(a.id);
+    if(gh){ gh.el.remove(); ghosts.delete(a.id); }
+  }
+  function teardown(){
+    rainStop(); lampsStop(); moonStop();
+    for(const [,gh] of ghosts) gh.el.remove();
+    ghosts.clear();
+    flickNext = flickUntil = 0;
+    setLight(true);
+  }
+  function rollNight(){
+    teardown();
+    kind = null; fmNext = 0; umbrella = quietPlan = null; quietIdx = 0; flickAnnounced = false;
+    if(Math.random() < .2){
+      const k = pick(["fullmoon","blackout","rain","quiet"]);
+      setTimeout(() => { if(!endedFlag) announce(k); }, 2100);
+    }
+  }
+  function announce(k){
+    kind = k;
+    const K = KINDS[k];
+    stats[k] = (stats[k]|0) + 1; saveStats();
+    card.innerHTML = `<div class="${PK}-t">${esc(K.t)}</div><div class="${PK}-s">${esc(K.en)}</div><div class="${PK}-d">${esc(K.d)}</div>`;
+    card.classList.add("show");
+    clearTimeout(cardT);
+    cardT = setTimeout(() => card.classList.remove("show"), 4800);
+    writeDiary(K.open, "全館", "23:00");
+    emit("night:special", {kind:k});
+    if(k === "fullmoon"){
+      moonStart();
+      fmNext = performance.now() + 26000 + Math.random()*20000;
+      for(const a of Y.anomalies) addGhost(a);
+    }
+    else if(k === "blackout") lampsStart();
+    else if(k === "rain"){ rainStart(); umbrella = { times:[50+Math.random()*110, 230+Math.random()*120], i:0 }; }
+    else if(k === "quiet") quietPlan = [70+Math.random()*40, 200+Math.random()*40, 320+Math.random()*40];
+  }
+  // quiet-night: most spawns lose interest and leave on their own
+  function dissolve(a){
+    const i = Y.anomalies.indexOf(a);
+    if(i < 0) return;
+    Y.anomalies.splice(i, 1);
+    try{
+      a.ring.remove(); a.glow.remove();
+      a.root.animate([{opacity:1},{opacity:0}],{duration:1300, fill:"forwards"});
+      setTimeout(() => { try{ a.root.remove(); }catch(e){} }, 1400);
+    }catch(err){}
+    removeGhost(a);
+    if(Math.random() < .45) toast("……気配は消えた。気のせい、ということにしておく。");
+  }
+  function flickerStep(now){
+    if(flickUntil > 0){
+      if(now >= flickUntil){ flickUntil = 0; setLight(true); flickNext = now + 4000 + Math.random()*5500; }
+    }else{
+      if(flickNext === 0) flickNext = now + 3000 + Math.random()*5000;
+      if(now >= flickNext){
+        flickUntil = now + 350 + Math.random()*250;
+        setLight(false);
+        if(!flickAnnounced){ flickAnnounced = true; toast("……電圧が、ふらついている。"); }
+      }
+    }
+  }
+  function splashStep(dt, g){
+    if(!Y.guard.moving || Y.guard.riding){ splashT = 0; return; }
+    splashT -= dt;
+    if(splashT > 0) return;
+    splashT = .22;
+    const gx = g.bx + Y.guard.xr*g.bw, gy = floorY(Y.guard.floor);
+    const s = mk("path",{d:`M ${(gx-3).toFixed(1)} ${gy} q -3 -2.5 -5.5 -1.5 M ${(gx+3).toFixed(1)} ${gy} q 3 -2.5 5.5 -1.5`, stroke:"#7fa8d8","stroke-width":1.1, fill:"none", opacity:.5});
+    s.style.pointerEvents = "none";
+    Y.gFx.append(s);
+    s.animate([{opacity:.5, transform:"translateY(0)"},{opacity:0, transform:"translateY(-3px)"}], {duration:430, easing:"ease-out"}).onfinish = () => s.remove();
+  }
+
+  // ---------- 相棒の猫 ----------
+  const CAT_LINES = [
+    "猫が処理した、と猫が主張している。物証は毛が三本。",
+    "異変の上に猫が座った。異変は数分で諦めて帰った。座布団の完全勝利である。",
+    "猫の報告：『片付けた』。手段は不明。尻尾だけが満足げだった。",
+    "現場には猫が先着していた。夜警の出る幕はなかった。手当の配分について猫と協議する。",
+    "異変は猫に踏まれて観念した。報告書の対応者欄に、肉球の判が押してあった。",
+    "猫いわく、座れば大抵のことは解決するらしい。夜警業務の核心かもしれない。",
+  ];
+  const cat = { floor:(Math.random()*5)|0, xr:.3+Math.random()*.4, dir:1, bob:0, mode:"idle", t:2.5, walkTo:null, target:null, destFloor:null };
+  let petCD = 0, buffUntil = 0, buffActive = false;
+  const catG = mk("g",{cursor:"pointer"});
+  const catInner = mk("g");
+  const tail = mk("path",{d:"M -6 -4 q -5.5 -2 -4.5 -8.5", stroke:"#252e4c","stroke-width":2.2, fill:"none","stroke-linecap":"round"});
+  tail.style.transformOrigin = "-6px -4px";
+  tail.animate([{transform:"rotate(0deg)"},{transform:"rotate(16deg)"},{transform:"rotate(0deg)"}], {duration:2300, iterations:Infinity, easing:"ease-in-out"});
+  catInner.append(
+    mk("ellipse",{cx:0, cy:.8, rx:7, ry:1.8, fill:"#000", opacity:.45}), tail,
+    mk("path",{d:"M -7 0 Q -8.5 -7 -2 -7.5 L 2 -7.5 Q 6 -7.5 6.5 -3.5 L 7 0 Z", fill:"#252e4c"}),
+    mk("circle",{cx:6.5, cy:-9, r:4.6, fill:"#252e4c"}),
+    mk("polygon",{points:"3.4,-12 4.4,-16.4 6.6,-12.6", fill:"#252e4c"}),
+    mk("polygon",{points:"7.2,-12.8 9.6,-16.2 10.4,-12.2", fill:"#252e4c"}),
+    mk("path",{d:"M 3 -5.4 q 3.5 2 7 0", stroke:"#b8504a","stroke-width":1.3, fill:"none"}),
+    mk("circle",{cx:6.6, cy:-4.4, r:1.1, fill:"#ffd27a", filter:"url(#yk-glow)"}));
+  for(const ex of [5.2, 8.4]){   // night-glow eyes, slow blink
+    const eye = mk("circle",{cx:ex, cy:-9.6, r:.85, fill:"#ffd27a", filter:"url(#yk-glow)"});
+    eye.animate([{opacity:1, offset:0},{opacity:1, offset:.91},{opacity:.05, offset:.95},{opacity:1, offset:1}], {duration:4200+Math.random()*1500, iterations:Infinity});
+    catInner.append(eye);
+  }
+  const catHit = mk("circle",{cx:2, cy:-8, r:15, fill:"#fff", opacity:"0"});
+  catHit.style.pointerEvents = "all";
+  catG.append(catInner, catHit);
+  Y.gGuard.insertBefore(catG, Y.gGuard.firstChild);   // above darkness, below the guard
+
+  function findTrivial(){
+    let best = null, bd = 1e9;
+    for(const a of Y.anomalies){
+      if(!a._yoruTrivial) continue;
+      const d = Math.abs(a.floor - cat.floor)*10 + Math.abs(a.xr - cat.xr);
+      if(d < bd){ bd = d; best = a; }
+    }
+    return best;
+  }
+  function stepToward(xr, speed, dt, g){
+    const d = xr - cat.xr;
+    if(Math.abs(d)*g.bw < 5) return true;
+    cat.dir = d > 0 ? 1 : -1;
+    cat.xr = Math.max(.02, Math.min(.985, cat.xr + cat.dir*speed*dt/Math.max(1, g.bw)));
+    return false;
+  }
+  function catThink(){
+    const t = findTrivial();
+    if(t){
+      cat.target = t;
+      if(t.floor === cat.floor) cat.mode = "seek";
+      else { cat.destFloor = t.floor; cat.walkTo = elevXr(geom()); cat.mode = "toElev"; }
+      return;
+    }
+    const r = Math.random();
+    if(r < .55){ cat.walkTo = .06 + Math.random()*.82; cat.mode = "walk"; }
+    else if(r < .82){ cat.mode = "sit"; cat.t = 3 + Math.random()*6; }
+    else{
+      const f = Math.max(0, Math.min(4, cat.floor + (Math.random() < .5 ? -1 : 1)));
+      if(f === cat.floor){ cat.mode = "sit"; cat.t = 2; }
+      else { cat.destFloor = f; cat.walkTo = elevXr(geom()); cat.mode = "toElev"; }
+    }
+  }
+  function startRide(){
+    cat.mode = "ride"; cat.t = 1.5;
+    catInner.animate([{opacity:1},{opacity:0}],{duration:200, fill:"forwards", easing:"ease-in"});
+    ding([1760, 2217]);   // tiny ding, a register above the guard's elevator
+  }
+  function catResolve(a){
+    const i = Y.anomalies.indexOf(a);
+    if(i < 0) return;
+    Y.anomalies.splice(i, 1);
+    try{
+      a.ring.remove(); a.glow.remove();
+      const fig = a.root.firstChild;
+      if(fig){
+        fig.style.transformOrigin = "0px -8px";
+        fig.animate([{transform:"scale(1)", opacity:1},{transform:"scale(.4) translateY(4px)", opacity:0}], {duration:700, easing:"ease-in", fill:"forwards"});
+      }
+      setTimeout(() => { try{ a.root.remove(); }catch(e){} }, 760);
+    }catch(err){}
+    removeGhost(a);
+    const g = geom(), ax = g.bx + a.xr*g.bw, ay = floorY(a.floor);
+    for(let k=0;k<5;k++){   // dust puff
+      const p = mk("circle",{cx:ax + (Math.random()*16-8), cy:ay - 6 - Math.random()*8, r:1.4, fill:"#b8c4de", opacity:.6});
+      p.style.pointerEvents = "none";
+      Y.gFx.append(p);
+      p.animate([{opacity:.6, transform:"translateY(0)"},{opacity:0, transform:"translateY(-10px)"}], {duration:800+Math.random()*300, easing:"ease-out"}).onfinish = () => p.remove();
+    }
+    writeDiary(pick(CAT_LINES), Y.floors[a.floor].dn);
+    toast("猫が座った。異変のほうが先に折れた。");
+    stats.catResolved = (stats.catResolved|0) + 1; saveStats();
+    emit("cat:resolved", a);
+  }
+  function hearts(x, y){
+    for(let i=0;i<3;i++){
+      const w = mk("g",{transform:`translate(${(x-7+Math.random()*14).toFixed(1)} ${(y-Math.random()*6).toFixed(1)})`});
+      const h = mk("path",{d:"M 0 2.4 C -3.6 -1.6 -1.3 -5.2 0 -2.4 C 1.3 -5.2 3.6 -1.6 0 2.4 Z", fill:"#e8909a", opacity:.9, filter:"url(#yk-glow)"});
+      w.style.pointerEvents = "none";
+      w.append(h);
+      Y.gFx.append(w);
+      h.animate([{transform:"translateY(0) scale(.7)", opacity:.9},{transform:"translateY(-20px) scale(1.1)", opacity:0}], {duration:900+i*220, easing:"ease-out"}).onfinish = () => w.remove();
+    }
+  }
+  catG.addEventListener("pointerdown", e => {
+    e.preventDefault(); e.stopPropagation();
+    try{ petCat(); }catch(err){}
+  });
+  function petCat(){
+    if(cat.mode === "ride" || Y.guard.riding) return;
+    if(Y.guard.floor !== cat.floor){ toast("猫は別のフロアだ。鳴き声だけが返ってきた。"); return; }
+    const g = geom(), gx = g.bx + Y.guard.xr*g.bw, cx = g.bx + cat.xr*g.bw;
+    if(Math.abs(gx - cx) > 85){ toast("猫まで遠い。猫から歩み寄る制度は、ない。"); return; }
+    const now = performance.now();
+    if(now < petCD){ toast("撫ですぎだ。猫の業務に支障が出ている。"); return; }
+    petCD = now + 3500;
+    if(Math.random() < .3){ toast("猫は夜勤に厳しい。"); cat.dir *= -1; return; }
+    buffUntil = now + 60000; buffActive = true;
+    stats.pets = (stats.pets|0) + 1; saveStats();
+    hearts(cx, floorY(cat.floor) - 14);
+    toast("士気が上がった。60秒ほど、歩幅が軽い。");
+    if(Math.random() < .3) writeDiary("巡回の途中で猫を撫でた。業務日誌に書くことではないが、書いておく。", Y.floors[cat.floor].dn);
+    emit("cat:petted");
+  }
+  function catStep(dt, g){
+    if(cat.mode === "idle" || cat.mode === "sit"){
+      cat.t -= dt;
+      if(cat.t <= 0) catThink();
+    }
+    else if(cat.mode === "walk" || cat.mode === "toElev"){
+      if(stepToward(cat.walkTo, 56, dt, g)){
+        if(cat.mode === "toElev") startRide();
+        else { cat.mode = "idle"; cat.t = 1.5 + Math.random()*3.5; }
+      }
+    }
+    else if(cat.mode === "seek"){
+      const a = cat.target;
+      if(!a || Y.anomalies.indexOf(a) < 0){ cat.target = null; cat.mode = "idle"; cat.t = 1.2; }
+      else if(a.floor !== cat.floor){ cat.destFloor = a.floor; cat.walkTo = elevXr(g); cat.mode = "toElev"; }
+      else if(stepToward(a.xr, 84, dt, g)){ cat.mode = "siton"; cat.t = 6 + Math.random()*5; cat.xr = a.xr; }
+    }
+    else if(cat.mode === "siton"){
+      const a = cat.target;
+      if(!a || Y.anomalies.indexOf(a) < 0){ cat.target = null; cat.mode = "idle"; cat.t = 1.5; }
+      else{
+        cat.t -= dt; cat.xr = a.xr;
+        if(cat.t <= 0){ catResolve(a); cat.target = null; cat.mode = "sit"; cat.t = 2.5; }
+      }
+    }
+    else if(cat.mode === "ride"){
+      cat.t -= dt;
+      if(cat.t <= 0){
+        if(cat.destFloor != null) cat.floor = cat.destFloor;
+        cat.destFloor = null; cat.xr = elevXr(g);
+        catInner.animate([{opacity:0},{opacity:1}],{duration:240, fill:"forwards", easing:"ease-out"});
+        cat.mode = cat.target ? "seek" : "idle"; cat.t = 1;
+      }
+    }
+    const moving = cat.mode === "walk" || cat.mode === "seek" || cat.mode === "toElev";
+    if(moving) cat.bob += dt*10;
+    const cx = g.bx + cat.xr*g.bw, cy = floorY(cat.floor);
+    const bob = moving ? -Math.abs(Math.sin(cat.bob))*1.6 : 0;
+    catG.setAttribute("transform", `translate(${cx.toFixed(1)} ${(cy+bob).toFixed(1)}) scale(${cat.dir} 1)`);
+    catInner.setAttribute("transform", (cat.mode === "sit" || cat.mode === "siton") ? "scale(1.07 .93)" : "");
+  }
+
+  // ---------- shared currency: 夜勤手当 (満月は倍額) ----------
+  function award(n, label){
+    if(n <= 0) return;
+    let ok = false;
+    try{
+      const cur = parseInt(localStorage.getItem("currency-hoshizora") || "0", 10) || 0;
+      localStorage.setItem("currency-hoshizora", String(Math.max(0, cur + n)));
+      ok = true;
+    }catch(err){}
+    setTimeout(() => myToast(ok ? label : "金庫が開かない。手当は明晩に持ち越し。"), 900);
+  }
+
+  // ---------- bus wiring ----------
+  on("anomaly-spawn", a => {
+    if(!a) return;
+    if(Math.random() < .3) a._yoruTrivial = true;        // 30%: 猫マター
+    if(kind === "fullmoon" && !endedFlag) addGhost(a);
+    if(kind === "quiet" && !endedFlag && Math.random() < .75)
+      setTimeout(() => { if(!endedFlag) dissolve(a); }, 1600 + Math.random()*1800);
+  });
+  on("anomaly-resolved", a => {
+    removeGhost(a);
+    if(cat.target === a){
+      cat.target = null;
+      if(cat.mode === "seek" || cat.mode === "siton"){ cat.mode = "idle"; cat.t = 1; }
+    }
+  });
+  on("night-end", arg => {
+    endedFlag = true;
+    const resolved = arg && arg.stats ? arg.stats.resolved|0 : 0;
+    let pay = Math.min(7, 2 + resolved);
+    if(kind === "fullmoon"){ pay = Math.min(15, pay*2); award(pay, `満月手当（倍額）　星屑 +${pay}`); }
+    else award(pay, `夜勤手当　星屑 +${pay}`);
+    teardown();
+    if(cat.mode === "seek" || cat.mode === "siton"){ cat.mode = "idle"; cat.t = 2; cat.target = null; }
+  });
+
+  // ---------- main loop (wall time, dt clamped like the core) ----------
+  let lastT = performance.now(), lastNight = Y.night;
+  function loop(now){
+    try{
+      const dt = Math.min(.1, (now - lastT)/1000 || 0);
+      lastT = now;
+      const g = geom();
+      if(Y.night !== lastNight){ lastNight = Y.night; endedFlag = false; rollNight(); }
+      if(kind === "blackout" && !endedFlag) flickerStep(now);
+      if(kind === "fullmoon" && !endedFlag && fmNext > 0 && now >= fmNext){
+        fmNext = now + 33000 + Math.random()*34000;        // ≈ +60% on the core's pace
+        if(Y.anomalies.length < 4 && !inQuiet()) spawnAnomaly();
+      }
+      if(kind === "rain" && !endedFlag){
+        if(umbrella && umbrella.i < umbrella.times.length && Y.gameMin >= umbrella.times[umbrella.i]){
+          umbrella.i++;
+          if(Y.anomalies.length < 4 && !inQuiet()) spawnAnomaly("kasawasure");
+        }
+        splashStep(dt, g);
+      }
+      if(kind === "quiet" && !endedFlag && quietPlan && quietIdx < quietPlan.length && Y.gameMin >= quietPlan[quietIdx]){
+        quietIdx++;
+        writeDiary(quietIdx === 1 ? QUIET_REF[0] : pick(QUIET_REF.slice(1)), "全館");
+        if(quietIdx === 1) toast("書くことがない。それを、書く。");
+      }
+      for(const [id, gh] of ghosts){   // ghosts follow their anomalies (covers resize too)
+        if(Y.anomalies.indexOf(gh.a) < 0){ gh.el.remove(); ghosts.delete(id); }
+        else gh.el.setAttribute("transform", gh.a.root.getAttribute("transform") || "");
+      }
+      if(buffActive){   // pet buff: extra stride alongside the core's own movement
+        if(now >= buffUntil){ buffActive = false; toast("士気は平常に戻った。悪くない60秒だった。"); }
+        else if(Y.guard.moving && !Y.guard.riding){
+          const mul = Y.guard.sleepy ? .7 : 1;
+          Y.guard.xr = Math.max(.03, Math.min(.97, Y.guard.xr + Y.guard.dir*170*.45*mul*dt/Math.max(1, g.bw)));
+        }
+      }
+      catStep(dt, g);
+    }catch(err){ console.error("[yakei-yoru]", err); }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(t => { lastT = t; requestAnimationFrame(loop); });
+
+  window.addEventListener("resize", () => {   // core has already recomputed W/H/floors
+    try{
+      if(kind === "rain" && !endedFlag && rainLayer) rainStart();
+      if(kind === "blackout" && !endedFlag && lampLayer) lampsStart();
+      if(kind === "fullmoon" && !endedFlag && moonLayer) moonStart();
+    }catch(err){}
+  });
+  addButton("🌗 空模様", () => {
+    const k = kind ? KINDS[kind].t : "ふつうの夜";
+    toast(`今夜は「${k}」。猫の検挙 通算${stats.catResolved|0}件／撫で成功 ${stats.pets|0}回。`);
+  });
+  rollNight();   // the first night rolls too
+  }catch(err){ console.error("[yakei-yoru] install failed", err); }
+})();
+</script>
+
 </body>
 </html>

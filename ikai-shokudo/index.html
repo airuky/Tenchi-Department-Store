@@ -1028,5 +1028,698 @@
   startNight(state.night);
 })();
 </script>
+
+<script>
+// ════ plugin: shokudo-shiire (wave2) ════ Append before </body> after the core script. 海流仕入れ: read-only BroadcastChannel("sandbox-kairyu-v1") listener (never posts) + 2-min read-only peeks at kairyu-inb
+(() => {
+  "use strict";
+  if(!window.SHOKUDO) return;
+  if(window.__shokudoShiire) return;
+  window.__shokudoShiire = true;
+  const S = window.SHOKUDO;
+  const LSK = "shokudo-shiire";
+
+  // ---- storage (guarded) ----
+  const lj = (k, d) => { try{ const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); }catch(e){ return d; } };
+  const sj = (k, v) => { try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} };
+
+  // ---- style ----
+  const css = document.createElement("style");
+  css.textContent = `
+    .ing.shokudo-shiire-ltd{position:relative;border-color:rgba(127,232,255,.38);background:rgba(127,232,255,.06)}
+    .ing.shokudo-shiire-ltd:hover{border-color:rgba(127,232,255,.6);background:rgba(127,232,255,.1)}
+    .ing.shokudo-shiire-ltd.sel{border-color:#7fe8ff;background:rgba(127,232,255,.16)}
+    .ing.shokudo-shiire-ltd.sel .tg span{color:#bfeaff;border-color:rgba(127,232,255,.45)}
+    .shokudo-shiire-ribbon{position:absolute;top:-8px;right:8px;font-size:10px;letter-spacing:.1em;
+      color:#062430;background:#7fe8ff;border-radius:999px;padding:1.5px 8px;font-weight:700;
+      pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.45)}
+    .shokudo-shiire-feed:disabled{opacity:.38;cursor:default;transform:none}
+    @keyframes shokudo-shiire-pulse{0%,100%{box-shadow:0 0 8px rgba(255,210,122,.16)}50%{box-shadow:0 0 18px rgba(255,210,122,.42)}}
+    .shokudo-shiire-feed.shokudo-shiire-on{border-color:rgba(255,210,122,.6);animation:shokudo-shiire-pulse 1.8s ease-in-out infinite}
+  `;
+  document.head.append(css);
+
+  // ====================================================================
+  //  corpora
+  // ====================================================================
+  const KEY_TAGS = [
+    ["凍","冷"],["氷","冷"],["雪","冷"],["冷","冷"],["蜃気楼","冷"],
+    ["焼い","かりかり"],["揚げ","かりかり"],["煎","かりかり"],["干物","かりかり"],
+    ["湯","温"],["温","温"],["蒸","温"],["南風","温"],
+    ["光","光る"],["星","光る"],["蛍","光る"],["月","光る"],
+    ["蜜","甘い"],["糖","甘い"],["パパイヤ","甘い"],["バナナ","甘い"],["果","甘い"],["甘","甘い"],
+    ["塩","しょっぱい"],["潮","しょっぱい"],["海","しょっぱい"],["ウニ","しょっぱい"],
+    ["苦","にがい"],["渋","にがい"],["発酵","にがい"],
+    ["眠","静かな"],["昼寝","静かな"],["静","静かな"],["ひそ","静かな"],["人見知り","静かな"],["夜","静かな"],
+    ["歩","にぎやかな"],["踊","にぎやかな"],["歌","にぎやかな"],["喋","にぎやかな"],["祭","にぎやかな"],["雷","にぎやかな"],
+    ["ワカメ","ぬるぬる"],["昆布","ぬるぬる"],["クラゲ","ぬるぬる"],["藻","ぬるぬる"],["泳","ぬるぬる"],["ぬる","ぬるぬる"],
+    ["雲","ふわふわ"],["綿","ふわふわ"],["パン","ふわふわ"],["ふわ","ふわふわ"],
+    ["昔","なつかしい"],["思い出","なつかしい"],["古","なつかしい"],["夕焼け","なつかしい"],["故郷","なつかしい"],
+  ];
+  // 珍しい→なつかしい＋にぎやかな（既定）
+  const DEFAULT_TAGS = ["なつかしい","にぎやかな"];
+  const BOAT_GOODS = [
+    {name:"歌うヤシガニ",     island:"まどろみ礁"},
+    {name:"満月のパパイヤ",   island:"三日月環礁"},
+    {name:"遠泳してきたバナナ", island:"流れ藻島"},
+    {name:"塩漬けの南風",     island:"潮鳴り岬"},
+    {name:"発酵した夕焼け",   island:"夕凪島"},
+    {name:"人見知りのウニ",   island:"ひそひそ岩礁"},
+    {name:"波音の干物",       island:"さざなみ州"},
+    {name:"昼寝する夜光貝",   island:"うずまき島"},
+    {name:"よく冷えた蜃気楼", island:"かげろう環礁"},
+  ];
+  const LTD_REMARKS = [
+    "限定の味がします。具体的には、嬉しい味",
+    "市場の噂は本当だったんですね",
+    "島の風の味がする。便りより速い",
+    "来週にはもう無い味でしょう。覚えました",
+    "海の向こうの話を、皿で聞きました",
+  ];
+
+  function inferTags(name){
+    const out = [];
+    for(const [kw, tag] of KEY_TAGS){
+      if(name.indexOf(kw) >= 0 && out.indexOf(tag) < 0){
+        out.push(tag);
+        if(out.length === 2) return out;
+      }
+    }
+    for(const t of DEFAULT_TAGS) if(out.length < 2 && out.indexOf(t) < 0) out.push(t);
+    return out;
+  }
+  function dnOf(n){
+    n = String(n);
+    let s = n.split("の").pop() || n;
+    s = s.replace(/^(歩く|踊る|歌う|喋る|凍った|焼いた|揚げた|発酵した|昼寝する|遠泳してきた|よく冷えた|塩漬け)/, "");
+    if(s.length > 4) s = s.slice(-4);
+    return s || n.slice(-2);
+  }
+
+  // ====================================================================
+  //  1) 海流仕入れ — limited-time ingredients from the ocean-mail network
+  // ====================================================================
+  let seen = lj(LSK + "-seen", []);          // envelope ids (cap 64)
+  let ltd  = lj(LSK + "-ltd", []);           // active limited items
+  let everSeen = lj(LSK + "-ever", false);   // a real envelope was ever seen
+  if(!Array.isArray(seen)) seen = [];
+  if(!Array.isArray(ltd)) ltd = [];
+
+  function syncKH(){ try{ window.dispatchEvent(new Event("resize")); }catch(e){} }
+
+  function decorate(){
+    const cards = S.pantryEl.querySelectorAll(".ing");
+    for(const card of cards){
+      const it = S.state.pantry[+card.dataset.i];
+      if(!it || !it.shiireLtd || card.dataset.shiireDeco) continue;
+      card.dataset.shiireDeco = "1";
+      card.classList.add("shokudo-shiire-ltd");
+      card.title = `${it.island}産・${S.state.night > it.night ? "今夜かぎり" : "明晩まで"}`;
+      const r = document.createElement("span");
+      r.className = "shokudo-shiire-ribbon";
+      r.textContent = "限定";
+      card.append(r);
+    }
+  }
+  // the core re-renders the grid via innerHTML — re-apply ribbons each time
+  try{
+    new MutationObserver(() => { try{ decorate(); }catch(e){} })
+      .observe(S.pantryEl, {childList:true});
+  }catch(e){}
+
+  function appendCard(it){
+    try{
+      const i = S.state.pantry.indexOf(it);
+      if(i < 0) return;
+      const div = document.createElement("div");
+      div.className = "ing";
+      div.dataset.i = i;
+      div.innerHTML = `<div class="nm">${S.esc(it.name)}</div>
+        <div class="tg">${it.tags.map(t => `<span>${S.esc(t)}</span>`).join("")}</div>`;
+      S.pantryEl.append(div);
+      decorate();
+      syncKH();
+    }catch(e){}
+  }
+
+  function normEnv(d){
+    if(!d || typeof d !== "object") return null;
+    if((d.type || d.kind) !== "specialty") return null;
+    const p = (d.payload && typeof d.payload === "object") ? d.payload : d;
+    if(!p.name) return null;
+    const island = p.island || p.village || "名のない島";
+    const id = d.id != null ? String(d.id) : `${p.name}@${island}`;
+    return {id, name: String(p.name).slice(0, 24), island: String(island).slice(0, 16)};
+  }
+
+  function ingest(env, viaBoat){
+    if(seen.indexOf(env.id) >= 0) return;
+    seen.push(env.id);
+    if(seen.length > 64) seen.splice(0, seen.length - 64);
+    sj(LSK + "-seen", seen);
+    if(!viaBoat && !everSeen){ everSeen = true; sj(LSK + "-ever", true); }
+    if(ltd.length >= 4){
+      S.toast(`「${env.name}」の便りも見ましたが、棚がもういっぱいです`);
+      return;
+    }
+    const it = {name: env.name, dn: dnOf(env.name), tags: inferTags(env.name),
+                island: env.island, night: S.state.night, shiireLtd: true};
+    ltd.push(it);
+    sj(LSK + "-ltd", ltd);
+    S.state.pantry.push(it);
+    appendCard(it);
+    S.toast(viaBoat
+      ? `行商の小舟が寄り、「${it.name}」を仕入れました（${it.island}産）`
+      : `市場で「${it.name}」を仕入れました（${it.island}産）`);
+    S.emit("shiire:limited", {name: it.name});
+  }
+
+  // (a) eavesdrop on the ocean-mail broadcast (read-only — we never post)
+  try{
+    if("BroadcastChannel" in window){
+      const bc = new BroadcastChannel("sandbox-kairyu-v1");
+      bc.onmessage = ev => {
+        try{ const env = normEnv(ev.data); if(env) ingest(env, false); }catch(e){}
+      };
+    }
+  }catch(e){}
+
+  // (b) peek (read-only) at neighbouring inboxes every ~2 min
+  function peekInboxes(){
+    for(const key of ["kairyu-inbox-aquarium", "kairyu-inbox-chronicle"]){
+      let raw = null;
+      try{ raw = localStorage.getItem(key); }catch(e){}
+      if(!raw) continue;
+      let v = null;
+      try{ v = JSON.parse(raw); }catch(e){ continue; }
+      const arr = Array.isArray(v) ? v
+        : v && Array.isArray(v.queue) ? v.queue
+        : v && Array.isArray(v.envelopes) ? v.envelopes
+        : v && Array.isArray(v.messages) ? v.messages : [];
+      for(const d of arr){
+        const env = normEnv(d);
+        if(env) ingest(env, false);
+      }
+    }
+  }
+
+  // (c) solo-play fallback: the peddler boat (only while no real envelope ever seen)
+  function boatDeliver(){
+    const g = S.pick(BOAT_GOODS);
+    ingest({id: "boat-" + Date.now() + "-" + ((Math.random() * 1e6) | 0),
+            name: g.name, island: g.island}, true);
+  }
+
+  // serving a limited dish: +1 reputation, the customer notices
+  S.on("dish-served", p => {
+    try{
+      if(!p || !p.dish || !Array.isArray(p.dish.cards)) return;
+      if(!p.dish.cards.some(cd => cd && cd.shiireLtd)) return;
+      S.state.rep += 1;
+      sj("shokudo-rep", S.state.rep);
+      if(S.state.tonight) S.state.tonight.repGained += 1;
+      const pill = document.getElementById("repPill");
+      if(pill){
+        pill.textContent = `⭐ 評判 ${S.state.rep}`;
+        pill.animate([{transform:"scale(1)"},{transform:"scale(1.14)"},{transform:"scale(1)"}],
+          {duration:380, easing:"ease-out"});
+      }
+      const nm = p.customer && p.customer.name ? p.customer.name : "客";
+      setTimeout(() => S.toast(`${nm}「${S.pick(LTD_REMARKS)}」（限定食材・評判+1）`), 3300);
+    }catch(e){}
+  });
+
+  // ====================================================================
+  //  2) 招き猫 — the cat at the window becomes feedable
+  // ====================================================================
+  const catData = Object.assign({fed:0, named:false, lastNight:0}, lj(LSK + "-cat", {}));
+  let catEl = null, catTimerT = null, catStayT = null;
+  let kanbanEl = null, kanbanActive = false;
+
+  function scarf(){
+    const g = S.mk("g");
+    g.append(S.mk("path",{d:"M -7.5 -22 q 7.5 4.5 15 0 l .6 4.4 q -8.2 5 -16.4 0 Z", fill:"#c0504a"}));
+    g.append(S.mk("path",{d:"M 4 -18.5 l 3.2 7.5 4 -1.8 -3.4 -7.5 Z", fill:"#a8423d"}));
+    return g;
+  }
+  // small sitting silhouette; origin = bottom centre (x,y in view-box coords)
+  function catGroup(x, y, sc, named){
+    const g = S.mk("g",{transform:`translate(${x},${y}) scale(${sc})`, opacity:0});
+    const title = S.mk("title");
+    title.textContent = named ? "招福丸" : "名のない猫";
+    g.append(title);
+    g.append(S.mk("path",{d:"M -12 0 Q -15 -18 -7 -25 L -10 -34 L -3 -29 Q 0 -30.5 3 -29 L 10 -34 L 7 -25 Q 15 -18 12 0 Z",
+      fill:"#07060f"}));
+    const eyes = S.mk("g");
+    eyes.append(S.mk("circle",{cx:-3.8, cy:-25, r:1.7, fill:"#ffd27a"}));
+    eyes.append(S.mk("circle",{cx: 3.8, cy:-25, r:1.7, fill:"#ffd27a"}));
+    eyes.style.transformBox = "fill-box";
+    eyes.style.transformOrigin = "center";
+    eyes.animate([
+      {transform:"scaleY(1)"},{transform:"scaleY(1)", offset:.9},
+      {transform:"scaleY(.1)", offset:.94},{transform:"scaleY(1)"},
+    ],{duration:4200 + Math.random()*1800, iterations:Infinity});
+    g.append(eyes);
+    const tail = S.mk("path",{d:"M 11 -2 q 12 -3 10 -16", stroke:"#07060f",
+      "stroke-width":4, fill:"none", "stroke-linecap":"round"});
+    tail.style.transformBox = "view-box";
+    tail.style.transformOrigin = `${x + 11*sc}px ${y - 2*sc}px`;
+    tail.animate([{transform:"rotate(0deg)"},{transform:"rotate(16deg)"},{transform:"rotate(0deg)"}],
+      {duration:2400 + Math.random()*900, iterations:Infinity, easing:"ease-in-out"});
+    g.append(tail);
+    if(named) g.append(scarf());
+    return g;
+  }
+
+  function fxText(s, x, y){
+    try{
+      const t = S.mk("text",{x, y, "font-size":15, "text-anchor":"middle"});
+      t.textContent = s;
+      const a = t.animate([
+        {opacity:0, transform:"translateY(10px)"},{opacity:1, offset:.35},
+        {opacity:0, transform:"translateY(-22px)"},
+      ],{duration:1400, easing:"ease-out"});
+      a.onfinish = () => { try{ t.remove(); }catch(e){} };
+      S.gFx.append(t);
+    }catch(e){}
+  }
+
+  function relaxNote(c){
+    try{
+      if(!c || !c.el || c.el.querySelector(".shokudo-shiire-note")) return;
+      const t = S.mk("text",{x:36, y:-148, "font-size":14, fill:"#ffd27a",
+        class:"shokudo-shiire-note", opacity:0});
+      t.textContent = "♪";
+      t.animate([
+        {opacity:0, transform:"translateY(4px)"},{opacity:.85, offset:.4},
+        {opacity:0, transform:"translateY(-14px)"},
+      ],{duration:3000, iterations:Infinity, easing:"ease-in-out"});
+      c.el.append(t);
+    }catch(e){}
+  }
+
+  const feedBtn = S.addButton("🐟 残り物をあげる", () => { try{ feed(); }catch(e){} });
+  feedBtn.classList.add("shokudo-shiire-feed");
+  feedBtn.disabled = true;
+  function updateFeedBtn(){
+    const here = !!catEl;
+    feedBtn.disabled = !here;
+    feedBtn.classList.toggle("shokudo-shiire-on", here);
+    feedBtn.title = here
+      ? "窓辺の猫に、今日の残り物を（無料）"
+      : catData.named
+        ? `招福丸はいまは留守です（世話 ${catData.fed}晩）`
+        : `猫はいまは留守です（世話 ${catData.fed}/5晩）`;
+  }
+  updateFeedBtn();
+
+  function scheduleWindowCat(first){
+    clearTimeout(catTimerT);
+    catTimerT = setTimeout(() => { try{ catArrive(); }catch(e){} },
+      first ? 45000 + Math.random()*45000 : 120000 + Math.random()*120000);
+  }
+  function catArrive(){
+    if(catEl || kanbanActive){ scheduleWindowCat(false); return; }
+    catEl = catGroup(714, 256, 1, catData.named);   // window sill, left edge
+    S.gBack.append(catEl);
+    catEl.animate([{opacity:0},{opacity:1}],{duration:900, fill:"forwards", easing:"ease-out"});
+    if(Math.random() < .6)
+      S.toast(catData.named ? "招福丸が窓辺に来ました。今日も無報酬です"
+                            : "窓辺に猫が来ています。残り物を狙う目です");
+    updateFeedBtn();
+    clearTimeout(catStayT);
+    catStayT = setTimeout(() => { catGone(); scheduleWindowCat(false); },
+      36000 + Math.random()*9000);                  // ~40s stay
+  }
+  function catGone(){
+    const el = catEl;
+    catEl = null;
+    clearTimeout(catStayT);
+    if(el){
+      const a = el.animate([{opacity:1},{opacity:0}],{duration:900, easing:"ease-in"});
+      a.onfinish = () => { try{ el.remove(); }catch(e){} };
+    }
+    updateFeedBtn();
+  }
+
+  function feed(){
+    if(!catEl){ S.toast("窓辺に猫はいません。気配だけです"); return; }
+    fxText("🐟", 714, 290);
+    setTimeout(() => fxText("♥", 714, 248), 900);
+    catGone();
+    scheduleWindowCat(false);
+
+    if(catData.lastNight !== S.state.night){
+      catData.fed++;
+      catData.lastNight = S.state.night;
+      sj(LSK + "-cat", catData);
+    }
+
+    // 看板猫 — sits by the door (stage right, where customers come in)
+    kanbanActive = true;
+    if(kanbanEl){ try{ kanbanEl.remove(); }catch(e){} }
+    kanbanEl = catGroup(952, 612, 1.3, catData.named);
+    const sign = S.mk("g",{transform:"translate(-30,-4)"});
+    sign.innerHTML = `
+      <rect x="-15" y="-32" width="26" height="26" rx="3" fill="#241a14" stroke="#3a2a1c"/>
+      <text x="-2" y="-21" text-anchor="middle" font-size="8.5" fill="#ffd27a">看板</text>
+      <text x="-2" y="-11" text-anchor="middle" font-size="8.5" fill="#ffd27a">猫</text>`;
+    kanbanEl.append(sign);
+    S.gStool.append(kanbanEl);
+    kanbanEl.animate([{opacity:0},{opacity:1}],{duration:900, fill:"forwards", easing:"ease-out"});
+
+    if(S.state.tonight && S.state.phase !== "closed"){
+      S.state.tonight.total += 1;
+      setTimeout(() => S.toast("看板猫の効き目で、今夜の客足がひとり増えそうです"), 2700);
+    }
+    S.customers.forEach(relaxNote);   // 既にいる客もくつろぐ
+
+    S.toast("猫は満足し、店の看板を引き受けました（無報酬）");
+    S.emit("cat:fed");
+
+    if(catData.fed >= 5 && !catData.named){
+      catData.named = true;
+      sj(LSK + "-cat", catData);
+      setTimeout(() => {
+        S.toast("五晩の恩義。猫に名がつきました——「招福丸」。襟巻きを進呈");
+        try{ if(kanbanEl) kanbanEl.append(scarf()); }catch(e){}
+        S.emit("cat:hired");
+      }, 5200);
+    }
+    updateFeedBtn();
+  }
+
+  // while the 看板猫 is on duty, arriving customers visibly relax
+  S.on("customer-arrived", c => {
+    if(kanbanActive) setTimeout(() => relaxNote(c), 1400);
+  });
+
+  // ====================================================================
+  //  night flow hooks
+  // ====================================================================
+  S.on("night-start", ev => {
+    try{
+      const night = ev && ev.night != null ? ev.night : S.state.night;
+      // cat: shift over
+      kanbanActive = false;
+      if(kanbanEl){ try{ kanbanEl.remove(); }catch(e){} kanbanEl = null; }
+      catGone();
+      scheduleWindowCat(false);
+      // limited stock: current night + next, then it goes home to the sea
+      const before = ltd.length;
+      ltd = ltd.filter(it => night <= it.night + 1);
+      if(ltd.length !== before){
+        sj(LSK + "-ltd", ltd);
+        setTimeout(() => S.toast("限定の棚を整理しました。海のものは海へ"), 2900);
+      }
+      for(const it of ltd){ S.state.pantry.push(it); appendCard(it); }
+    }catch(e){}
+  });
+
+  // ---- opening (core has already run startNight) ----
+  ltd = ltd.filter(it => it && it.name && S.state.night <= it.night + 1);
+  sj(LSK + "-ltd", ltd);
+  for(const it of ltd){ it.shiireLtd = true; S.state.pantry.push(it); appendCard(it); }
+
+  setTimeout(() => { try{ peekInboxes(); }catch(e){} }, 15000);
+  setInterval(() => { try{ peekInboxes(); }catch(e){} }, 120000);
+  setInterval(() => { try{ if(!everSeen && Math.random() < .2) boatDeliver(); }catch(e){} }, 180000);
+  scheduleWindowCat(true);
+})();
+</script>
+
+<script>
+// ════ plugin: shokudo-recipe (wave2) ════ Verified live in browser against the real core (appended to a test copy, zero console errors). Recipe book: ★3 dishes enshrined under "shokudo-recipe:book-v1" (
+(() => {
+  "use strict";
+  if(!window.SHOKUDO) return;
+  const S = window.SHOKUDO;
+  const { esc, pick, toast, on, emit, award, state, lore } = S;
+  const LSKEY = "shokudo-recipe:book-v1";
+  const CAP = 30;
+
+  /* ================= storage ================= */
+  function loadBook(){
+    try{
+      const v = localStorage.getItem(LSKEY);
+      const a = v ? JSON.parse(v) : [];
+      return Array.isArray(a) ? a.filter(r => r && r.key && r.name && Array.isArray(r.ings) && Array.isArray(r.tags)) : [];
+    }catch(e){ return []; }
+  }
+  const book = loadBook();
+  function saveBook(){ try{ localStorage.setItem(LSKEY, JSON.stringify(book)); }catch(e){} }
+
+  /* ================= css ================= */
+  const css = document.createElement("style");
+  css.textContent = `
+  .shokudo-recipe-overlay{position:fixed;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;
+    background:rgba(5,4,12,.6);backdrop-filter:blur(4px);opacity:0;pointer-events:none;transition:opacity .3s}
+  .shokudo-recipe-overlay.shokudo-recipe-show{opacity:1;pointer-events:auto}
+  .shokudo-recipe-modal{width:min(420px,92vw);max-height:min(72vh,560px);display:flex;flex-direction:column;
+    background:var(--panel);border:1px solid var(--panel-edge);border-radius:16px;padding:18px 18px 13px;
+    box-shadow:0 22px 60px rgba(0,0,0,.6);backdrop-filter:blur(14px);
+    transform:translateY(12px);transition:transform .3s}
+  .shokudo-recipe-overlay.shokudo-recipe-show .shokudo-recipe-modal{transform:translateY(0)}
+  .shokudo-recipe-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .shokudo-recipe-head h3{margin:0;font-size:14px;letter-spacing:.12em;color:var(--warm);font-weight:600;flex:1}
+  .shokudo-recipe-count{font-size:11px;color:var(--dim)}
+  .shokudo-recipe-x{cursor:pointer;border:1px solid var(--panel-edge);background:transparent;color:var(--dim);
+    border-radius:999px;width:26px;height:26px;font-size:13px;font-family:inherit;transition:.15s}
+  .shokudo-recipe-x:hover{color:var(--ink);border-color:rgba(255,180,94,.5)}
+  .shokudo-recipe-list{overflow-y:auto;scrollbar-width:thin;flex:1}
+  .shokudo-recipe-list::-webkit-scrollbar{width:7px}
+  .shokudo-recipe-list::-webkit-scrollbar-thumb{background:rgba(255,180,94,.25);border-radius:4px}
+  .shokudo-recipe-card{border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:10px 12px;margin-bottom:8px;
+    background:rgba(255,255,255,.03);cursor:pointer;transition:.15s;user-select:none}
+  .shokudo-recipe-card:hover{background:rgba(255,180,94,.08);border-color:rgba(255,180,94,.35)}
+  .shokudo-recipe-nm{font-size:14px;font-weight:600;color:var(--warm)}
+  .shokudo-recipe-nm em{font-style:normal;font-size:11px;color:var(--acc);margin-left:7px}
+  .shokudo-recipe-ings{font-size:12px;color:var(--ink);margin-top:5px;line-height:1.6}
+  .shokudo-recipe-tags{margin-top:5px;display:flex;gap:4px;flex-wrap:wrap}
+  .shokudo-recipe-tags span{font-size:10.5px;color:var(--dim);border:1px solid rgba(255,255,255,.12);
+    border-radius:999px;padding:1px 7px}
+  .shokudo-recipe-meta{font-size:11px;color:var(--dim);margin-top:5px}
+  .shokudo-recipe-empty{color:var(--dim);font-size:13px;padding:10px 6px;line-height:1.9}
+  .shokudo-recipe-foot{font-size:11px;color:var(--dim);margin-top:10px;text-align:center}
+  .shokudo-recipe-chips{display:flex;align-items:center;gap:4px;flex-wrap:wrap;max-width:46vw}
+  .shokudo-recipe-chips span{font-size:10.5px;color:var(--dim);border:1px solid rgba(255,255,255,.14);
+    border-radius:999px;padding:1px 8px;transition:.15s}
+  .shokudo-recipe-chips .shokudo-recipe-hit{color:#b8e6a0;border-color:rgba(140,220,110,.6);background:rgba(110,200,90,.12)}
+  .shokudo-recipe-filters{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 8px}
+  .shokudo-recipe-flabel{font-size:11px;letter-spacing:.14em;color:var(--dim);font-weight:600}
+  .shokudo-recipe-fbtn{cursor:pointer;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);
+    color:var(--dim);border-radius:999px;padding:3px 12px;font-size:11.5px;font-family:inherit;transition:.15s}
+  .shokudo-recipe-fbtn:hover{border-color:rgba(255,180,94,.4);color:var(--ink)}
+  .shokudo-recipe-fbtn.shokudo-recipe-on{background:rgba(255,180,94,.16);border-color:var(--acc);color:var(--warm)}
+  .ing.shokudo-recipe-dim{opacity:.28;filter:saturate(.3)}
+  .ing.shokudo-recipe-lock{opacity:.45;filter:grayscale(.6);cursor:default}
+  .ing.shokudo-recipe-lock:hover{background:rgba(255,255,255,.035);border-color:rgba(255,255,255,.07)}`;
+  document.head.append(css);
+
+  /* ================= recipe naming（品書き名） ================= */
+  const PRE = ["月夜の","宵闇の","星降る","常夜の","まぼろしの","湯気立つ","異界の","のれん裏の","ほろ酔い","遠雷の"];
+  const SUF = ["三重奏","奇譚","小夜曲","御膳","綺譚","夜咄","幻想曲","百物語","残響","独奏"];
+  function fancyName(dish){
+    for(let t = 0; t < 14; t++){
+      const n = pick(PRE) + pick(dish.cards).dn + pick(SUF);
+      if(!book.some(b => b.name === n)) return n;
+    }
+    return pick(PRE) + pick(dish.cards).dn + pick(SUF) + "・改";
+  }
+  const keyOf = cards => cards.map(c => c.name).slice().sort().join("¦");
+
+  /* ================= recipe book modal ================= */
+  const overlay = document.createElement("div");
+  overlay.className = "shokudo-recipe-overlay";
+  overlay.innerHTML = `
+    <div class="shokudo-recipe-modal">
+      <div class="shokudo-recipe-head">
+        <h3>📖 品書き — RECIPES</h3>
+        <span class="shokudo-recipe-count"></span>
+        <button class="shokudo-recipe-x" title="とじる">✕</button>
+      </div>
+      <div class="shokudo-recipe-list"></div>
+      <div class="shokudo-recipe-foot">レシピを押すと、その材料を調理場に並べます</div>
+    </div>`;
+  document.body.append(overlay);
+  const listEl  = overlay.querySelector(".shokudo-recipe-list");
+  const countEl = overlay.querySelector(".shokudo-recipe-count");
+
+  let modalOpen = false;
+  function openModal(){ modalOpen = true; renderBook(); overlay.classList.add("shokudo-recipe-show"); }
+  function closeModal(){ modalOpen = false; overlay.classList.remove("shokudo-recipe-show"); }
+  overlay.addEventListener("click", e => { if(e.target === overlay) closeModal(); });
+  overlay.querySelector(".shokudo-recipe-x").addEventListener("click", closeModal);
+  window.addEventListener("keydown", e => { if(e.key === "Escape" && modalOpen) closeModal(); });
+
+  function renderBook(){
+    countEl.textContent = `${book.length} / ${CAP}`;
+    if(!book.length){
+      listEl.innerHTML = `<div class="shokudo-recipe-empty">まだ白紙です。★3の一皿が、ここに載ります。</div>`;
+      return;
+    }
+    listEl.innerHTML = book.map((r, i) => `
+      <div class="shokudo-recipe-card" data-bi="${i}">
+        <div class="shokudo-recipe-nm">${esc(r.name)}<em>${r.times|0}回提供</em></div>
+        <div class="shokudo-recipe-ings">${r.ings.map(esc).join("・")}</div>
+        <div class="shokudo-recipe-tags">${r.tags.map(t => `<span>${esc(t)}</span>`).join("")}</div>
+        <div class="shokudo-recipe-meta">第${r.born|0}夜に生まれた一皿（${esc(r.dishName || "")}）</div>
+      </div>`).reverse().join("");
+  }
+
+  // click a recipe -> auto-select its 3 ingredients (DOM clicks, same path as the player)
+  function cookRecipe(r){
+    if(state.phase !== "waiting" || !state.current){ toast("お客が席につくのを待ちましょう"); return; }
+    const idx = r.ings.map(n => state.pantry.findIndex(p => p.name === n));
+    if(idx.some(i => i < 0)){ toast("材料が切れています"); return; }
+    let guard = 0;                                   // deselect whatever is on the tray
+    while(guard++ < 8){
+      const c = S.pantryEl.querySelector(".ing.sel");
+      if(!c) break;
+      c.click();
+    }
+    for(const i of idx){                             // re-query each time: pantry re-renders per click
+      const c = S.pantryEl.querySelector(`.ing[data-i="${i}"]`);
+      if(c && !c.classList.contains("sel")) c.click();
+    }
+    closeModal();
+    toast(`『${r.name}』の支度を始めました`);
+  }
+  listEl.addEventListener("click", e => {
+    const card = e.target.closest(".shokudo-recipe-card");
+    if(!card) return;
+    const r = book[+card.dataset.bi];
+    if(r) cookRecipe(r);
+  });
+
+  S.addButton("📖 品書き", () => { modalOpen ? closeModal() : openModal(); });
+
+  /* ================= recipe birth & times-served ================= */
+  on("dish-served", ({customer, dish, score}) => {
+    try{
+      if(!dish || !Array.isArray(dish.cards) || dish.cards.length !== 3) return;
+      const key = keyOf(dish.cards);
+      let r = book.find(b => b.key === key);
+      if(r) r.times = (r.times|0) + 1;
+      else if(score === 3){
+        r = { key, name: fancyName(dish), dishName: dish.name,
+              ings: dish.cards.map(c => c.name), tags: dish.tags.slice(),
+              times: 1, born: state.night };
+        if(book.length >= CAP){                      // evict the least-served (oldest wins ties)
+          let worst = 0;
+          for(let i = 1; i < book.length; i++) if((book[i].times|0) < (book[worst].times|0)) worst = i;
+          book.splice(worst, 1);
+        }
+        book.push(r);
+        setTimeout(() => toast(`★3の一皿を品書きに書き留めました — 『${r.name}』`), 3400);
+        emit("recipe:born", {name: r.name});
+      }
+      if(r) saveBook();
+      // rumor order fulfilled exactly -> bonus tip
+      if(customer && customer.order && customer.order.recipeKey === key && score === 3){
+        const amt = 4 + ((Math.random()*5)|0);       // 4-8, via core award() (never negative)
+        if(award(customer.world, amt))
+          setTimeout(() => toast(`噂どおりの味、と${customer.name}。チップをはずみました（+${amt}）`), 2600);
+        else
+          setTimeout(() => toast(`噂どおりの味、と${customer.name}。立派な葉っぱを置いていきました`), 2600);
+      }
+      if(modalOpen) renderBook();
+    }catch(err){ console.error("[shokudo-recipe]", err); }
+  });
+
+  /* ================= regulars order by recipe name ================= */
+  on("regular-returned", c => {
+    try{
+      if(!c || !c.order || !c.regular || !book.length) return;
+      if(Math.random() > .55) return;                // "may" — a rumor, not a rule
+      const pref = c.regular.tags || [];
+      const candidates = book.filter(b =>
+        b.tags.filter(t => pref.includes(t)).length >= 2 &&
+        b.ings.every(n => state.pantry.some(p => p.name === n)));
+      if(!candidates.length) return;
+      const r = pick(candidates);
+      const liked = r.tags.filter(t => pref.includes(t));
+      const rest  = r.tags.filter(t => !pref.includes(t));
+      // order tags ⊆ recipe tags -> serving exactly that recipe is an automatic ★3 (core judging)
+      c.order.tags = liked.concat(rest).slice(0, Math.min(3, r.tags.length));
+      c.order.text = `『${r.name}』を。噂で聞きました`;
+      c.order.recipeKey = r.key;
+      emit("recipe:ordered", {name: r.name});
+      setTimeout(() => { if(state.current === c) toast(`噂が一人歩きしています。『${r.name}』のご指名です`); }, 1500);
+    }catch(err){ console.error("[shokudo-recipe]", err); }
+  });
+
+  /* ================= 調理場QoL: live tag preview + family filters + lock ================= */
+  const serveBtn = document.getElementById("serveBtn");
+  const chipsEl = document.createElement("span");
+  chipsEl.className = "shokudo-recipe-chips";
+  chipsEl.style.display = "none";
+  if(serveBtn && serveBtn.parentNode) serveBtn.parentNode.insertBefore(chipsEl, serveBtn);
+
+  const FAM = ["温度","食感","味","その他"];
+  let fFam = -1, fIdx = 0;
+  const filterEl = document.createElement("div");
+  filterEl.className = "shokudo-recipe-filters";
+  const flabel = document.createElement("span");
+  flabel.className = "shokudo-recipe-flabel";
+  flabel.textContent = "絞り込み";
+  filterEl.append(flabel);
+  const fbtns = FAM.map((nm, i) => {
+    const b = document.createElement("button");
+    b.className = "shokudo-recipe-fbtn";
+    b.textContent = nm;
+    b.title = "押すたびに " + lore.TAG_GROUPS[i].join("→") + "→解除";
+    b.addEventListener("click", () => {
+      if(fFam !== i){ fFam = i; fIdx = 0; }
+      else if(++fIdx >= lore.TAG_GROUPS[i].length){ fFam = -1; fIdx = 0; }
+      renderFilters(); applyDecor();
+    });
+    filterEl.append(b);
+    return b;
+  });
+  S.pantryEl.parentNode.insertBefore(filterEl, S.pantryEl);
+  function renderFilters(){
+    fbtns.forEach((b, i) => {
+      const active = fFam === i;
+      b.textContent = active ? `${FAM[i]}：${lore.TAG_GROUPS[i][fIdx]}` : FAM[i];
+      b.classList.toggle("shokudo-recipe-on", active);
+    });
+  }
+
+  function applyDecor(){
+    try{
+      const cards = S.pantryEl.querySelectorAll(".ing");
+      const ftag = fFam >= 0 ? lore.TAG_GROUPS[fFam][fIdx] : null;
+      const selTags = [];
+      let nSel = 0;
+      cards.forEach(card => { if(card.classList.contains("sel")) nSel++; });
+      cards.forEach(card => {
+        const ing = state.pantry[+card.dataset.i];
+        if(!ing) return;
+        const isSel = card.classList.contains("sel");
+        if(isSel) for(const t of ing.tags) if(!selTags.includes(t)) selTags.push(t);
+        card.classList.toggle("shokudo-recipe-dim", !!ftag && !isSel && !ing.tags.includes(ftag));
+        card.classList.toggle("shokudo-recipe-lock", nSel >= 3 && !isSel);
+      });
+      const want = (state.current && state.current.order) ? state.current.order.tags : [];
+      chipsEl.innerHTML = selTags.map(t =>
+        `<span class="${want.includes(t) ? "shokudo-recipe-hit" : ""}">${esc(t)}</span>`).join("");
+      chipsEl.style.display = selTags.length ? "" : "none";
+    }catch(e){}
+  }
+  // pantry re-renders via innerHTML -> childList mutations; our class tweaks on children don't re-trigger
+  new MutationObserver(applyDecor).observe(S.pantryEl, {childList:true});
+  const decorSoon = () => setTimeout(applyDecor, 0);
+  on("customer-arrived", decorSoon);
+  on("customer-left", decorSoon);
+  on("night-start", () => { decorSoon(); if(modalOpen) renderBook(); });
+  on("night-end", closeModal);
+
+  renderFilters();
+  applyDecor();
+  try{ window.dispatchEvent(new Event("resize")); }catch(e){}  // let the core re-measure --kh
+})();
+</script>
+
 </body>
 </html>

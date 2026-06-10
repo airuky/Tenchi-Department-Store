@@ -1273,5 +1273,1138 @@
   nextVisitor();
 })();
 </script>
+
+<script>
+// ════ plugin: niwa-dougu (wave2) ════ Plugin for /Users/airuky/Documents/Playground/sandbox/Tenchi Department Store/koke-niwa/index.html — append the IIFE in a <script> before </body>, after the cor
+(() => {
+  "use strict";
+  if(!window.NIWA) return;
+  const N = window.NIWA;
+  try{
+
+  const LSK = "niwa-dougu-v1";
+  const GROW = 10*60e3;                        // moss 0→1 (core constant)
+  const { mk, toast, pick } = N;
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+  const G = ()=>N.garden;
+  function mulberry32(a){
+    return function(){
+      a|=0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a>>>15, 1|a);
+      t = t + Math.imul(t ^ t>>>7, 61|t) ^ t;
+      return ((t ^ t>>>14)>>>0) / 4294967296;
+    };
+  }
+
+  // ---- lore -----------------------------------------------------------
+  const LORE = {
+    OO:  ["大熊手が、堂々と通りました","十一本の歯が、そろって頷きました","大きな波は、大きな沈黙を残します"],
+    KOKE:["苔は、植えられたことに気づいていません","てのひらの分だけ、緑が増えました","百年後には、もっと馴染むそうです"],
+    TOUROU:["灯籠が据わりました。夜を少しだけ連れてきたようです","灯りのまわりで、苔が嬉しそうにしています（たぶん）"],
+    TSUKUBAI:["蹲踞が据わりました。水は、静けさの音を立てます","客人はまず、水を見に来るでしょう"],
+    MIZU:["誰かが蹲踞の水を覗いて、満足して行きました","水音につられて、足あとがひとつ増えました","蹲踞のほとりは、今日も人気です"],
+    UNDO:["ひと掻き、なかったことにしました","砂が一歩だけ、昨日に戻りました","熊手は、見なかったことにしてくれるそうです"],
+    UNDO_NG:["戻す掻き跡が、もうありません","これ以上は、砂も覚えていないそうです"],
+  };
+  const TIPS = {
+    rake:"六本爪の熊手。砂紋の基本です",
+    s1:"小さな石。語尾のように置きます",
+    s2:"中くらいの石。座りの良いところへ",
+    s3:"大きな石。庭の主役になります",
+    "ndg-ookumade":"十一本爪。大胆な砂紋を一息で",
+    "ndg-kokegote":"苔ごて。撫でたところに苔が根づきます",
+    "ndg-tourou":"灯籠。灯りのまわりは苔がよく育ちます",
+    "ndg-tsukubai":"蹲踞。客人は水を覗きに寄り道します",
+  };
+
+  // ---- css ------------------------------------------------------------
+  const css = document.createElement("style");
+  css.textContent = `
+    #tray{flex-wrap:wrap;justify-content:center;max-width:min(96vw,760px);border-radius:24px}
+    #stage[data-tool="ndg-tourou"],#stage[data-tool="ndg-tsukubai"]{cursor:copy}
+    #stage[data-tool="ndg-kokegote"]{cursor:cell}
+    #stage[data-tool="ndg-ookumade"]{cursor:crosshair}
+    .niwa-dougu-sep{width:1px;align-self:stretch;margin:4px 3px;background:rgba(95,82,55,.25)}
+    .niwa-dougu-tip{position:fixed;z-index:8;background:rgba(58,52,36,.92);color:#f4f0e2;
+      padding:5px 11px;border-radius:8px;font-size:11.5px;pointer-events:none;opacity:0;
+      transition:opacity .18s;transform:translate(-50%,-100%);white-space:nowrap}
+    .niwa-dougu-tip.show{opacity:1}
+    .niwa-dougu-ghost{opacity:.45;pointer-events:none}
+    .niwa-dougu-glow{animation:niwa-dougu-fl 3.4s ease-in-out infinite}
+    @keyframes niwa-dougu-fl{0%,100%{opacity:.7}50%{opacity:1}}
+    .niwa-dougu-ripple{transform-box:fill-box;transform-origin:center;
+      animation:niwa-dougu-rip 4.6s linear infinite}
+    @keyframes niwa-dougu-rip{0%{transform:scale(.12);opacity:0}10%{opacity:.8}100%{transform:scale(1);opacity:0}}
+    .niwa-dougu-drip{transform-box:fill-box;transform-origin:center;
+      animation:niwa-dougu-dr 4.6s linear infinite}
+    @keyframes niwa-dougu-dr{0%,68%{transform:translateY(-7px);opacity:0}76%{opacity:.9}88%{transform:translateY(0);opacity:.6}100%{transform:translateY(0);opacity:0}}
+  `;
+  document.head.append(css);
+
+  // ---- svg defs (reuse core's stone gradient; add glow / water) -------
+  const defs = N.stonesSvg.querySelector("defs");
+  const gGlow = mk("radialGradient", {id:"niwa-dougu-glow", cx:"50%", cy:"50%", r:"50%"});
+  [["0%","#ffd9a0",".34"],["45%","#ffce8a",".15"],["100%","#ffce8a","0"]].forEach(([o,c,a])=>
+    gGlow.append(mk("stop", {offset:o, "stop-color":c, "stop-opacity":a})));
+  const gWater = mk("radialGradient", {id:"niwa-dougu-water", cx:"42%", cy:"38%", r:"75%"});
+  [["0%","#84988f"],["55%","#5a6e69"],["100%","#3e4f4c"]].forEach(([o,c])=>
+    gWater.append(mk("stop", {offset:o, "stop-color":c})));
+  if(defs) defs.append(gGlow, gWater);
+
+  // ---- undo history: snapshot of sand (garden region) + moss m -------
+  const HIST = [], POOL = [];
+  let pending = null, pdown = false;
+  function discardSnap(){ if(pending){ if(POOL.length<12) POOL.push(pending.cv); pending = null; } }
+  function prepareSnap(){
+    discardSnap();
+    try{
+      const g = G(), M = N.moss;
+      const cv = POOL.pop() || document.createElement("canvas");
+      const w = Math.max(1, Math.round(g.w)), h = Math.max(1, Math.round(g.h));
+      if(cv.width !== w || cv.height !== h){ cv.width = w; cv.height = h; }
+      const c = cv.getContext("2d");
+      c.clearRect(0,0,w,h);
+      c.drawImage(N.sandCv, g.x, g.y, g.w, g.h, 0, 0, w, h);
+      pending = {cv, cols:M.cols, rows:M.rows, m:Float32Array.from(M.cells, x=>x.m)};
+    }catch(_){ pending = null; }
+  }
+  function commitSnap(){
+    if(!pending) return;
+    HIST.push(pending); pending = null;
+    while(HIST.length > 10){ const o = HIST.shift(); if(POOL.length<12) POOL.push(o.cv); }
+  }
+  N.on("raked", commitSnap);                 // core rake strokes + 大熊手
+  N.on("smoothed", ()=>{ while(HIST.length){ const o=HIST.pop(); if(POOL.length<12) POOL.push(o.cv); } discardSnap(); });
+  function undo(){
+    if(pdown || st || odrag) return;
+    const s = HIST.pop();
+    if(!s){ toast(pick(LORE.UNDO_NG)); return; }
+    const g = G();
+    try{
+      N.sctx.save();
+      N.sctx.beginPath(); N.sctx.rect(g.x,g.y,g.w,g.h); N.sctx.clip();
+      N.sctx.drawImage(s.cv, 0,0,s.cv.width,s.cv.height, g.x,g.y,g.w,g.h);
+      N.sctx.restore();
+    }catch(_){}
+    const M = N.moss;
+    if(s.cols === M.cols && s.rows === M.rows && s.m.length === M.cells.length){
+      for(let i=0;i<M.cells.length;i++){
+        if(Math.abs(M.cells[i].m - s.m[i]) > .001){ M.cells[i].m = s.m[i]; M.renderCell(i); }
+      }
+    }
+    if(POOL.length<12) POOL.push(s.cv);
+    toast(pick(LORE.UNDO));
+    N.emit("dougu:undo", {depth:HIST.length});
+    mySave();
+  }
+  // topbar button + Z key
+  const topbar = document.querySelector(".topbar");
+  const undoBtn = document.createElement("button");
+  undoBtn.className = "btn niwa-dougu-undo";
+  undoBtn.textContent = "↩ ひと掻き戻す";
+  undoBtn.title = "Z でも戻せます";
+  undoBtn.addEventListener("click", undo);
+  const smoothBtn = document.getElementById("smooth");
+  if(topbar) topbar.insertBefore(undoBtn, smoothBtn);
+
+  // ---- tools / tray ---------------------------------------------------
+  const tray = document.getElementById("tray");
+  const MYTOOLS = ["ndg-ookumade","ndg-kokegote","ndg-tourou","ndg-tsukubai"];
+  let myTool = null;
+  function selectMyTool(id){
+    myTool = id;
+    N.stage.dataset.tool = id;
+    document.querySelectorAll(".tbtn").forEach(b=>b.classList.toggle("active", b.dataset.tool === id));
+  }
+  function clearMyTool(){ myTool = null; ghost.style.display = "none"; }
+  const sep = document.createElement("span");
+  sep.className = "niwa-dougu-sep";
+  if(tray) tray.append(sep);
+  [["ndg-ookumade","🧹 大熊手"],["ndg-kokegote","🌿 苔ごて"],["ndg-tourou","🏮 灯籠"],["ndg-tsukubai","💧 蹲踞"]]
+    .forEach(([id,label])=>{
+      const b = document.createElement("button");
+      b.className = "tbtn niwa-dougu-tbtn";
+      b.dataset.tool = id;
+      b.textContent = label;
+      b.addEventListener("click", ()=>selectMyTool(id));
+      if(tray) tray.append(b);
+    });
+  document.querySelectorAll('.tbtn:not(.niwa-dougu-tbtn)').forEach(b=>b.addEventListener("click", clearMyTool));
+  window.addEventListener("keydown", e=>{
+    if(e.metaKey || e.ctrlKey || e.altKey) return;
+    if(["1","2","3","4"].includes(e.key)) clearMyTool();
+    const i = ["5","6","7","8"].indexOf(e.key);
+    if(i >= 0) selectMyTool(MYTOOLS[i]);
+    else if(e.key === "z" || e.key === "Z") undo();
+  });
+
+  // ---- tiny tool-tips -------------------------------------------------
+  const tip = document.createElement("div");
+  tip.className = "niwa-dougu-tip";
+  document.body.append(tip);
+  let tipT = null;
+  function hideTip(){ clearTimeout(tipT); tip.classList.remove("show"); }
+  document.querySelectorAll(".tbtn").forEach(b=>{
+    b.addEventListener("pointerenter", ()=>{
+      const txt = TIPS[b.dataset.tool];
+      if(!txt) return;
+      clearTimeout(tipT);
+      tipT = setTimeout(()=>{
+        tip.textContent = txt;
+        const r = b.getBoundingClientRect();
+        tip.style.left = (r.left + r.width/2) + "px";
+        tip.style.top = (r.top - 7) + "px";
+        tip.classList.add("show");
+      }, 240);
+    });
+    b.addEventListener("pointerleave", hideTip);
+    b.addEventListener("pointerdown", hideTip);
+  });
+
+  // ---- shared stroke helpers (cloned in core's style) -----------------
+  function strokePoly(ctx, pts, style, w, dx, dy){
+    if(pts.length < 2) return;
+    const P = (dx||dy) ? pts.map(p=>({x:p.x+dx, y:p.y+dy})) : pts;
+    ctx.beginPath();
+    ctx.moveTo(P[0].x, P[0].y);
+    if(P.length === 2) ctx.lineTo(P[1].x, P[1].y);
+    else{
+      for(let i=1;i<P.length-1;i++)
+        ctx.quadraticCurveTo(P[i].x, P[i].y, (P[i].x+P[i+1].x)/2, (P[i].y+P[i+1].y)/2);
+      ctx.lineTo(P[P.length-1].x, P[P.length-1].y);
+    }
+    ctx.lineCap = ctx.lineJoin = "round";
+    ctx.strokeStyle = style; ctx.lineWidth = w; ctx.stroke();
+  }
+  function offsetPts(pts, o){
+    const n = pts.length, out = [];
+    for(let i=0;i<n;i++){
+      const a = pts[Math.max(0,i-1)], b = pts[Math.min(n-1,i+1)];
+      const dx = b.x-a.x, dy = b.y-a.y, len = Math.hypot(dx,dy)||1;
+      out.push({x: pts[i].x - dy/len*o, y: pts[i].y + dx/len*o});
+    }
+    return out;
+  }
+  function mossClear(a, b, w){
+    const M = N.moss, g = G(), CS = M.CS, m = N.mctx;
+    m.save();
+    m.globalCompositeOperation = "destination-out";
+    m.strokeStyle = "rgba(0,0,0,1)";
+    m.lineWidth = w+14; m.lineCap = "round";
+    m.beginPath(); m.moveTo(a.x,a.y); m.lineTo(b.x,b.y); m.stroke();
+    m.restore();
+    const d = Math.hypot(b.x-a.x, b.y-a.y), steps = Math.ceil(d/(CS*.5))+1;
+    const reach = w/2 + CS*.55;
+    for(let s=0;s<=steps;s++){
+      const px = a.x+(b.x-a.x)*s/steps, py = a.y+(b.y-a.y)*s/steps;
+      const q0 = clamp(Math.floor((px-reach-g.x)/CS),0,M.cols-1), q1 = clamp(Math.floor((px+reach-g.x)/CS),0,M.cols-1);
+      const r0 = clamp(Math.floor((py-reach-g.y)/CS),0,M.rows-1), r1 = clamp(Math.floor((py+reach-g.y)/CS),0,M.rows-1);
+      for(let r=r0;r<=r1;r++) for(let q=q0;q<=q1;q++){
+        const cx = g.x+q*CS+CS/2, cy = g.y+r*CS+CS/2;
+        if(Math.hypot(cx-px, cy-py) <= reach) M.disturbCell(r*M.cols+q);
+      }
+    }
+  }
+  // Catmull-Rom densify — keeps fast strokes silky when pointer events are sparse
+  function cr(p0,p1,p2,p3,t){
+    const t2=t*t, t3=t2*t;
+    return {
+      x: .5*((2*p1.x)+(-p0.x+p2.x)*t+(2*p0.x-5*p1.x+4*p2.x-p3.x)*t2+(-p0.x+3*p1.x-3*p2.x+p3.x)*t3),
+      y: .5*((2*p1.y)+(-p0.y+p2.y)*t+(2*p0.y-5*p1.y+4*p2.y-p3.y)*t2+(-p0.y+3*p1.y-3*p2.y+p3.y)*t3),
+    };
+  }
+  function clampPt(x, y){ const g = G(); return {x:clamp(x,g.x+2,g.x+g.w-2), y:clamp(y,g.y+2,g.y+g.h-2)}; }
+
+  // ---- 大熊手 ＋ 苔ごて stroke engine ---------------------------------
+  const TINES2 = []; for(let i=0;i<11;i++) TINES2.push(-27 + i*5.4);
+  const under = document.createElement("canvas");
+  const uctx = under.getContext("2d");
+  let st = null, raf = 0;
+  function renderBig(){
+    if(!st || st.kind !== "oo") return;
+    const c = N.sctx, g = G();
+    c.drawImage(under, 0, 0);
+    if(st.pts.length < 2) return;
+    c.save();
+    c.beginPath(); c.rect(g.x,g.y,g.w,g.h); c.clip();
+    strokePoly(c, st.pts, N.sandPat, 64);
+    for(const o of TINES2){
+      const op = offsetPts(st.pts, o);
+      strokePoly(c, op, "rgba(255,250,233,.6)", 1.8, 1, 1.2);
+      strokePoly(c, op, "rgba(116,97,72,.5)", 2.1, 0, 0);
+    }
+    c.restore();
+  }
+  function requestBig(){ if(raf) return; raf = requestAnimationFrame(()=>{ raf = 0; renderBig(); }); }
+  function appendPt(p){
+    const pts = st.pts, lp = pts[pts.length-1];
+    const d = Math.hypot(p.x-lp.x, p.y-lp.y);
+    if(d < 4) return null;
+    st.len += d;
+    if(d > 22 && pts.length >= 2){
+      const p0 = pts[pts.length-2];
+      const n = Math.min(8, Math.ceil(d/11));
+      for(let k=1;k<n;k++) pts.push(clampPt.apply(null, (q=>[q.x,q.y])(cr(p0, lp, p, p, k/n))));
+    }
+    pts.push(p);
+    return lp;
+  }
+  function paintMoss(x, y){
+    const M = N.moss, g = G(), CS = M.CS;
+    let did = 0;
+    for(let k=0;k<4;k++){
+      if(k > 0 && Math.random() < .45) continue;            // organic sparsity
+      const jx = x + (Math.random()-.5)*CS*1.7;             // placement jitter
+      const jy = y + (Math.random()-.5)*CS*1.7;
+      const q = Math.floor((jx-g.x)/CS), r = Math.floor((jy-g.y)/CS);
+      if(q<0 || q>=M.cols || r<0 || r>=M.rows) continue;
+      const i = r*M.cols+q, c = M.cells[i];
+      if(!c) continue;
+      const before = c.m;
+      c.m = Math.min(1, c.m + .14 + Math.random()*.22);
+      c.t = Date.now();
+      if(c.m !== before){ M.renderCell(i); did++; }
+    }
+    if(st) st.painted += did;
+  }
+
+  // ---- placeable objects: 灯籠・蹲踞 ----------------------------------
+  const objs = [];
+  let nextId = 1, odrag = null;
+  const stoneFill = {fill:"url(#nw-stone)", stroke:"#59554a", "stroke-width":1};
+  function buildTourou(seed){
+    const b = mk("g");
+    const rng = mulberry32(seed);
+    b.setAttribute("transform", `rotate(${((rng()-.5)*4).toFixed(1)})`);
+    const glow = mk("ellipse", {cx:0, cy:6, rx:86, ry:50, fill:"url(#niwa-dougu-glow)"});
+    glow.setAttribute("class", "niwa-dougu-glow");
+    b.append(glow,
+      mk("ellipse", {cx:3, cy:16, rx:19, ry:6.2, fill:"rgba(56,48,36,.3)", filter:"url(#nw-soft)"}),
+      mk("path", Object.assign({d:"M -13 16 Q 0 20 13 16 L 10 9 Q 0 12 -10 9 Z"}, stoneFill)),
+      mk("path", Object.assign({d:"M -4.5 10 Q 0 11 4.5 10 L 4 -4 Q 0 -5 -4 -4 Z"}, stoneFill)),
+      mk("path", Object.assign({d:"M -9 -4 Q 0 -7 9 -4 L 7 -8 L -7 -8 Z"}, stoneFill)),
+      mk("rect", Object.assign({x:-7.5, y:-19, width:15, height:11, rx:1.5}, stoneFill)));
+    const win = mk("rect", {x:-3.6, y:-17, width:7.2, height:7, rx:1, fill:"#ffe3a6"});
+    win.setAttribute("class", "niwa-dougu-glow");
+    b.append(win,
+      mk("path", Object.assign({d:"M -15 -19 Q 0 -30 15 -19 Q 0 -24 -15 -19 Z"}, stoneFill)),
+      mk("circle", Object.assign({cx:0, cy:-27.5, r:2.6}, stoneFill)));
+    return b;
+  }
+  function buildTsukubai(seed){
+    const b = mk("g");
+    const rng = mulberry32(seed);
+    b.append(
+      mk("ellipse", {cx:2.5, cy:4, rx:25, ry:21, fill:"rgba(56,48,36,.3)", filter:"url(#nw-soft)"}),
+      mk("rect", {x:-33, y:-12, width:4.5, height:15, rx:2, fill:"#a3b072", stroke:"#6c7a45", "stroke-width":.8, transform:"rotate(-6)"}),
+      mk("rect", {x:-33, y:-15, width:17, height:4.2, rx:2.1, fill:"#9aa86a", stroke:"#6c7a45", "stroke-width":.8, transform:"rotate(12)"}),
+      mk("ellipse", Object.assign({cx:0, cy:0, rx:23, ry:20}, stoneFill, {"stroke-width":1.1})),
+      mk("ellipse", {cx:0, cy:-1, rx:15.5, ry:13, fill:"#3e4f4c", stroke:"rgba(20,28,26,.6)", "stroke-width":1}),
+      mk("ellipse", {cx:0, cy:-1, rx:14, ry:11.6, fill:"url(#niwa-dougu-water)"}),
+      mk("ellipse", {cx:-4, cy:-4.5, rx:4.5, ry:2.6, fill:"rgba(240,246,238,.18)"}));
+    for(const dl of ["0s","2.3s"]){
+      const rp = mk("ellipse", {cx:0, cy:-1, rx:13, ry:10.5, fill:"none",
+        stroke:"rgba(235,244,238,.55)", "stroke-width":1.3, opacity:".35"});
+      rp.setAttribute("class", "niwa-dougu-ripple");
+      rp.style.animationDelay = dl;
+      b.append(rp);
+    }
+    const drip = mk("circle", {cx:-9, cy:-5.5, r:1.3, fill:"rgba(235,244,240,.85)"});
+    drip.setAttribute("class", "niwa-dougu-drip");
+    b.append(drip);
+    for(let i=0;i<4;i++){
+      const a = rng()*6.283, rr = 26+rng()*7;
+      b.append(mk("ellipse", Object.assign({cx:(Math.cos(a)*rr).toFixed(1), cy:(Math.sin(a)*rr*.8+3).toFixed(1),
+        rx:2.4+rng()*2, ry:1.8+rng()*1.4}, stoneFill, {"stroke-width":.7})));
+    }
+    return b;
+  }
+  function clampPos(kind, x, y){
+    const g = G(), r = kind === "tourou" ? 24 : 27;
+    return {x:clamp(x, g.x+r, g.x+g.w-r), y:clamp(y, g.y+r, g.y+g.h-r)};
+  }
+  function placeObj(kind, x, y, opts){
+    opts = opts || {};
+    const p = clampPos(kind, x, y);
+    const o = {id:nextId++, kind, x:p.x, y:p.y, seed:(opts.seed>>>0) || ((Math.random()*1e9)|0) || 1};
+    o.el = mk("g");
+    o.el.setAttribute("transform", `translate(${o.x} ${o.y})`);
+    o.el.style.pointerEvents = "auto";
+    o.el.style.cursor = "grab";
+    o.body = kind === "tourou" ? buildTourou(o.seed) : buildTsukubai(o.seed);
+    o.body.style.transformBox = "fill-box";
+    o.body.style.transformOrigin = "center";
+    o.el.append(o.body);
+    N.stonesSvg.append(o.el);
+    objs.push(o);
+    attachObj(o);
+    if(!opts.silent){
+      N.rings({x:o.x, y:o.y, r: kind === "tourou" ? 17 : 23});
+      try{
+        o.body.animate(
+          [{transform:"scale(.5)", opacity:0},
+           {transform:"scale(1.06)", opacity:1, offset:.75},
+           {transform:"scale(1)"}],
+          {duration:420, easing:"cubic-bezier(.2,.8,.3,1.2)"});
+      }catch(_){}
+      toast(pick(kind === "tourou" ? LORE.TOUROU : LORE.TSUKUBAI));
+      N.emit("tool:used", {tool:kind});
+    }
+    N.emit("object:placed", {kind, x:o.x, y:o.y, id:o.id});
+    saveObjs();
+    return o;
+  }
+  function removeObj(id){
+    const i = objs.findIndex(o=>o.id === id);
+    if(i < 0) return;
+    const o = objs[i];
+    objs.splice(i, 1);
+    try{ o.el.remove(); }catch(_){}
+    N.emit("object:removed", {kind:o.kind, id:o.id});
+    saveObjs();
+  }
+  function attachObj(o){
+    o.el.addEventListener("pointerdown", e=>{
+      if(e.button !== 0 || st || odrag) return;
+      e.preventDefault(); e.stopPropagation();
+      odrag = {o, ox:o.x-e.clientX, oy:o.y-e.clientY, moved:0, last:{x:o.x, y:o.y}};
+      o.el.style.cursor = "grabbing";
+    });
+    o.el.addEventListener("dblclick", e=>{
+      e.preventDefault();
+      removeObj(o.id);
+      toast(o.kind === "tourou"
+        ? "灯籠を、そっと片づけました。灯りの跡は苔が覚えています"
+        : "蹲踞を片づけました。水音だけ、しばらく聞こえる気がします");
+    });
+  }
+
+  // ---- ghost preview --------------------------------------------------
+  const ghost = mk("g");
+  ghost.setAttribute("class", "niwa-dougu-ghost");
+  ghost.style.display = "none";
+  N.stonesSvg.append(ghost);
+  let ghostKind = "";
+  function ghostFor(t){
+    return t==="s1" ? "c15" : t==="s2" ? "c25" : t==="s3" ? "c38"
+         : t==="ndg-tourou" ? "tourou" : t==="ndg-tsukubai" ? "tsukubai" : "";
+  }
+  function rebuildGhost(kind){
+    ghostKind = kind;
+    while(ghost.firstChild) ghost.firstChild.remove();
+    if(!kind) return;
+    if(kind[0] === "c")
+      ghost.append(mk("circle", {r:+kind.slice(1), fill:"rgba(148,144,127,.45)",
+        stroke:"#59554a", "stroke-width":1.2, "stroke-dasharray":"5 5"}));
+    else ghost.append(kind === "tourou" ? buildTourou(7) : buildTsukubai(7));
+  }
+  function updateGhost(e){
+    const placing = st && st.kind === "place";
+    const t = placing ? "ndg-"+st.obj : (myTool || N.tool);
+    const kind = ghostFor(t);
+    if(kind !== ghostKind) rebuildGhost(kind);
+    if(!kind || (e.buttons && !placing)){ ghost.style.display = "none"; return; }
+    const g = G();
+    const inG = e.clientX >= g.x-6 && e.clientX <= g.x+g.w+6 && e.clientY >= g.y-6 && e.clientY <= g.y+g.h+6;
+    if(!inG && !placing){ ghost.style.display = "none"; return; }
+    const p = kind[0] === "c"
+      ? {x:clamp(e.clientX, g.x+8, g.x+g.w-8), y:clamp(e.clientY, g.y+8, g.y+g.h-8)}
+      : clampPos(kind, e.clientX, e.clientY);
+    ghost.setAttribute("transform", `translate(${p.x} ${p.y})`);
+    ghost.style.display = "";
+  }
+
+  // ---- pointer wiring -------------------------------------------------
+  // capture on window runs BEFORE the core's stage handlers:
+  // it takes the speculative undo snapshot and silences the core when our tool is live
+  window.addEventListener("pointerdown", e=>{
+    if(e.button !== 0) return;
+    pdown = true;
+    const g = G();
+    const inG = e.clientX >= g.x-8 && e.clientX <= g.x+g.w+8 && e.clientY >= g.y-8 && e.clientY <= g.y+g.h+8;
+    if(!inG) return;
+    if(N.stage.contains(e.target)) prepareSnap();
+    if(myTool && N.stage.contains(e.target)) e.preventDefault();  // core checks defaultPrevented
+  }, true);
+  N.stage.addEventListener("pointerdown", e=>{
+    if(e.button !== 0 || !myTool || st || odrag) return;
+    const g = G();
+    if(e.clientX < g.x-8 || e.clientX > g.x+g.w+8 || e.clientY < g.y-8 || e.clientY > g.y+g.h+8) return;
+    if(myTool === "ndg-ookumade"){
+      st = {kind:"oo", pts:[clampPt(e.clientX, e.clientY)], len:0};
+      under.width = N.sandCv.width; under.height = N.sandCv.height;
+      uctx.drawImage(N.sandCv, 0, 0);
+      try{ N.stage.setPointerCapture(e.pointerId); }catch(_){}
+    }else if(myTool === "ndg-kokegote"){
+      st = {kind:"koke", last:{x:e.clientX, y:e.clientY}, painted:0};
+      paintMoss(e.clientX, e.clientY);
+    }else{
+      const obj = myTool === "ndg-tourou" ? "tourou" : "tsukubai";
+      const p = clampPos(obj, e.clientX, e.clientY);
+      st = {kind:"place", obj, x:p.x, y:p.y};
+      updateGhost(e);
+    }
+  });
+  window.addEventListener("pointermove", e=>{
+    if(odrag){
+      const g = G(), o = odrag.o;
+      const nx = clamp(e.clientX+odrag.ox, g.x+16, g.x+g.w-16);
+      const ny = clamp(e.clientY+odrag.oy, g.y+16, g.y+g.h-16);
+      const lp = odrag.last;
+      if(Math.hypot(nx-lp.x, ny-lp.y) >= 3){
+        odrag.moved += Math.hypot(nx-lp.x, ny-lp.y);
+        mossClear(lp, {x:nx, y:ny}, 34);
+        odrag.last = {x:nx, y:ny};
+        o.x = nx; o.y = ny;
+        o.el.setAttribute("transform", `translate(${nx} ${ny})`);
+      }
+    }else if(st){
+      if(st.kind === "oo"){
+        const p = clampPt(e.clientX, e.clientY);
+        const lp = appendPt(p);
+        if(lp){
+          if(st.pts.length > 320){ renderBig(); uctx.drawImage(N.sandCv, 0, 0); st.pts = st.pts.slice(-12); }
+          requestBig();
+          mossClear(lp, p, 64);
+        }
+      }else if(st.kind === "koke"){
+        if(Math.hypot(e.clientX-st.last.x, e.clientY-st.last.y) >= 9){
+          st.last = {x:e.clientX, y:e.clientY};
+          paintMoss(e.clientX, e.clientY);
+        }
+      }else if(st.kind === "place"){
+        const p = clampPos(st.obj, e.clientX, e.clientY);
+        st.x = p.x; st.y = p.y;
+      }
+    }
+    updateGhost(e);
+  });
+  function onUp(){
+    pdown = false;
+    if(odrag){
+      const o = odrag.o;
+      o.el.style.cursor = "grab";
+      if(odrag.moved > 9){
+        N.rings({x:o.x, y:o.y, r:o.kind === "tourou" ? 17 : 23});
+        N.emit("object:moved", {kind:o.kind, id:o.id});
+        saveObjs();
+      }
+      odrag = null;
+      return;
+    }
+    if(!st) return;
+    if(raf){ cancelAnimationFrame(raf); raf = 0; }
+    const s = st;
+    if(s.kind === "oo"){
+      renderBig();
+      if(s.len > 4){
+        N.emit("raked", {length:Math.round(s.len)});   // commits the undo snapshot too
+        N.emit("tool:used", {tool:"ookumade"});
+        if(s.len > 520 && Math.random() < .3) toast(pick(LORE.OO));
+        mySave();
+      }
+    }else if(s.kind === "koke"){
+      if(s.painted > 0){
+        commitSnap();
+        N.emit("tool:used", {tool:"kokegote"});
+        if(s.painted > 5 && Math.random() < .35) toast(pick(LORE.KOKE));
+        mySave();
+      }
+    }else if(s.kind === "place"){
+      ghost.style.display = "none";
+      st = null;
+      placeObj(s.obj, s.x, s.y);
+      return;
+    }
+    st = null;
+  }
+  window.addEventListener("pointerup", onUp);
+  window.addEventListener("pointercancel", onUp);
+
+  // ---- 灯籠: warm glow accelerates moss nearby ------------------------
+  let lastTick = Date.now();
+  setInterval(()=>{
+    const now = Date.now(), dt = Math.min(now-lastTick, 20000);
+    lastTick = now;
+    try{
+      const M = N.moss, g = G(), CS = M.CS, R = 100;
+      for(const o of objs){
+        if(o.kind !== "tourou") continue;
+        const q0 = clamp(Math.floor((o.x-R-g.x)/CS),0,M.cols-1), q1 = clamp(Math.floor((o.x+R-g.x)/CS),0,M.cols-1);
+        const r0 = clamp(Math.floor((o.y-R-g.y)/CS),0,M.rows-1), r1 = clamp(Math.floor((o.y+R-g.y)/CS),0,M.rows-1);
+        for(let r=r0;r<=r1;r++) for(let q=q0;q<=q1;q++){
+          const i = r*M.cols+q, c = M.cells[i];
+          if(!c) continue;
+          const dd = Math.hypot(g.x+q*CS+CS/2-o.x, g.y+r*CS+CS/2-o.y);
+          if(dd > R || now-c.t < 60000) continue;
+          const cap = Math.min(1, Math.max(c.cap, .7));
+          if(c.m >= cap) continue;
+          c.m = Math.min(cap, c.m + dt/GROW * (1.6*(1-dd/R)+.4) * (.45+c.f));
+          if(c.m > .02) M.renderCell(i);
+        }
+      }
+    }catch(_){}
+  }, 5000);
+
+  // ---- 蹲踞: visitors come for the water ------------------------------
+  (function mizuLoop(){
+    setTimeout(()=>{
+      try{
+        const ts = objs.filter(o=>o.kind === "tsukubai");
+        if(ts.length && !document.hidden && Math.random() < .7){
+          const t = pick(ts);
+          N.spawnVisitor(pick(["frog","sparrow"]));
+          setTimeout(()=>{
+            try{
+              for(let i=0;i<3;i++)
+                N.stampPrints(t.x+(Math.random()-.5)*72, t.y+28+Math.random()*22, 1.1);
+              toast(pick(LORE.MIZU));
+            }catch(_){}
+          }, 2600);
+        }
+      }catch(_){}
+      mizuLoop();
+    }, 100e3 + Math.random()*140e3);
+  })();
+
+  // ---- persistence ----------------------------------------------------
+  let saveT = null;
+  function mySave(){
+    clearTimeout(saveT);
+    saveT = setTimeout(()=>{ try{ N.save(); }catch(_){} }, 1500);
+  }
+  function saveObjs(){
+    try{
+      const g = G();
+      localStorage.setItem(LSK, JSON.stringify({
+        v:1, g:{x:g.x, y:g.y, w:g.w, h:g.h},
+        objs: objs.map(o=>({k:o.kind, x:Math.round(o.x), y:Math.round(o.y), seed:o.seed})),
+      }));
+    }catch(_){}
+  }
+  (function loadObjs(){
+    let d = null;
+    try{
+      const raw = localStorage.getItem(LSK);
+      if(raw) d = JSON.parse(raw);
+    }catch(_){}
+    if(!d || d.v !== 1 || !d.g || !(d.g.w > 0) || !(d.g.h > 0)) return;
+    try{
+      const g = G(), rx = g.w/d.g.w, ry = g.h/d.g.h;
+      (Array.isArray(d.objs) ? d.objs : []).slice(0,40).forEach(o=>{
+        if(!isFinite(o.x) || !isFinite(o.y)) return;
+        if(o.k !== "tourou" && o.k !== "tsukubai") return;
+        placeObj(o.k, g.x+(o.x-d.g.x)*rx, g.y+(o.y-d.g.y)*ry, {seed:o.seed, silent:true});
+      });
+    }catch(_){}
+  })();
+  window.addEventListener("beforeunload", saveObjs);
+
+  // keep objects in the garden when it resizes (after the core relayouts at 180ms)
+  let lastG = Object.assign({}, G()), rszT = null;
+  window.addEventListener("resize", ()=>{
+    clearTimeout(rszT);
+    rszT = setTimeout(()=>{
+      const g = G();
+      if(lastG.w > 0 && lastG.h > 0 &&
+         (g.x !== lastG.x || g.y !== lastG.y || g.w !== lastG.w || g.h !== lastG.h)){
+        const rx = g.w/lastG.w, ry = g.h/lastG.h;
+        for(const o of objs){
+          o.x = g.x+(o.x-lastG.x)*rx;
+          o.y = g.y+(o.y-lastG.y)*ry;
+          o.el.setAttribute("transform", `translate(${o.x} ${o.y})`);
+        }
+        saveObjs();
+      }
+      lastG = Object.assign({}, g);
+    }, 320);
+  });
+
+  }catch(err){ console.error("[niwa-dougu]", err); }
+})();
+</script>
+
+<script>
+// ════ plugin: niwa-kisetsu (wave2) ════ niwa-kisetsu: 季節サイクル＋句会 pack for koke-niwa. Season: wall-clock epoch persisted in "niwa-kisetsu-v1" (6 min/season, year continues across visits, clock-skew safe
+(() => {
+  "use strict";
+  if(!window.NIWA) return;
+  const N = window.NIWA, PK = "niwa-kisetsu", LSK = "niwa-kisetsu-v1";
+  const SVGNS = "http://www.w3.org/2000/svg";
+  const esc = N.esc, pick = N.pick;
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+
+  // ── 季節の定義 ──────────────────────────────────────────────
+  const SLEN = 6*60e3, YEAR = SLEN*4, MAXD = 56;
+  const SEASONS = [
+    {k:"haru", j:"春", tint:"rgba(255,184,196,.055)", shadow:"inset 0 0 34px rgba(140,80,70,.10)", moss:1.6},
+    {k:"natsu",j:"夏", tint:"rgba(64,132,60,.05)",    shadow:"inset 0 0 58px rgba(38,30,8,.30)",   moss:1.3},
+    {k:"aki",  j:"秋", tint:"rgba(214,140,40,.075)",  shadow:"inset 0 0 40px rgba(120,70,20,.17)", moss:.7},
+    {k:"fuyu", j:"冬", tint:"rgba(150,182,222,.09)",  shadow:"inset 0 0 48px rgba(120,150,205,.24)",moss:.32},
+  ];
+  const STOAST = {
+    haru:"春が来ました。砂は知らんふりをしています",
+    natsu:"夏になりました。影が、少し濃くなります",
+    aki:"秋です。木々から、寄贈が増える見込みです",
+    fuyu:"冬が来ました。霜が、隅から挨拶を始めています",
+  };
+
+  // ── 永続化 ──────────────────────────────────────────────────
+  let store = {epoch: Date.now(), haikus: [], debris: []};
+  try{
+    const raw = localStorage.getItem(LSK);
+    if(raw){
+      const d = JSON.parse(raw);
+      if(d && typeof d === "object"){
+        if(isFinite(+d.epoch)) store.epoch = +d.epoch;
+        if(Array.isArray(d.haikus)) store.haikus = d.haikus.slice(-50);
+        if(Array.isArray(d.debris)) store.debris = d.debris.slice(0, MAXD);
+      }
+    }
+  }catch(_){}
+  function saveStore(){
+    try{
+      const g = N.garden;
+      localStorage.setItem(LSK, JSON.stringify({
+        v:1, epoch:store.epoch, haikus:store.haikus,
+        debris: debris.slice(0, MAXD).map(d=>({
+          u:+(((d.x-g.x)/g.w).toFixed(4)), v:+(((d.y-g.y)/g.h).toFixed(4)),
+          r:Math.round(d.rot)%360, k:d.kind})),
+      }));
+    }catch(_){}
+  }
+  let saveT = null;
+  function scheduleSave(){ clearTimeout(saveT); saveT = setTimeout(saveStore, 1200); }
+  window.addEventListener("beforeunload", saveStore);
+  document.addEventListener("visibilitychange", ()=>{ if(document.hidden) saveStore(); });
+
+  // ── CSS ─────────────────────────────────────────────────────
+  const css = document.createElement("style");
+  css.textContent = `
+  #${PK}-veil{position:absolute;pointer-events:none;border-radius:3px;
+    transition:background-color 5s linear, box-shadow 5s linear}
+  @keyframes ${PK}-shimmer{0%,100%{opacity:.82}50%{opacity:1}}
+  #${PK}-veil.${PK}-natsu{animation:${PK}-shimmer 3.4s ease-in-out infinite}
+  #${PK}-debris{position:absolute;inset:0;pointer-events:none}
+  .${PK}-d{position:absolute;left:0;top:0;will-change:transform}
+  .${PK}-puff{position:absolute;left:0;top:0;width:11px;height:11px;border-radius:50%;pointer-events:none;
+    background:radial-gradient(circle, rgba(255,255,255,.8), rgba(255,255,255,0) 70%)}
+  .${PK}-semi{position:fixed;z-index:4;pointer-events:none;color:rgba(64,58,44,.6);
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;font-size:12.5px;letter-spacing:.3em;opacity:0}
+  .${PK}-haiku{position:fixed;z-index:6;writing-mode:vertical-rl;cursor:pointer;pointer-events:auto;
+    background:var(--panel);border:1.5px solid var(--panel-edge);border-radius:12px;padding:16px 13px;
+    box-shadow:0 10px 30px rgba(60,45,20,.28);font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
+    color:#3a3322;font-size:15px;letter-spacing:.18em;line-height:1.9;
+    opacity:0;transform:translateY(6px);transition:opacity .9s,transform .9s}
+  .${PK}-haiku.show{opacity:1;transform:translateY(0)}
+  .${PK}-haiku .${PK}-l2{padding-top:18px}
+  .${PK}-haiku .${PK}-l3{padding-top:36px}
+  .${PK}-haiku .${PK}-by{padding-top:54px;font-size:10.5px;color:#8a8270;letter-spacing:.12em}
+  #${PK}-kucho{position:fixed;left:50%;top:46%;transform:translate(-50%,-50%) scale(.97);
+    width:min(440px,92vw);max-height:66vh;display:flex;flex-direction:column;
+    background:var(--panel);border:1.5px solid var(--panel-edge);border-radius:16px;padding:18px 20px;
+    z-index:6;box-shadow:0 16px 44px rgba(60,45,20,.3);opacity:0;pointer-events:none;transition:.3s}
+  #${PK}-kucho.show{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+  .${PK}-khead{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}
+  .${PK}-ktitle{font-family:"Hiragino Mincho ProN","Yu Mincho",serif;font-size:18px;letter-spacing:.24em;font-weight:600}
+  .${PK}-kcount{font-size:11px;color:var(--dim)}
+  .${PK}-klist{overflow:auto;min-height:0}
+  .${PK}-entry{padding:9px 2px;border-bottom:1px dashed rgba(95,82,55,.25)}
+  .${PK}-ku{font-family:"Hiragino Mincho ProN","Yu Mincho",serif;font-size:14.5px;letter-spacing:.12em;color:#3a3322}
+  .${PK}-meta{margin-top:3px;font-size:10.5px;color:var(--dim)}`;
+  document.head.append(css);
+
+  // ── レイヤー（落葉・花びらは石より下、砂より上） ─────────────
+  const layer = document.createElement("div");
+  layer.id = PK+"-debris";
+  N.stage.insertBefore(layer, N.stonesSvg);
+  const veil = document.createElement("div");
+  veil.id = PK+"-veil";
+  N.stage.append(veil);
+
+  // ── 地面の落とし物（熊手で押せる） ──────────────────────────
+  const debris = [];
+  const PCOL = ["#f4c6ce","#f7d3da","#eeb6c2"], LCOL = ["#b6452c","#c97b2e","#d29b3a","#a83b22"];
+  function debrisEl(kind){
+    const el = document.createElement("div");
+    el.className = PK+"-d";
+    if(kind === "petal")
+      el.innerHTML = `<svg width="11" height="12" viewBox="0 0 11 12" xmlns="${SVGNS}"><path d="M5.5 .8 C8.7 2.7 9.5 6.6 7.3 9.6 L5.5 8.3 L3.7 9.6 C1.5 6.6 2.3 2.7 5.5 .8 Z" fill="${pick(PCOL)}"/></svg>`;
+    else
+      el.innerHTML = `<svg width="13" height="19" viewBox="0 0 13 19" xmlns="${SVGNS}"><path d="M6.5 1 Q12.2 8 6.5 18 Q.8 8 6.5 1 Z" fill="${pick(LCOL)}"/><path d="M6.5 3.5 L6.5 16" stroke="rgba(80,35,15,.5)" stroke-width=".8" fill="none"/></svg>`;
+    return el;
+  }
+  function setT(d){
+    const ox = d.kind==="petal" ? 5.5 : 6.5, oy = d.kind==="petal" ? 6 : 9.5;
+    d.el.style.transform = `translate(${d.x-ox}px,${d.y-oy}px) rotate(${d.rot}deg)`;
+  }
+  function fall(kind){
+    if(debris.length >= MAXD) return;
+    const g = N.garden;
+    const x = g.x+26+Math.random()*Math.max(10, g.w-52);
+    const y = g.y+24+Math.random()*Math.max(10, g.h-48);
+    const rot = (Math.random()*360)|0, spin = kind==="petal" ? 120 : 70;
+    const el = debrisEl(kind);
+    layer.append(el);
+    const d = {x, y, rot:rot+4*spin, kind, el};
+    const sway = [-26,20,-14,8,0], y0 = g.y-70;
+    const frames = sway.map((dx,k)=>({
+      transform:`translate(${x+dx-6}px,${y0+(y-y0)*(k/4)}px) rotate(${rot+k*spin}deg)`,
+      easing:"ease-in-out"}));
+    const land = ()=>{ setT(d); debris.push(d); scheduleSave(); };
+    try{ el.animate(frames, {duration:(kind==="petal"?5200:4200)+Math.random()*1800}).onfinish = land; }
+    catch(_){ land(); }
+  }
+  function sweepOff(d, far){
+    try{
+      const fr = far
+        ? [{transform:d.el.style.transform, opacity:1},
+           {transform:`translate(${N.garden.x+N.garden.w+30}px,${d.y-6}px) rotate(${d.rot+160}deg)`, opacity:0}]
+        : [{opacity:1},{opacity:0}];
+      d.el.animate(fr, {duration:far?900+Math.random()*500:420, easing:"ease-in"}).onfinish = ()=>d.el.remove();
+    }catch(_){ d.el.remove(); }
+  }
+  // 復元
+  (function restoreDebris(){
+    const g = N.garden;
+    for(const o of store.debris){
+      if(!isFinite(+o.u) || !isFinite(+o.v)) continue;
+      const d = {x:g.x+clamp(+o.u,.02,.98)*g.w, y:g.y+clamp(+o.v,.02,.98)*g.h,
+        rot:+o.r||0, kind:o.k==="petal"?"petal":"leaf", el:debrisEl(o.k==="petal"?"petal":"leaf")};
+      layer.append(d.el); setT(d); debris.push(d);
+    }
+  })();
+
+  // 熊手で押す（筋ごとに葉が寄って、山ができる）
+  let raking = null;
+  N.stage.addEventListener("pointerdown", e=>{
+    if(e.defaultPrevented || e.button !== 0 || N.tool !== "rake") return;
+    const g = N.garden;
+    if(e.clientX < g.x-8 || e.clientX > g.x+g.w+8 || e.clientY < g.y-8 || e.clientY > g.y+g.h+8) return;
+    raking = {x:e.clientX, y:e.clientY};
+  });
+  window.addEventListener("pointermove", e=>{
+    if(!raking) return;
+    try{
+      const dx = e.clientX-raking.x, dy = e.clientY-raking.y;
+      if(Math.hypot(dx,dy) < 3) return;
+      const g = N.garden, len = Math.min(14, Math.hypot(dx,dy));
+      for(let i=debris.length-1; i>=0; i--){
+        const d = debris[i];
+        if(Math.hypot(d.x-e.clientX, d.y-e.clientY) > 32) continue;
+        d.x += dx*.96+(Math.random()-.5)*1.5;
+        d.y += dy*.96+(Math.random()-.5)*1.5;
+        d.rot += (Math.random()-.5)*40+len;
+        if(d.x < g.x-4 || d.x > g.x+g.w+4 || d.y < g.y-4 || d.y > g.y+g.h+4){
+          debris.splice(i,1); sweepOff(d, false);
+          if(Math.random() < .18) N.toast(d.kind==="petal" ? "花びらを、庭の外へ送り出しました" : "枯葉が一枚、引退しました");
+        }else setT(d);
+      }
+      raking = {x:e.clientX, y:e.clientY};
+    }catch(_){}
+  });
+  const endRake = ()=>{ if(raking){ raking = null; scheduleSave(); } };
+  window.addEventListener("pointerup", endRake);
+  window.addEventListener("pointercancel", endRake);
+  N.on("smoothed", ()=>{
+    printsT = 0;
+    if(!debris.length) return;
+    for(const d of debris) sweepOff(d, true);
+    debris.length = 0;
+    scheduleSave();
+  });
+
+  // ── 苔の季節速度（recomputeBoost と同じ作法で b を上書き） ──
+  function syncMoss(){
+    if(sIdx < 0) return;
+    const f = SEASONS[sIdx].moss, cells = N.moss.cells, CS = N.moss.CS;
+    const g = N.garden, cols = N.moss.cols;
+    for(let i=0;i<cells.length;i++){
+      const cx = g.x+(i%cols)*CS+CS/2, cy = g.y+((i/cols)|0)*CS+CS/2;
+      let near = false;
+      for(const s of N.stones){ if(Math.hypot(s.x-cx, s.y-cy) < s.r+85){ near = true; break; } }
+      cells[i].b = (near?3:1)*f;
+    }
+  }
+  N.on("stone-placed", syncMoss);
+  N.on("stone-moved", syncMoss);
+  N.on("stone-removed", syncMoss);
+
+  // ── 季節の適用・霜・ティック ────────────────────────────────
+  let sIdx = -1, lastG = {x:0,y:0,w:0,h:0};
+  function yearPos(){ return ((Date.now()-store.epoch)%YEAR+YEAR)%YEAR; }
+  function placeVeil(g){
+    veil.style.left = (g.x-14)+"px"; veil.style.top = (g.y-14)+"px";
+    veil.style.width = (g.w+28)+"px"; veil.style.height = (g.h+28)+"px";
+  }
+  function frost(){
+    const p = (yearPos()%SLEN)/SLEN;
+    const a = (0.10+0.30*p).toFixed(3), rr = (10+24*p).toFixed(1);
+    veil.style.backgroundImage = ["0% 0%","100% 0%","0% 100%","100% 100%"]
+      .map(pos=>`radial-gradient(circle at ${pos}, rgba(225,238,250,${a}) 0%, rgba(225,238,250,0) ${rr}%)`)
+      .join(",");
+  }
+  function applySeason(init){
+    const S = SEASONS[sIdx];
+    veil.style.backgroundColor = S.tint;
+    veil.style.boxShadow = S.shadow;
+    veil.classList.toggle(PK+"-natsu", S.k === "natsu");
+    if(S.k !== "fuyu") veil.style.backgroundImage = "none";
+    syncMoss();
+    N.emit("season:changed", {season:S.j, key:S.k, initial:!!init});
+    if(!init) N.toast(STOAST[S.k]);
+  }
+  function tick(){
+    const g = N.garden;
+    if(g.w !== lastG.w || g.h !== lastG.h || g.x !== lastG.x || g.y !== lastG.y){
+      if(lastG.w && lastG.h)
+        for(const d of debris){
+          d.x = g.x+(d.x-lastG.x)*(g.w/lastG.w);
+          d.y = g.y+(d.y-lastG.y)*(g.h/lastG.h);
+          setT(d);
+        }
+      lastG = {x:g.x, y:g.y, w:g.w, h:g.h};
+    }
+    placeVeil(g);
+    const i = (yearPos()/SLEN)|0;
+    if(i !== sIdx){ const init = sIdx < 0; sIdx = i; applySeason(init); }
+    if(SEASONS[sIdx].k === "fuyu") frost();
+    syncMoss();
+  }
+  lastG = (o=>({x:o.x,y:o.y,w:o.w,h:o.h}))(N.garden);
+  setInterval(()=>{ try{ tick(); }catch(_){} }, 4000);
+  try{ tick(); }catch(_){}
+
+  // 春の花びら・秋の落葉
+  (function spawnLoop(){
+    setTimeout(()=>{
+      try{
+        if(!document.hidden && sIdx >= 0){
+          const k = SEASONS[sIdx].k;
+          if(k === "haru"){
+            const n = 1+(Math.random()*3|0);
+            for(let i=0;i<n;i++) setTimeout(()=>{ try{ fall("petal"); }catch(_){} }, i*(500+Math.random()*900));
+          }else if(k === "aki"){
+            const n = 1+(Math.random()*2|0);
+            for(let i=0;i<n;i++) setTimeout(()=>{ try{ fall("leaf"); }catch(_){} }, i*(700+Math.random()*1100));
+          }
+        }
+      }catch(_){}
+      spawnLoop();
+    }, 9000+Math.random()*14000);
+  })();
+
+  // 夏の蝉
+  (function semiLoop(){
+    setTimeout(()=>{
+      try{
+        if(!document.hidden && sIdx >= 0 && SEASONS[sIdx].k === "natsu"){
+          const g = N.garden;
+          const el = document.createElement("div");
+          el.className = PK+"-semi";
+          el.textContent = pick(["ミーン　ミンミンミン……","ジー……","シャワシャワシャワ……"]);
+          el.style.left = (g.x+30+Math.random()*Math.max(20, g.w-180))+"px";
+          el.style.top = (g.y-2+Math.random()*24)+"px";
+          document.body.append(el);
+          try{
+            el.animate([{opacity:0},{opacity:.8,offset:.2},{opacity:.8,offset:.7},{opacity:0}],
+              {duration:4600}).onfinish = ()=>el.remove();
+          }catch(_){ el.remove(); }
+          if(Math.random() < .15) N.toast("蝉の声がします。庭は涼しい顔です");
+        }
+      }catch(_){}
+      semiLoop();
+    }, 30e3+Math.random()*45e3);
+  })();
+
+  // 冬の息
+  function puff(x, y){
+    const p = document.createElement("div");
+    p.className = PK+"-puff";
+    N.fx.append(p);
+    try{
+      p.animate([
+        {transform:`translate(${x}px,${y}px) scale(.6)`, opacity:0},
+        {opacity:.55, offset:.25},
+        {transform:`translate(${x+4}px,${y-16}px) scale(1.6)`, opacity:0}],
+        {duration:1400, easing:"ease-out"}).onfinish = ()=>p.remove();
+    }catch(_){ p.remove(); }
+  }
+  function breath(){
+    let n = 0;
+    const iv = setInterval(()=>{
+      try{
+        const a = N.fx.querySelector(".actor");
+        if(!a || ++n > 5){ clearInterval(iv); return; }
+        const r = a.getBoundingClientRect();
+        if(r.width) puff(r.left+r.width*.25+(Math.random()-.5)*6, r.top+r.height*.35);
+      }catch(_){ clearInterval(iv); }
+    }, 1000);
+  }
+
+  // ── 句会 ────────────────────────────────────────────────────
+  const KAMI = [
+    {t:"春の庭",s:"haru"},{t:"桜散る",s:"haru"},{t:"うららかや",s:"haru"},
+    {t:"蝉しぐれ",s:"natsu"},{t:"炎天や",s:"natsu"},{t:"夏の日や",s:"natsu"},
+    {t:"秋深し",s:"aki"},{t:"枯葉舞う",s:"aki"},{t:"月白や",s:"aki"},
+    {t:"初霜や",s:"fuyu"},{t:"冬ざれや",s:"fuyu"},{t:"息白し",s:"fuyu"},
+    {t:"静けさや"},{t:"砂の海"},{t:"庭の昼"},
+    {t:"石ひとつ",c:"stone"},{t:"苔青し",c:"moss"},{t:"足あとや",c:"print"},
+  ];
+  const NAKA = [
+    {t:"花びらひとつ",s:"haru"},{t:"春風わたる",s:"haru"},{t:"ひかりやわらか",s:"haru"},
+    {t:"日陰をえらぶ",s:"natsu"},{t:"蝉の声だけ",s:"natsu"},{t:"影の濃くなる",s:"natsu"},
+    {t:"落葉のうえに",s:"aki"},{t:"掻き集めても",s:"aki",c:"debris"},{t:"色を残して",s:"aki"},
+    {t:"霜の降る朝",s:"fuyu"},{t:"息の白さよ",s:"fuyu"},
+    {t:"砂の波間に"},{t:"誰も急がぬ"},{t:"何も起こらぬ"},
+    {t:"石は動かず",c:"stone"},{t:"苔のみどりへ",c:"moss"},{t:"足あと残る",c:"print"},{t:"波紋ひとすじ",c:"rake"},
+  ];
+  const SHIMO = [
+    {t:"春の暮",s:"haru"},{t:"花の昼",s:"haru"},{t:"のどけしや",s:"haru"},
+    {t:"昼下がり",s:"natsu"},{t:"雲の峰",s:"natsu"},{t:"夏座敷",s:"natsu"},
+    {t:"秋の声",s:"aki"},{t:"暮の秋",s:"aki"},{t:"散るもみじ",s:"aki"},
+    {t:"冬ごもり",s:"fuyu"},{t:"霜の庭",s:"fuyu"},{t:"息ひとつ",s:"fuyu"},
+    {t:"庭しずか"},{t:"砂の音"},
+    {t:"石の上",c:"stone"},{t:"苔の色",c:"moss"},{t:"波の跡",c:"rake"},
+  ];
+  const AUTH = {frog:"かえる", sparrow:"すずめ", leaf:"枯葉", sakana:"さかな"};
+  let printsT = 0, rakeT = 0;
+  N.on("raked", ()=>{ rakeT = Date.now(); });
+
+  function pickFrag(arr, sk, cond, used){
+    let pool = arr.filter(f=>(!f.s || f.s === sk) && (!f.c || cond[f.c]));
+    const fresh = pool.filter(f=>!f.c || !used.has(f.c));
+    if(fresh.length) pool = fresh;
+    if(!pool.length) pool = arr.filter(f=>!f.s && !f.c);
+    let tot = 0;
+    for(const f of pool) tot += f.c ? 3 : f.s ? 2 : 1;
+    let r = Math.random()*tot, chosen = pool[pool.length-1];
+    for(const f of pool){ r -= f.c ? 3 : f.s ? 2 : 1; if(r <= 0){ chosen = f; break; } }
+    if(chosen.c) used.add(chosen.c);
+    return chosen.t;
+  }
+  function mossy(){
+    let n = 0;
+    for(const c of N.moss.cells){ if(c.m > .3 && ++n >= 4) return true; }
+    return false;
+  }
+  function composeHaiku(kind){
+    const S = SEASONS[Math.max(0,sIdx)], by = AUTH[kind] || "だれか";
+    const cond = {
+      stone: N.stones.length > 0,
+      moss: mossy(),
+      print: printsT && Date.now()-printsT < 5*60e3,
+      rake: rakeT && Date.now()-rakeT < 4*60e3,
+      debris: debris.length >= 3,
+    };
+    const used = new Set();
+    const l = [pickFrag(KAMI,S.k,cond,used), pickFrag(NAKA,S.k,cond,used), pickFrag(SHIMO,S.k,cond,used)];
+    // 短冊（縦書き）を客のそばへ
+    const g = N.garden;
+    let r = null;
+    const a = N.fx.querySelector(".actor");
+    if(a){ const b = a.getBoundingClientRect(); if(b.width) r = b; }
+    const x = clamp(r ? r.left-118 : g.x+g.w*.3+Math.random()*g.w*.4, g.x+8, Math.max(g.x+8, g.x+g.w-150));
+    const y = clamp(r ? r.top-50 : g.y+g.h*.2+Math.random()*g.h*.3, g.y+8, Math.max(g.y+8, g.y+g.h-250));
+    const card = document.createElement("div");
+    card.className = PK+"-haiku";
+    card.style.left = x+"px"; card.style.top = y+"px";
+    card.innerHTML = `<div>${esc(l[0])}</div><div class="${PK}-l2">${esc(l[1])}</div>`+
+      `<div class="${PK}-l3">${esc(l[2])}</div><div class="${PK}-by">${esc(by)}</div>`;
+    document.body.append(card);
+    requestAnimationFrame(()=>card.classList.add("show"));
+    let gone = false;
+    const dismiss = ()=>{ if(gone) return; gone = true; card.classList.remove("show"); setTimeout(()=>card.remove(), 1000); };
+    card.addEventListener("click", dismiss);
+    setTimeout(dismiss, 8200);
+    // 句帳へ
+    store.haikus.push({t:Date.now(), s:S.k, by, l});
+    if(store.haikus.length > 50) store.haikus.splice(0, store.haikus.length-50);
+    scheduleSave();
+    if(panel.classList.contains("show")) renderKucho();
+    if(Math.random() < .4) N.toast(`${by}が、一句詠んでいきました`);
+    N.emit("haiku:composed", {by, season:S.j, text:l.join("　")});
+  }
+  N.on("visitor", v=>{
+    printsT = Date.now();
+    if(sIdx >= 0 && SEASONS[sIdx].k === "fuyu" && (v.kind === "frog" || v.kind === "sparrow")) breath();
+    if(Math.random() < .2)
+      setTimeout(()=>{ try{ composeHaiku(v.kind); }catch(_){} }, 2600+Math.random()*1800);
+  });
+
+  // ── 句帳（トップバー） ──────────────────────────────────────
+  const panel = document.createElement("div");
+  panel.id = PK+"-kucho";
+  panel.innerHTML = `<div class="${PK}-khead"><div class="${PK}-ktitle">句帳</div>`+
+    `<div class="${PK}-kcount"></div><div style="flex:1"></div>`+
+    `<button class="btn" style="padding:5px 12px;font-size:12px">とじる</button></div>`+
+    `<div class="${PK}-klist"></div>`;
+  document.body.append(panel);
+  const kcount = panel.querySelector("."+PK+"-kcount");
+  const klist = panel.querySelector("."+PK+"-klist");
+  function renderKucho(){
+    const list = store.haikus.slice().reverse();
+    kcount.textContent = list.length ? `${list.length}句` : "";
+    klist.innerHTML = list.length ? list.map(h=>{
+      const d = new Date(+h.t || Date.now());
+      const sj = (SEASONS.find(s=>s.k === h.s) || {}).j || "";
+      const l = Array.isArray(h.l) ? h.l : ["","",""];
+      return `<div class="${PK}-entry"><div class="${PK}-ku">${esc(l[0])}　${esc(l[1])}　${esc(l[2])}</div>`+
+        `<div class="${PK}-meta">${d.getMonth()+1}月${d.getDate()}日・${esc(sj)}・作　${esc(h.by||"")}</div></div>`;
+    }).join("") : `<div class="${PK}-meta" style="padding:14px 2px">まだ一句もありません。客の気分しだいです</div>`;
+  }
+  function toggleKucho(){
+    if(panel.classList.contains("show")) panel.classList.remove("show");
+    else{ renderKucho(); panel.classList.add("show"); }
+  }
+  panel.querySelector("button").addEventListener("click", toggleKucho);
+  window.addEventListener("keydown", e=>{
+    if(e.key === "Escape" && !e.metaKey && !e.ctrlKey && !e.altKey) panel.classList.remove("show");
+  });
+  (function mountBtn(){
+    const tb = document.querySelector(".topbar");
+    if(tb){
+      const b = document.createElement("button");
+      b.className = "btn"; b.textContent = "🖋 句帳";
+      b.addEventListener("click", toggleKucho);
+      tb.insertBefore(b, document.getElementById("smooth") || null);
+    }else N.addButton("🖋 句帳", toggleKucho);
+  })();
+
+  // ── 写真の季節印（撮影の一瞬だけ砂に押して、描画前に戻す） ──
+  function stampPhoto(){
+    const g = N.garden, c = N.sctx, S = SEASONS[Math.max(0,sIdx)];
+    const text = S.j + "・" + (N.name ? `銘『${N.name}』` : "無銘");
+    const chars = [...text];
+    const pad = 6, w = 20+pad*2, h = chars.length*19+pad*2;
+    const x = Math.round(g.x+g.w-w-14), y = Math.round(g.y+g.h-h-14);
+    if(x < g.x+4 || y < g.y+4) return;
+    let snap = null;
+    try{ snap = c.getImageData(x-2, y-2, w+4, h+4); }catch(_){}
+    c.save();
+    c.globalAlpha = .88;
+    c.fillStyle = "#a33b28";
+    c.beginPath();
+    if(c.roundRect) c.roundRect(x, y, w, h, 5); else c.rect(x, y, w, h);
+    c.fill();
+    c.strokeStyle = "rgba(120,30,18,.8)"; c.lineWidth = 1.4;
+    c.beginPath();
+    if(c.roundRect) c.roundRect(x+2, y+2, w-4, h-4, 3.5); else c.rect(x+2, y+2, w-4, h-4);
+    c.stroke();
+    c.fillStyle = "rgba(244,238,220,.95)";
+    c.font = "600 14px 'Hiragino Mincho ProN','Yu Mincho',serif";
+    c.textAlign = "center"; c.textBaseline = "middle";
+    chars.forEach((ch,i)=>c.fillText(ch, x+w/2, y+pad+9.5+i*19));
+    c.restore();
+    requestAnimationFrame(()=>{ try{ if(snap) c.putImageData(snap, x-2, y-2); }catch(_){} });
+  }
+  document.addEventListener("click", e=>{
+    try{
+      if(e.target && e.target.closest && e.target.closest("#photo")) stampPhoto();
+    }catch(_){}
+  }, true);
+})();
+</script>
+
 </body>
 </html>

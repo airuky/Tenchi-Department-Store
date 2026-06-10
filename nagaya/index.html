@@ -1433,5 +1433,1011 @@
   vloop();
 })();
 </script>
+
+<script>
+// ════ plugin: nagaya-utage (wave2) ════ nagaya-utage: 🏮長屋の宴 + 🧺行商人 pack for おばけ長屋 (window.NAGAYA). Append as a <script> before </body>.  VERIFIED LIVE (preview browser, zero console errors): banquet f
+(() => {
+  "use strict";
+  if(!window.NAGAYA) return;
+  const N = window.NAGAYA;
+  try{
+    const { mk, esc, pick, toast, fx } = N;
+    const rnd = (a,b) => a + Math.random()*(b-a);
+    const clamp = (v,a,b) => v < a ? a : v > b ? b : v;
+    const fmtT = (s,m) => s.replace(/\{(\w+)\}/g, (_,k) => (m && k in m) ? m[k] : "");
+    const veil = document.getElementById("veil"), modalEl = document.getElementById("modal");
+
+    // ---- css ----
+    const style = document.createElement("style");
+    style.id = "nagaya-utage-style";
+    style.textContent =
+      ".nagaya-utage-price{float:right;color:#8a5a3a;font-weight:700;font-size:12px;margin-left:10px}"+
+      ".nagaya-utage-flav{display:block;font-weight:500;font-size:11.5px;color:#8a7a5a;margin-top:3px;line-height:1.6}"+
+      ".nagaya-utage-poor{opacity:.5}.nagaya-utage-soldout{opacity:.45;pointer-events:none}"+
+      ".nagaya-utage-bal{font-size:11px;color:#8a7a5a;margin-top:10px;line-height:1.8;border-top:1px dashed rgba(95,72,50,.3);padding-top:8px}"+
+      ".nagaya-utage-mini{display:inline-block;width:auto;margin:6px 6px 0 0;padding:7px 11px;font-size:12px}";
+    document.head.append(style);
+
+    // ---- persistence ----
+    const LSK = "nagaya-utage-v1";
+    const P = { lastDay:0, bonusDay:0, truceUntil:0, ofuda:0, tsubo:0, furin:[], portraits:[] };
+    try{
+      const d = JSON.parse(localStorage.getItem(LSK) || "null");
+      if(d && typeof d === "object") Object.assign(P, d);
+    }catch(err){ /* 帳面が湿気る夜もある */ }
+    P.lastDay = Math.max(0, P.lastDay|0); P.bonusDay = Math.max(0, P.bonusDay|0); P.truceUntil = Math.max(0, P.truceUntil|0);
+    P.ofuda = clamp(P.ofuda|0, 0, 99); P.tsubo = clamp(P.tsubo|0, 0, 999);
+    P.furin = Array.isArray(P.furin) ? [...new Set(P.furin.filter(i => Number.isInteger(i) && i >= 0 && i < 8))] : [];
+    P.portraits = Array.isArray(P.portraits)
+      ? P.portraits.filter(p => p && N.PORTRAIT[p.sp] && Number.isInteger(p.room) && p.room >= 0 && p.room < 8).slice(0, 8) : [];
+    if(P.lastDay > N.day) P.lastDay = 0;            // 建て直し後の暦ずれ対策
+    if(P.bonusDay > N.day + 1) P.bonusDay = 0;
+    if(P.truceUntil > N.day + 1) P.truceUntil = 0;  // 同上
+    function saveP(){ try{ localStorage.setItem(LSK, JSON.stringify(P)); }catch(err){} }
+
+    // ---- shared currencies ----
+    function bal(k){ try{ return parseInt(localStorage.getItem(N.CUR[k].key) || "0", 10) || 0; }catch(err){ return 0; } }
+    function payCur(k, n){
+      try{
+        const v = bal(k);
+        if(v < n) return false;                      // 蔵を空にはしない主義
+        localStorage.setItem(N.CUR[k].key, String(v - n));
+        return true;
+      }catch(err){ return false; }
+    }
+    function gainCur(k, n){ try{ localStorage.setItem(N.CUR[k].key, String(bal(k) + n)); }catch(err){} }
+    const balLine = () => Object.keys(N.CUR).map(k => `${N.CUR[k].name}${bal(k)}`).join("・");
+
+    // ---- scene layers（夜の帳の下に差し込む）----
+    const decor = mk("g", {"pointer-events":"none"});   // 壺・風鈴・似顔絵・宴の筵
+    const pedLayer = mk("g");                            // 行商人（クリック可）
+    N.svg.insertBefore(decor, N.nightVeil); N.svg.insertBefore(pedLayer, N.nightVeil);
+
+    // ---- 言葉の蔵 ----
+    const TRUCE = ["{a}と{b}が同じ皿をつついている。記録的瞬間である", "{a}が{b}の盃に酌をした。明日には双方忘れる光景である",
+      "{b}のとなりに{a}が座った。誰も触れないのが長屋の大人である", "{a}と{b}が同じ歌を口ずさんでいる。歌詞は互いに違う",
+      "{a}が笑い、つられて{b}も笑った。理由は別々らしい"];
+    const FEAST = ["皿が空くのが早い長屋は、良い長屋だそうです", "誰かが都々逸をうなり、誰かが拍子を外しています",
+      "井戸の水で割った酒は、井戸の味がするとのこと", "途中から月も顔を出しました。会費は取りません"];
+    const TRUCE_CALM = ["{a}さんは何か言いかけて、ゆうべの盃を思い出してやめました", "宴の名残でしょうか、{a}さんは矛をすっと収めました"];
+    const OFUDA_CALM = ["貼ってあったお札がほのかに光り、{a}さんは続きを忘れました", "お札がひらりと揺れて、{a}さんの苦情は紙一重で収まりました"];
+    const HAWK = ["行商人が来ました。「えー、お札にお茶碗、夢のかけらー」", "行商人が荷を下ろしました。「本日は良い品ばかり。当社比です」",
+      "「掘り出し物がございます。掘ったとは申しません」と行商人", "行商人が来ました。「月夜の特売日でございます」月は出ていません",
+      "背負い籠が先に見えて、あとから行商人が来ました", "行商人が井戸端に店を広げました。「水は商品ではございません」",
+      "「妖怪のみなさまにも、人の大家さんにも効く品々」と行商人", "行商人が来ました。籠の中で何かが、ことりと鳴りました",
+      "「冷やかし歓迎。買えばもっと歓迎」と行商人", "行商人が来ました。腰は曲がっていますが商魂はまっすぐです"];
+    const STALL_GREET = ["さ、ゆっくり見ておいくんなさい", "今日の品は、どれも一点もの。仕入れも一点ものでした",
+      "お代は先払い。恨みっこなしで", "良いものから売れます。つまり全部良いものです"];
+    const POOR = ["ふところで軽い音がしました。行商人は聞こえないふりをしてくれました", "蔵が足りません。「掛け売りはしない主義で」と行商人",
+      "勘定が合いません。行商人は遠くの山を見ています"];
+    const TSUBO_GOSSIP = ["{name}さんが壺をのぞきこみ、深くうなずいて去りました", "「先代の壺より面構えが良い」と{name}さん。先代とは",
+      "{name}さんいわく「壺は、家の覚悟である」", "{name}さんが壺に向かって、何か相談していました"];
+
+    // ---- 小さな道具 ----
+    function tween(dur, step, done){           // 壁時計駆動の小さなトゥイーン
+      const s0 = performance.now();
+      (function fr(){
+        const p = Math.min(1, (performance.now() - s0) / dur);
+        let alive = true;
+        try{ alive = step(p) !== false; }catch(err){ alive = false; }
+        if(p < 1 && alive) requestAnimationFrame(fr);
+        else if(done){ try{ done(); }catch(err){} }
+      })();
+    }
+    const easeIO = p => p < .5 ? 2*p*p : 1 - Math.pow(-2*p + 2, 2)/2;
+    const qpt = (a,c,b,t) => { const u = 1-t; return [u*u*a[0]+2*u*t*c[0]+t*t*b[0], u*u*a[1]+2*u*t*c[1]+t*t*b[1]]; };
+    function occPos(t){
+      const m = /translate\(([-\d.]+)[ ,]+([-\d.]+)\)/.exec((t.occ && t.occ.getAttribute("transform")) || "");
+      return m ? [+m[1], +m[2]] : [N.rooms[t.room].x + 83, N.rooms[t.room].y + 138];
+    }
+    function walkOcc(t, x1, y1, sc, dur){        // 店子をてくてく移動（transform属性を直に）
+      const occ = t.occ;
+      if(!occ || !occ.isConnected) return;
+      const [x0, y0] = occPos(t);
+      tween(dur, p => {
+        if(!occ.isConnected) return false;
+        const e = easeIO(p), hop = Math.abs(Math.sin(p*Math.PI*4)) * 3 * Math.sin(p*Math.PI);
+        occ.setAttribute("transform", `translate(${(x0+(x1-x0)*e).toFixed(1)} ${(y0+(y1-y0)*e-hop).toFixed(1)}) scale(${sc})`);
+        return true;
+      }, () => { if(occ.isConnected) occ.setAttribute("transform", `translate(${x1} ${y1}) scale(${sc})`); });
+    }
+    function calmBubble(arg, line){
+      const i = N.bubbles.findIndex(b => b.comp === arg.a && b.cause === arg.b);
+      if(i < 0) return false;
+      const b = N.bubbles.splice(i, 1)[0];
+      try{ b.el.remove(); }catch(err){}
+      b.comp.mood = clamp(b.comp.mood + 3, 0, 100);
+      toast(fmtT(line, {a: b.comp.given}));
+      return true;
+    }
+
+    // ============================== 一、長屋の宴 ==============================
+    const SEATS = [[562,600],[645,591],[728,600],[779,627],[728,654],[645,663],[562,654],[511,627]];
+    let utageActive = false;
+    const uT = (fn, ms) => setTimeout(() => { try{ fn(); }catch(err){} }, ms);
+    const fadeIn = g => g.animate([{opacity:0},{opacity:1}], {duration:900, easing:"ease-out"})
+      .onfinish = () => g.setAttribute("opacity", 1);
+
+    function buildLanterns(){
+      const g = mk("g", {"pointer-events":"none", opacity:0});
+      for(const [a, c, b] of [[[300,524],[470,568],[642,502]], [[642,502],[820,562],[998,508]]]){
+        g.append(mk("path", {d:`M${a[0]},${a[1]} Q${c[0]},${c[1]} ${b[0]},${b[1]}`, fill:"none", stroke:"#54483a", "stroke-width":1.6}));
+        for(let i=1; i<=4; i++){
+          const [x, y] = qpt(a, c, b, i/5);
+          const glow = mk("circle", {cx:x, cy:y+13, r:11, fill:"#ffc864", opacity:.45});
+          glow.animate([{opacity:.28},{opacity:.6}], {duration:1300+rnd(0,800), iterations:Infinity, direction:"alternate", easing:"ease-in-out"});
+          g.append(mk("line", {x1:x, y1:y, x2:x, y2:y+5, stroke:"#54483a", "stroke-width":1.2}), glow,
+            mk("rect", {x:x-5.5, y:y+5, width:11, height:16, rx:4.5, fill:"#d96a3a", stroke:"#8a3328", "stroke-width":1.2}),
+            mk("rect", {x:x-3.5, y:y+3.4, width:7, height:2.4, rx:1, fill:"#54483a"}),
+            mk("rect", {x:x-3.5, y:y+20.6, width:7, height:2.4, rx:1, fill:"#54483a"}),
+            mk("line", {x1:x, y1:y+7, x2:x, y2:y+19, stroke:"#8a3328", "stroke-width":.8, opacity:.7}));
+        }
+      }
+      N.layers.gGlow.append(g); fadeIn(g);
+      return g;
+    }
+    function buildFeast(){
+      const g = mk("g", {"pointer-events":"none", opacity:0});
+      g.append(mk("ellipse", {cx:645, cy:626, rx:158, ry:42, fill:"#b3a081", stroke:"#9a8868", "stroke-width":1.5}),
+        mk("ellipse", {cx:645, cy:626, rx:150, ry:37, fill:"none", stroke:"#a89162", "stroke-width":1, opacity:.6}));
+      for(let i=0; i<6; i++){
+        const a = i/6 * Math.PI*2, px = 645 + Math.cos(a)*76, py = 626 + Math.sin(a)*20;
+        g.append(mk("ellipse", {cx:px, cy:py, rx:9, ry:3.6, fill:"#e8e2c8", stroke:"#8a7244", "stroke-width":1}));
+        for(let j=0; j<3; j++) g.append(mk("circle", {cx:px-4+j*4, cy:py-1.5, r:1.6, fill:pick(["#b5503c","#6da25e","#c9a83c"])}));
+      }
+      for(const [px, py] of [[624,620],[668,633]])
+        g.append(mk("path", {d:`M${px-3},${py} q-2,-7 0,-10 l1.2,-4 h3.6 l1.2,4 q2,3 0,10 z`, fill:"#f4ecd9", stroke:"#9a8468", "stroke-width":1}));
+      decor.append(g); fadeIn(g);
+      return g;
+    }
+
+    function startUtage(){
+      utageActive = true;
+      P.lastDay = N.day; P.bonusDay = N.day + 1; P.truceUntil = N.day + 1; saveP();
+      const lant = buildLanterns(), feast = buildFeast();
+      const guests = N.tenants.slice(0, 8).map((t, i) => ({t, home: occPos(t), seat: SEATS[i % 8]}));
+      toast("日が暮れて、井戸端に灯がともりました。今夜は宴です");
+      N.emit("utage:held");
+      guests.forEach((g, i) => uT(() => walkOcc(g.t, g.seat[0], g.seat[1], 1.4, 1700 + rnd(0, 500)), 400 + i*260));
+      // 機嫌、見える形で
+      uT(() => {
+        guests.forEach((g, i) => uT(() => {
+          if(!N.tenants.includes(g.t)) return;
+          g.t.mood = clamp(g.t.mood + 10, 0, 100);
+          fx(g.seat[0], g.seat[1] - 60, "機嫌 +10", 12.5);
+        }, i*160));
+        uT(N.refreshPanel, guests.length*160 + 300);
+      }, 4200);
+      // 盃と小唄
+      const si = setInterval(() => { try{
+        const g = pick(guests);
+        if(g && g.t.occ && g.t.occ.isConnected) fx(g.seat[0] + rnd(-8, 8), g.seat[1] - 54, "盃", 16);
+        if(Math.random() < .4) fx(645 + rnd(-70, 70), 598, "♪", 13);
+      }catch(err){} }, 4200);
+      // 犬猿の仲にも、今夜だけの休戦
+      const pairs = [];
+      for(const r of N.rooms) if(r.tenant)
+        for(const nb of N.neighborsOf(r)) if(nb.idx > r.idx && nb.tenant){
+          const iss = N.pairIssue(r.tenant, nb.tenant);
+          if(iss) pairs.push([iss.cause.given, iss.comp.given]);
+        }
+      pairs.slice(0, 2).forEach((p, i) => uT(() => toast(fmtT(pick(TRUCE), {a:p[0], b:p[1]})), 9000 + i*8500));
+      if(!pairs.length) uT(() => toast(pick(FEAST)), 12000);
+      uT(() => toast(pick(FEAST)), 26000);
+      // お開き
+      uT(() => {
+        clearInterval(si);
+        toast("夜もふけました。宴はお開きです");
+        guests.forEach((g, i) => uT(() => walkOcc(g.t, g.home[0], g.home[1], 1.55, 1700 + rnd(0, 500)), i*220));
+      }, 35500);
+      uT(() => {
+        for(const el of [lant, feast]) el.animate([{opacity:1},{opacity:0}], {duration:900}).onfinish = () => el.remove();
+      }, 38000);
+      uT(() => { utageActive = false; toast("宴のあとの、よい静けさです。皿は明日洗います"); }, 40000);
+    }
+
+    N.addButton("🏮 宴をひらく", () => {
+      if(utageActive){ toast("宴はいま、まさにたけなわです"); return; }
+      if(!N.tenants.length){ toast("店子がいません。月とふたりの宴は、また今度"); return; }
+      if(P.lastDay > N.day){ P.lastDay = 0; saveP(); }
+      if(P.lastDay && N.day - P.lastDay < 7){ toast(`宴は連発すると効きません。胃も休ませましょう（あと${7 - (N.day - P.lastDay)}日）`); return; }
+      const keys = Object.keys(N.CUR);
+      if(!keys.some(k => bal(k) >= 12)){ toast("どの蔵をのぞいても12に足りません。今宵は白湯で我慢です"); return; }
+      const m = N.openModal(`<span class="x">✕</span><h3>宴の支度</h3>`+
+        `<div class="body">酒肴の仕入れに、ひと蔵から<b>12</b>ほど入り用です。どこから出しますか。<br>`+
+        `<span style="font-size:11.5px;color:#8a7a5a">店子全員の機嫌が上がり、翌朝は家賃に少し色がつきます</span></div>`+
+        keys.map(k => `<button class="choice nagaya-utage-cur${bal(k) >= 12 ? "" : " nagaya-utage-poor"}" data-k="${k}">`+
+          `${esc(N.CUR[k].name)}で払う<span class="nagaya-utage-price">12${esc(N.CUR[k].unit)}（手持ち ${bal(k)}）</span></button>`).join(""));
+      m.querySelectorAll(".nagaya-utage-cur").forEach(btn => btn.addEventListener("click", () => {
+        const k = btn.dataset.k;
+        if(!N.CUR[k] || utageActive) return;
+        if(!payCur(k, 12)){ toast("その蔵は底が見えています。別の蔵にしましょう"); return; }
+        N.closeModal();
+        toast(`${N.CUR[k].name}12${N.CUR[k].unit}で、酒と肴をととのえました`);
+        startUtage();
+      }));
+    });
+
+    // 休戦中・お札 — 苦情をその場でなだめる
+    N.on("complaint", arg => {
+      if(!arg || !arg.a || !arg.b) return;
+      if(N.day <= P.truceUntil){ calmBubble(arg, pick(TRUCE_CALM)); return; }
+      if(P.ofuda > 0 && calmBubble(arg, pick(OFUDA_CALM))){ P.ofuda--; saveP(); }
+    });
+    // 翌朝のご祝儀
+    N.on("day", d => {
+      const n = (d && d.n) || N.day;
+      if(P.truceUntil && n > P.truceUntil){ P.truceUntil = 0; saveP(); }
+      if(P.bonusDay && n >= P.bonusDay){
+        P.bonusDay = 0;
+        const sums = {}, parts = [];
+        for(const t of N.tenants) sums[t.cur] = (sums[t.cur] || 0) + 1;
+        for(const k in sums){ gainCur(k, sums[k]); parts.push(`${N.CUR[k].name}+${sums[k]}`); }
+        saveP();
+        if(parts.length) setTimeout(() => toast(`宴の御礼にと、家賃に少し色がつきました（${parts.join("・")}）`), 3000);
+      }
+    });
+
+    // ============================== 二、行商人 ==============================
+    const ITEMS = {
+      ofuda:  { nm:"お札（一枚）", cur:"rekishi",   price:8,  flav:"よく効くと評判です。何にとは申しません" },
+      abura:  { nm:"上等な油",     cur:"hoshizora", price:6,  flav:"火の玉が一段あかるくなる、澄んだ一品" },
+      nigaoe: { nm:"似顔絵を描いてもらう", cur:null, price:5, flav:"店子をひとり、実物より二割凛々しく" },
+      tsubo:  { nm:"謎の壺",       cur:"shima",     price:10, flav:"用途は不明。風格は本物" },
+      furin:  { nm:"風鈴",         cur:"shinkai",   price:4,  flav:"軒先に涼をひとつまみ" },
+    };
+    const priceStr = k => ITEMS[k].cur
+      ? `${esc(N.CUR[ITEMS[k].cur].name)} ${ITEMS[k].price}${esc(N.CUR[ITEMS[k].cur].unit)}` : `お好きな蔵から ${ITEMS[k].price}`;
+    let ped = null;
+
+    function drawPeddler(g){
+      const inner = mk("g");
+      const A = (t, a) => inner.append(mk(t, a));
+      A("line", {x1:-3, y1:0, x2:-1, y2:-12, stroke:"#3a3a46", "stroke-width":3, "stroke-linecap":"round"});
+      A("line", {x1:6, y1:0, x2:4, y2:-12, stroke:"#3a3a46", "stroke-width":3, "stroke-linecap":"round"});
+      A("rect", {x:-4, y:-54, width:21, height:32, rx:5, fill:"#b08a4a", stroke:"#6e5a30", "stroke-width":1.4}); // 背負い籠
+      for(const yy of [-46, -38, -30]) A("line", {x1:-3, y1:yy, x2:16, y2:yy, stroke:"#6e5a30", "stroke-width":.8, opacity:.7});
+      for(const xx of [1, 6, 11]) A("line", {x1:xx, y1:-53, x2:xx, y2:-23, stroke:"#6e5a30", "stroke-width":.8, opacity:.5});
+      A("circle", {cx:1, cy:-56, r:3.4, fill:"#7a5a40", stroke:"#54483a", "stroke-width":1});                    // 壺（見本）
+      A("rect", {x:7, y:-61, width:3, height:8, rx:1.4, fill:"#f4ecd9", stroke:"#9a8468", "stroke-width":.8});   // 巻物
+      A("path", {d:"M-1,-12 Q-2,-22 -8,-26 L-14,-30 Q-6,-36 2,-31 Q6,-23 4,-12 Z", fill:"#5a6e78", stroke:"#3a4a52", "stroke-width":1});
+      A("circle", {cx:-13, cy:-33, r:5, fill:"#f2d9b0"});
+      A("path", {d:"M-22,-35 Q-13,-44 -4,-35 L-5,-33 Q-13,-39 -21,-33 Z", fill:"#c9a86a", stroke:"#8a7244", "stroke-width":1});
+      A("line", {x1:-8, y1:-24, x2:-17, y2:-15, stroke:"#5a6e78", "stroke-width":3, "stroke-linecap":"round"});
+      A("line", {x1:-17, y1:-15, x2:-19, y2:1, stroke:"#6e4f38", "stroke-width":2});
+      inner.style.transformBox = "fill-box"; inner.style.transformOrigin = "50% 100%";
+      inner.animate([{transform:"rotate(-1.5deg)"},{transform:"rotate(1.5deg)"}],
+        {duration:2600, iterations:Infinity, direction:"alternate", easing:"ease-in-out"});
+      g.append(inner);
+    }
+    function pedWalk(g, x0, x1, sc, done){
+      tween(4400, p => {
+        if(!g.isConnected) return false;
+        const e = easeIO(p), hop = Math.abs(Math.sin(p*Math.PI*9)) * 2;
+        g.setAttribute("transform", `translate(${(x0+(x1-x0)*e).toFixed(1)} ${(645-hop).toFixed(1)}) scale(${sc})`);
+        return true;
+      }, done);
+    }
+    function schedulePeddler(min, max){
+      setTimeout(() => { try{ visitPeddler(); }catch(err){} }, rnd(min || 240000, max || 420000));
+    }
+    function visitPeddler(){
+      if(ped || document.hidden || utageActive){ schedulePeddler(25000, 60000); return; }
+      const g = mk("g");
+      g.style.cursor = "pointer"; drawPeddler(g);
+      g.setAttribute("transform", "translate(1260 645) scale(1.5)"); pedLayer.append(g);
+      ped = { g, sold:{}, stock: Object.keys(ITEMS).sort(() => Math.random() - .5).slice(0, 3),
+        leaveT: setTimeout(() => { try{ leavePeddler(); }catch(err){} }, 60000) };
+      g.addEventListener("click", e => { e.stopPropagation(); openStall(); });
+      pedWalk(g, 1260, 430, "1.5", () => { if(ped && ped.g === g) g.setAttribute("transform", "translate(430 645) scale(1.5)"); });
+      toast(pick(HAWK)); N.emit("peddler:visited");
+    }
+    function leavePeddler(){
+      if(!ped) return;
+      const g = ped.g;
+      clearTimeout(ped.leaveT); ped = null;
+      if(veil.classList.contains("show") && modalEl.querySelector(".nagaya-utage-item")) N.closeModal();
+      toast("「また来ます。来ないかもしれません」と、行商人は荷を担ぎ直しました");
+      pedWalk(g, 430, 1280, "-1.5 1.5", () => g.remove());
+      schedulePeddler();
+    }
+
+    const paintables = () => N.tenants.filter(t =>
+      !P.portraits.some(p => p.room === t.room && p.given === t.given && p.sp === t.sp));
+
+    function openStall(){
+      if(!ped) return;
+      const rows = ped.stock.map(k =>
+        `<button class="choice nagaya-utage-item${ped.sold[k] ? " nagaya-utage-soldout" : ""}" data-k="${k}">`+
+        `${esc(ITEMS[k].nm)}${ped.sold[k] ? "（売約済）" : ""}<span class="nagaya-utage-price">${priceStr(k)}</span>`+
+        `<span class="nagaya-utage-flav">${esc(ITEMS[k].flav)}</span></button>`).join("");
+      const m = N.openModal(`<span class="x">✕</span><h3>行商人の店先</h3>`+
+        `<div class="body">「${esc(pick(STALL_GREET))}」</div>` + rows +
+        `<div class="nagaya-utage-bal">手持ち：${esc(balLine())}</div>`);
+      const balEl = m.querySelector(".nagaya-utage-bal");
+      const finishBuy = (k, btn) => {
+        if(!ped) return;
+        ped.sold[k] = true; btn.classList.add("nagaya-utage-soldout");
+        const cp = m.querySelector(".nagaya-utage-curpick"); if(cp) cp.remove();
+        if(balEl) balEl.textContent = `手持ち：${balLine()}`;
+        applyItem(k); N.emit("peddler:sold", {item:k});
+      };
+      m.querySelectorAll(".nagaya-utage-item").forEach(btn => btn.addEventListener("click", () => {
+        if(!ped) return;
+        const k = btn.dataset.k, it = ITEMS[k];
+        if(!it || ped.sold[k]) return;
+        if(k === "nigaoe"){                            // 画料はどの蔵からでも
+          if(!paintables().length){ toast("画家いわく「もう全員描きました。次は長屋を描かせてください」"); return; }
+          if(m.querySelector(".nagaya-utage-curpick")) return;
+          const div = document.createElement("div");
+          div.className = "nagaya-utage-curpick";
+          for(const ck of Object.keys(N.CUR)){
+            const b = document.createElement("button");
+            b.className = "choice nagaya-utage-mini" + (bal(ck) >= it.price ? "" : " nagaya-utage-poor");
+            b.textContent = `${N.CUR[ck].name}で ${it.price}`;
+            b.addEventListener("click", () => {
+              if(!ped || ped.sold[k] || !paintables().length) return;
+              if(!payCur(ck, it.price)){ toast("その蔵では足りません。絵心より先立つもの、です"); return; }
+              finishBuy(k, btn);
+            });
+            div.append(b);
+          }
+          btn.after(div);
+          return;
+        }
+        if(k === "furin" && N.rooms.every(r => P.furin.includes(r.idx))){ toast("軒先はもう風鈴だらけです。これ以上は長屋が楽団になります"); return; }
+        if(!payCur(it.cur, it.price)){ toast(pick(POOR)); return; }
+        finishBuy(k, btn);
+      }));
+    }
+
+    // ---- 品物の効きめ ----
+    function drawPortrait(rec){
+      const r = N.rooms[rec.room];
+      if(!r || !N.PORTRAIT[rec.sp]) return;
+      const g = mk("g", {"pointer-events":"none"});
+      g.append(mk("rect", {x:r.x+134, y:r.y+54, width:26, height:36, rx:2, fill:"#6e4f38"}),
+        mk("rect", {x:r.x+136.5, y:r.y+56.5, width:21, height:31, rx:1, fill:"#f7efdb"}));
+      const pg = mk("g", {transform:`translate(${r.x+147} ${r.y+86}) scale(.42)`});
+      try{ N.PORTRAIT[rec.sp](pg); }catch(err){}
+      g.append(pg); decor.append(g);
+    }
+    function drawTsubo(i){
+      const x = 88 + (i%6)*23 + (i%2)*2, y = 570 + (i%3)*4;
+      decor.append(
+        mk("path", {d:`M${x-7},${y} q-3,-10 1,-14 q-3,-3 -1,-5 h12 q2,2 -1,5 q4,4 1,14 z`, fill:"#7a5a40", stroke:"#54483a", "stroke-width":1.2}),
+        mk("ellipse", {cx:x, cy:y-19, rx:4.4, ry:1.6, fill:"#54483a"}),
+        mk("path", {d:`M${x-4},${y-6} q1,-6 0,-9`, stroke:"#9a7a58", "stroke-width":1.2, fill:"none", opacity:.8}));
+    }
+    function drawFurin(idx){
+      const r = N.rooms[idx];
+      if(!r) return;
+      const x = r.x + 13, y = r.y + 2;
+      const g = mk("g", {"pointer-events":"none"}), sw = mk("g");
+      sw.append(mk("line", {x1:x, y1:y, x2:x, y2:y+12, stroke:"#54483a", "stroke-width":1}),
+        mk("path", {d:`M${x-5.5},${y+18} a5.5,5.5 0 1 1 11,0 l-1.5,2.5 h-8 z`, fill:"rgba(190,210,225,.65)", stroke:"#6a7a88", "stroke-width":1}),
+        mk("line", {x1:x, y1:y+18, x2:x, y2:y+26, stroke:"#6a7a88", "stroke-width":1}),
+        mk("rect", {x:x-2.5, y:y+26, width:5, height:11, rx:1, fill:"#f4ecd9", stroke:"#9a8468", "stroke-width":.8}));
+      sw.style.transformBox = "fill-box"; sw.style.transformOrigin = "50% 0%";
+      sw.animate([{transform:"rotate(-5deg)"},{transform:"rotate(5deg)"}],
+        {duration:2400+rnd(0,900), iterations:Infinity, direction:"alternate", easing:"ease-in-out"});
+      g.append(sw); decor.append(g);
+    }
+
+    function applyItem(k){
+      if(k === "ofuda"){
+        if(N.bubbles.length){
+          const b = N.bubbles.splice(0, 1)[0];
+          try{ b.el.remove(); }catch(err){}
+          b.comp.mood = clamp(b.comp.mood + 6, 0, 100);
+          toast(`お札を貼ると、${b.comp.given}さんの眉間がすっとひらきました`); N.refreshPanel();
+        }else{
+          P.ofuda++; saveP();                        // 次の苦情を一件、先回りで封じる
+          toast("貼っておきました。苦情は、来る前に封じるが上策です");
+        }
+      }else if(k === "abura"){
+        const hi = N.tenants.filter(t => t.sp === "hidama"), an = N.tenants.filter(t => t.sp === "andon");
+        if(hi.length){
+          for(const t of hi){
+            t.mood = clamp(t.mood + 25, 0, 100);
+            fx(N.rooms[t.room].x+83, N.rooms[t.room].y+40, "機嫌 +大", 13.5);
+            fx(N.rooms[t.room].x+83, N.rooms[t.room].y+72, "ぼうっ", 14);
+          }
+          toast(`${hi[0].given}さんの火が青くなりました。上機嫌の証です`); N.refreshPanel();
+        }else if(an.length){
+          for(const t of an){ t.mood = clamp(t.mood + 12, 0, 100); fx(N.rooms[t.room].x+83, N.rooms[t.room].y+40, "機嫌 +", 13); }
+          toast("火の玉は留守でしたが、行灯衆が油の銘柄に深くうなずきました"); N.refreshPanel();
+        }else toast("良い油ですが、灯すものがいません。土間に大切にしまいました");
+      }else if(k === "nigaoe"){
+        const cand = paintables();
+        if(!cand.length) return;
+        const t = pick(cand);
+        P.portraits.push({room:t.room, sp:t.sp, given:t.given}); saveP();
+        drawPortrait(P.portraits[P.portraits.length-1]);
+        t.mood = clamp(t.mood + 8, 0, 100);
+        fx(N.rooms[t.room].x+147, N.rooms[t.room].y+58, "✨", 13);
+        toast(`${t.given}さんの似顔絵が部屋に飾られました。実物より二割凛々しい出来です`); N.refreshPanel();
+      }else if(k === "tsubo"){
+        P.tsubo++; saveP();
+        if(P.tsubo <= 6) drawTsubo(P.tsubo - 1);
+        toast("行商人は深くうなずきました。「お目が高い」");
+        const t = N.tenants.length ? pick(N.tenants) : null;
+        if(t) setTimeout(() => { try{ toast(fmtT(pick(TSUBO_GOSSIP), {name:t.given})); }catch(err){} }, 4500);
+      }else if(k === "furin"){
+        const free = N.rooms.filter(r => !P.furin.includes(r.idx));
+        if(!free.length) return;
+        const occ = free.filter(r => r.tenant), r = pick(occ.length ? occ : free);
+        P.furin.push(r.idx); saveP(); drawFurin(r.idx);
+        fx(r.x+22, r.y+30, "ちりん", 11);
+        toast(`${N.roomName(r)}の軒に風鈴を下げました。ちりん`);
+      }
+    }
+
+    // 風鈴の音、ときどき
+    setInterval(() => { try{
+      if(document.hidden) return;
+      for(const idx of P.furin)
+        if(Math.random() < .15 && N.rooms[idx]) fx(N.rooms[idx].x+22, N.rooms[idx].y+30, "ちりん…", 10);
+    }catch(err){} }, 8000);
+
+    // ---- 初期化：永続物の復元 ----
+    for(const rec of P.portraits) drawPortrait(rec);
+    for(const idx of P.furin) drawFurin(idx);
+    for(let i=0; i<Math.min(P.tsubo, 6); i++) drawTsubo(i);
+    schedulePeddler();
+  }catch(err){ console.error("[nagaya-utage]", err); }
+})();
+</script>
+
+<script>
+// ════ plugin: nagaya-zouchiku (wave2) ════ Browser-verified end-to-end (purchases, picking, complaints->mediation, tooltip, clouds, bathhouse trips, save/reload roundtrips). Key integration points: (1) A
+(() => {
+  "use strict";
+  if(!window.NAGAYA) return;
+  try{
+    const N = window.NAGAYA;
+    const PK = "nagaya-zouchiku";
+    const LSK = PK + "-v1";
+    const { mk, tx, esc, pick } = N;
+    const gBuild = N.layers.gBuild, gYard = N.layers.gYard, gMark = N.layers.gMark,
+          gGlow = N.layers.gGlow, gFx = N.layers.gFx, gOcc = N.layers.gOcc;
+    const clamp = (v,a,b) => v < a ? a : v > b ? b : v;
+    const moodColor = m => m >= 65 ? "#6da25e" : m >= 40 ? "#c9a83c" : m >= 20 ? "#c97b3a" : "#b5503c";
+    const moodWord  = m => m >= 80 ? "上機嫌" : m >= 55 ? "ふつう" : m >= 30 ? "不満気味" : "限界寸前";
+
+    // ---- css ----
+    const css = document.createElement("style");
+    css.textContent =
+      `.${PK}-tip{position:fixed;z-index:7;pointer-events:none;width:236px;background:rgba(247,240,224,.97);`+
+      `border:1.5px solid rgba(95,72,50,.35);border-radius:12px;padding:10px 12px;`+
+      `box-shadow:0 10px 26px rgba(60,40,20,.28);opacity:0;transition:opacity .15s;`+
+      `font-size:12px;line-height:1.75;color:#4a3a28}`+
+      `.${PK}-tip .nm{font-weight:700;font-size:13.5px;letter-spacing:.03em}`+
+      `.${PK}-tip .nm small{font-weight:500;color:#7a6a52;margin-left:6px;font-size:10.5px}`+
+      `.${PK}-tip .sg{display:inline-block;width:19px;height:7px;border-radius:3px;`+
+      `background:rgba(0,0,0,.12);margin-right:3px;vertical-align:middle}`+
+      `.${PK}-chip{border-color:rgba(181,86,60,.65)!important;color:#8a3328!important;font-weight:700}`+
+      `.${PK}-cost{display:block;font-size:11px;color:#7a5a3a;font-weight:500;margin-top:3px}`;
+    document.head.appendChild(css);
+
+    // ---- persisted plugin state ----
+    const S = { annex:0, yuya:false, hoshi:false };
+    try{
+      const d = JSON.parse(localStorage.getItem(LSK) || "null");
+      if(d && d.v === 1){ S.annex = clamp(d.annex|0, 0, 2); S.yuya = !!d.yuya; S.hoshi = !!d.hoshi; }
+    }catch(err){ /* 図面が濡れていた */ }
+    function save(){
+      try{ localStorage.setItem(LSK, JSON.stringify({v:1, annex:S.annex, yuya:S.yuya, hoshi:S.hoshi})); }
+      catch(err){ /* 棟札は心に刻む */ }
+    }
+
+    // ---- shared currencies ----
+    function cget(k){ try{ return parseInt(localStorage.getItem(N.CUR[k].key) || "0", 10) || 0; }catch(err){ return 0; } }
+    function cset(k, v){ try{ localStorage.setItem(N.CUR[k].key, String(Math.max(0, Math.round(v)))); }catch(err){} }
+    function richest(amount){
+      const ks = Object.keys(N.CUR).sort((a,b) => cget(b) - cget(a));
+      return cget(ks[0]) >= amount ? ks[0] : null;
+    }
+    function richPair(amount){
+      const ks = Object.keys(N.CUR).sort((a,b) => cget(b) - cget(a));
+      return cget(ks[1]) >= amount ? [ks[0], ks[1]] : null;
+    }
+    const balLine = () => Object.keys(N.CUR).map(k => `${N.CUR[k].name}${cget(k)}`).join("・");
+
+    // ---- room naming (own UI uses proper annex names) ----
+    const rname = r => !r ? "" : r.idx === 8 ? "はなれ" : r.idx === 9 ? "はなれ二階" : N.roomName(r);
+
+    // ---- 増築(1) 離れ — a 9th/10th room, faithful to the core room model.
+    // col is dual-faced: arithmetic sees 4 (so neighborsOf pairs the annex
+    // with the col-3 rooms and the two floors with each other), string
+    // lookup sees "3" so core text stays readable.
+    const colX = { valueOf: () => 4, toString: () => "3" };
+    const annexBox = new Map();                       // idx -> [x,y,w,h] hover/hit box
+    const gZHit = mk("g");
+    N.svg.insertBefore(gZHit, N.layers.gRain);        // same stacking as core hit layer
+    let a1roof = null;
+
+    function drawAnnexFloor(upper){
+      // lower hut: wall y400 h108, shoji y420 h66, tatami y494, foundation;
+      // upper room: wall y286 h104, shoji y304 h62, tatami y376, beam.
+      const W = upper ? {wy:286,wh:104,sy:304,sh:62,ty:376,fill:"#ebdebb",lbl:"離二",ly:300,
+                         roof:"M1012,290 L1100,252 L1188,290 Z",py:290,ph:112}
+                      : {wy:400,wh:108,sy:420,sh:66,ty:494,fill:"#efe3c4",lbl:"離",ly:416,
+                         roof:"M1012,404 L1100,366 L1188,404 Z",py:400,ph:114};
+      if(upper && a1roof){ a1roof.remove(); a1roof = null; }
+      const g = mk("g");
+      g.append(
+        mk("rect",{x:1028,y:W.py,width:10,height:W.ph,fill:"#6e4f38"}),
+        mk("rect",{x:1162,y:W.py,width:10,height:W.ph,fill:"#6e4f38"}),
+        mk("rect",{x:1038,y:W.wy,width:124,height:W.wh,fill:W.fill}),
+        mk("rect",{x:1066,y:W.sy,width:56,height:W.sh,fill:"#f7efdb",stroke:"#9a8468","stroke-width":1.4}),
+        mk("line",{x1:1094,y1:W.sy,x2:1094,y2:W.sy+W.sh,stroke:"#9a8468","stroke-width":1}),
+        mk("line",{x1:1066,y1:W.sy+W.sh/2,x2:1122,y2:W.sy+W.sh/2,stroke:"#9a8468","stroke-width":1}),
+        mk("rect",{x:1038,y:W.ty,width:124,height:14,fill:"#b59a5e"}),
+        upper ? mk("rect",{x:1022,y:390,width:156,height:12,fill:"#6e4f38"})
+              : mk("rect",{x:1022,y:508,width:156,height:10,fill:"#8d8678"}),
+        tx(1046,W.ly,W.lbl,{"font-size":10,fill:"#9a8468"}));
+      const roof = mk("path",{d:W.roof,fill:"#4a3a2e",stroke:"#33271d","stroke-width":1.5});
+      if(!upper) a1roof = roof;
+      g.append(roof);
+      gBuild.append(g);
+      return g;
+    }
+
+    function registerRoom(idx){
+      const geo = idx === 8 ? {y:368, gy:412, gh:86, box:[1032,396,136,118]}
+                            : {y:250, gy:298, gh:82, box:[1032,282,136,112]};
+      const glow = mk("rect",{x:1042,y:geo.gy,width:116,height:geo.gh,rx:4,fill:"#ffd98a",opacity:0});
+      gGlow.append(glow);
+      const outline = mk("rect",{class:"pickline",x:geo.box[0],y:geo.box[1],width:geo.box[2],height:geo.box[3],
+        rx:5,fill:"none",stroke:"#b5563c","stroke-width":3,"stroke-dasharray":"8 6",opacity:0});
+      gMark.append(outline);
+      const r = { idx, floor: idx === 8 ? 0 : 1, col: colX, x:1015, y:geo.y,
+        tenant:null, leak:null, coinEl:null, noteEl:null, occ:null, glow, outline, due:false };
+      N.rooms.push(r);
+      annexBox.set(idx, geo.box);
+      const hit = mk("rect",{x:geo.box[0],y:geo.box[1],width:geo.box[2],height:geo.box[3],
+        fill:"#000",opacity:0,"pointer-events":"all"});
+      hit.style.cursor = "pointer";
+      hit.addEventListener("click", () => { try{ annexClicked(r); }catch(err){ console.error(PK, err); } });
+      gZHit.append(hit);
+      return r;
+    }
+
+    // picking mode is visible in the DOM (core toggles #pickNote); the live
+    // applicant object is captured from the core "applicant" event, so
+    // moveIn(sameRef, idx) lets the core do its own cleanup.
+    let lastApplicant = null;
+    N.on("applicant", a => { lastApplicant = a; });
+    N.on("tenant-moved-in", () => { lastApplicant = null; });
+    const isPicking = () => {
+      const n = document.getElementById("pickNote");
+      return !!(n && n.style.display !== "none");
+    };
+    function annexClicked(r){
+      if(isPicking()){
+        if(r.tenant) N.toast("そこはもう、ふさがっています");
+        else if(lastApplicant) N.moveIn(lastApplicant, r.idx);
+        return;
+      }
+      if(r.tenant && r.due){ N.collectRent(r.tenant); return; }
+      if(r.tenant){ N.openTenantModal(r.tenant); return; }
+      if(r.noteEl){ r.noteEl.dispatchEvent(new MouseEvent("click")); return; }
+      N.toast(pick(["離れの空き部屋です。風通しは抜群です","離れの空き部屋です。静かさなら本棟以上です"]));
+    }
+    window.addEventListener("keydown", e => {
+      try{
+        if(!isPicking() || !lastApplicant) return;
+        const idx = e.key === "9" ? 8 : e.key === "0" ? 9 : -1;
+        if(idx < 0 || !N.rooms[idx]) return;
+        if(N.rooms[idx].tenant) N.toast("そこはもう、ふさがっています");
+        else N.moveIn(lastApplicant, idx);
+      }catch(err){}
+    });
+
+    function buildAnnexN(animate){
+      const idx = 8 + S.annex;
+      const g = drawAnnexFloor(S.annex > 0);
+      S.annex++;
+      registerRoom(idx);
+      if(animate){
+        g.style.transformBox = "fill-box";
+        g.style.transformOrigin = "50% 100%";
+        g.animate([{transform:"scaleY(0)"},{transform:"scaleY(1.06)",offset:.75},{transform:"scaleY(1)"}],
+          {duration:700, easing:"cubic-bezier(.2,1.1,.4,1)"});
+        const hy = idx === 8 ? 432 : 320;
+        for(let i=0;i<3;i++) setTimeout(() => N.fx(1074 + i*26, hy, "カン", 12, 900), 300 + i*420);
+      }
+    }
+
+    // ---- restore annex tenants the core save kept but core load skipped ----
+    function idleZ(el, kind){
+      el.style.transformBox = "fill-box";
+      el.style.transformOrigin = "50% 100%";
+      const dl = -(Math.random()*900);
+      const A = (kf, dur, opts) => el.animate(kf,
+        Object.assign({duration:dur, iterations:Infinity, delay:dl, easing:"ease-in-out"}, opts || {}));
+      if(kind === "hop") A([{transform:"translateY(0)"},{transform:"translateY(-9px)",offset:.18},
+        {transform:"translateY(0)",offset:.36},{transform:"translateY(0)"}], 1500 + Math.random()*500);
+      else if(kind === "sway") A([{transform:"rotate(-2.5deg)"},{transform:"rotate(2.5deg)"}],
+        2200 + Math.random()*600, {direction:"alternate"});
+      else if(kind === "float") A([{transform:"translateY(0)"},{transform:"translateY(-7px)"},{transform:"translateY(0)"}], 3400 + Math.random()*800);
+      else if(kind === "bob") A([{transform:"translateY(0)"},{transform:"translateY(-3.5px)"},{transform:"translateY(0)"}], 1900 + Math.random()*500);
+      else if(kind === "flicker") A([{transform:"scale(1)"},{transform:"scale(1.07,.95)"},
+        {transform:"scale(.97,1.04)"},{transform:"scale(1)"}], 760 + Math.random()*240);
+      else if(kind === "wash") A([{transform:"rotate(0deg)"},{transform:"rotate(4deg)"},
+        {transform:"rotate(0deg)"},{transform:"rotate(-2deg)"},{transform:"rotate(0deg)"}], 950);
+      else A([{transform:"scaleY(1)"},{transform:"scaleY(1.02)"},{transform:"scaleY(1)"}], 4200);
+    }
+    function renderZ(t){
+      const r = N.rooms[t.room];
+      const outer = mk("g", {transform:`translate(${r.x+83} ${r.y+138}) scale(1.55)`});
+      const inner = mk("g");
+      try{ N.PORTRAIT[t.sp](inner); }catch(err){}
+      idleZ(inner, N.SPECIES[t.sp].anim);
+      outer.append(inner);
+      gOcc.append(outer);
+      t.occ = outer;
+      t.neck = inner.querySelector(".neck");
+      t.rhead = inner.querySelector(".rhead");
+      t.hglow = inner.querySelector(".hglow");
+    }
+    function coinZ(r){
+      if(r.coinEl) return;
+      const c = tx(r.x+142, r.y+30, "💰", {"font-size":21});
+      c.style.cursor = "pointer";
+      c.addEventListener("click", e => { e.stopPropagation(); if(r.tenant) N.collectRent(r.tenant); });
+      c.animate([{transform:"translateY(0)"},{transform:"translateY(-4px)"},{transform:"translateY(0)"}],
+        {duration:900, iterations:Infinity, easing:"ease-in-out"});
+      c.style.transformBox = "fill-box";
+      gMark.append(c);
+      r.coinEl = c;
+    }
+    function restoreAnnexTenants(){
+      let d = null;
+      try{ d = JSON.parse(localStorage.getItem("nagaya-save-v1") || "null"); }catch(err){}
+      if(!d) return;
+      let n = 0;
+      for(const td of (d.tenants || [])){
+        const ri = td.room|0;
+        if(ri < 8 || ri >= 8 + S.annex || !N.SPECIES[td.sp]) continue;
+        const r = N.rooms[ri];
+        if(!r || r.tenant) continue;
+        const Sp = N.SPECIES[td.sp];
+        const given = String(td.given || "名無し").slice(0,12);
+        const t = { id: 900 + ri, sp: td.sp, given, name: Sp.flav + "の" + given,
+          quirk: String(td.quirk || pick(Sp.quirks)).slice(0,30),
+          rate: clamp(td.rate|0 || 4, 1, 8), cur: Sp.cur,
+          mood: clamp(+td.mood || 70, 0, 100), room: ri, since: Math.max(1, td.since|0), cheered: -1 };
+        r.tenant = t;
+        N.tenants.push(t);
+        renderZ(t);
+        n++;
+      }
+      for(const i of (d.due || []))
+        if((i|0) >= 8 && N.rooms[i] && N.rooms[i].tenant){ N.rooms[i].due = true; coinZ(N.rooms[i]); }
+      if(n){ N.refreshPanel(); setTimeout(() => N.toast(`離れでも${n}名が暮らしています`), 1800); }
+    }
+
+    // ---- 増築 (2) 湯屋 — beyond the well, chimney + steam, evening visits
+    function drawYuya(animate){
+      const g = mk("g");
+      g.append(
+        mk("rect",{x:186,y:520,width:13,height:46,fill:"#5d4636"}),
+        mk("rect",{x:84,y:560,width:124,height:86,fill:"#efe3c4",stroke:"#6e4f38","stroke-width":2}),
+        mk("path",{d:"M68,564 L146,524 L224,564 Z",fill:"#4a3a2e",stroke:"#33271d","stroke-width":1.5}),
+        mk("rect",{x:120,y:602,width:52,height:44,fill:"#3f3026"}),
+        mk("rect",{x:108,y:572,width:76,height:30,fill:"#2b3a55"}),
+        mk("line",{x1:133,y1:572,x2:133,y2:602,stroke:"#1d2940","stroke-width":2}),
+        mk("line",{x1:158,y1:572,x2:158,y2:602,stroke:"#1d2940","stroke-width":2}),
+        tx(146,593,"ゆ",{"text-anchor":"middle","font-size":15,"font-weight":"700",fill:"#f4ecd9"}),
+        mk("ellipse",{cx:232,cy:644,rx:9,ry:4,fill:"#c9a86a",stroke:"#8a7244","stroke-width":1}),
+        tx(146,666,"湯屋",{"text-anchor":"middle","font-size":10,fill:"#7a6a52","letter-spacing":".18em"}));
+      for(let i=0;i<3;i++){
+        const p = mk("circle",{cx:192 + (i%2 ? 5 : -4), cy:514, r:5 + i*2, fill:"#f6f1e2", opacity:.7});
+        p.style.transformBox = "fill-box";
+        p.animate([{transform:"translateY(0)",opacity:.65},{transform:"translateY(-36px)",opacity:0}],
+          {duration:2800 + i*500, iterations:Infinity, delay:i*900, easing:"ease-out"});
+        g.append(p);
+      }
+      gYard.append(g);
+      if(animate){
+        g.style.transformBox = "fill-box";
+        g.style.transformOrigin = "50% 100%";
+        g.animate([{transform:"scaleY(0)"},{transform:"scaleY(1.05)",offset:.75},{transform:"scaleY(1)"}],
+          {duration:700, easing:"cubic-bezier(.2,1.1,.4,1)"});
+      }
+    }
+
+    let lastBath = -1;
+    function bathTrip(t, lead){
+      if(!S.yuya || !N.tenants.includes(t) || !t.occ) return;
+      const r = N.rooms[t.room];
+      if(!r) return;
+      const sx = r.x + 83, sy = 540, dx = 146, dy = 650;
+      const walker = mk("g");
+      const inner = mk("g");
+      try{ N.PORTRAIT[t.sp](inner); }catch(err){ return; }
+      inner.animate([{transform:"scale(1.25) translateY(0)"},{transform:"scale(1.25) translateY(-4px)"},
+        {transform:"scale(1.25) translateY(0)"}], {duration:430, iterations:Infinity, easing:"ease-in-out"});
+      walker.append(inner);
+      gFx.append(walker);
+      const w1 = Math.max(2400, Math.hypot(dx - sx, dy - sy) * 5);
+      walker.animate([{transform:`translate(${sx}px,${sy}px)`},{transform:`translate(${dx}px,${dy}px)`}],
+        {duration:w1, easing:"ease-in-out", fill:"forwards"});
+      t.occ.style.visibility = "hidden";
+      if(lead) N.toast(`${t.given}さんが湯屋へ。今日の湯加減は上々だそうです`);
+      const restore = () => { try{ if(t.occ) t.occ.style.visibility = ""; }catch(err){} walker.remove(); };
+      setTimeout(() => {
+        if(!N.tenants.includes(t)){ restore(); return; }
+        N.fx(dx, dy - 52, "♨", 16);
+        walker.animate([{opacity:1},{opacity:0}], {duration:500, fill:"forwards"});
+        setTimeout(() => {
+          if(!N.tenants.includes(t)){ restore(); return; }
+          t.mood = clamp(t.mood + 5 + Math.random()*3, 0, 100);
+          N.emit("yuya:visited", {tenant:t});
+          walker.animate([{opacity:0},{opacity:1}], {duration:500, fill:"forwards"});
+          walker.animate([{transform:`translate(${dx}px,${dy}px)`},{transform:`translate(${sx}px,${sy}px)`}],
+            {duration:w1, easing:"ease-in-out", fill:"forwards", delay:500});
+          setTimeout(() => { N.fx(r.x + 83, r.y + 44, "♪", 14); restore(); }, w1 + 700);
+        }, 6000);
+      }, w1 + 200);
+    }
+    function eveningCheck(){
+      if(!S.yuya || N.nightFactor < .55 || lastBath === N.day || !N.tenants.length) return;
+      lastBath = N.day;
+      const pool = N.tenants.slice().sort(() => Math.random() - .5);
+      const n = Math.min(pool.length, 1 + (Math.random() < .5 ? 1 : 0));
+      for(let i=0;i<n;i++) setTimeout(() => { try{ bathTrip(pool[i], i === 0); }catch(err){} }, i*9000);
+    }
+    N.on("day", d => {
+      try{ if(S.yuya && d && d.n % 3 === 0) setTimeout(() => N.toast("湯上がりの店子は機嫌がいい"), 3600); }
+      catch(err){}
+    });
+
+    // ---- 増築 (3) 物干し台 — youkai laundry, pure charm
+    function drawHoshi(animate){
+      const g = mk("g");
+      g.append(
+        mk("rect",{x:1046,y:598,width:7,height:86,fill:"#6e4f38"}),
+        mk("rect",{x:1176,y:598,width:7,height:86,fill:"#6e4f38"}),
+        mk("line",{x1:1040,y1:604,x2:1190,y2:604,stroke:"#5d4636","stroke-width":3}),
+        tx(1114,698,"物干し",{"text-anchor":"middle","font-size":10,fill:"#7a6a52","letter-spacing":".18em"}));
+      const sway = (el, deg, dur) => {
+        el.style.transformBox = "fill-box";
+        el.style.transformOrigin = "50% 0%";
+        el.animate([{transform:`rotate(${-deg}deg)`},{transform:`rotate(${deg}deg)`}],
+          {duration:dur, iterations:Infinity, direction:"alternate", easing:"ease-in-out",
+           delay:-Math.random()*dur});
+      };
+      const u = mk("g");                                       // 干された唐傘
+      u.append(
+        mk("path",{d:"M1072,606 L1065,644 L1079,644 Z",fill:"#cf8d5a",stroke:"#8a5a36","stroke-width":1.2}),
+        mk("line",{x1:1072,y1:644,x2:1072,y2:654,stroke:"#5d4636","stroke-width":2}),
+        mk("circle",{cx:1071,cy:624,r:2.4,fill:"#fff",stroke:"#6a4a30","stroke-width":.9}),
+        mk("circle",{cx:1071.4,cy:624,r:1.1,fill:"#33271d"}));
+      sway(u, 3, 2600);
+      const sc = mk("g");                                      // ろくろ首の長い襟巻き
+      sc.append(
+        mk("path",{d:"M1108,606 q7,16 -2,32 q-7,14 3,28",stroke:"#f6f1e2","stroke-width":7,fill:"none","stroke-linecap":"round"}),
+        mk("path",{d:"M1108,606 q7,16 -2,32 q-7,14 3,28",stroke:"#d8cfb8","stroke-width":1,fill:"none",opacity:.6,"stroke-dasharray":"3 4"}));
+      sway(sc, 2.5, 3100);
+      const sh = mk("g");                                      // 洗濯物に擬態した何か
+      const eyes = mk("g");
+      eyes.append(mk("circle",{cx:1145,cy:622,r:1.4,fill:"#33271d"}), mk("circle",{cx:1153,cy:621,r:1.4,fill:"#33271d"}));
+      eyes.animate([{opacity:1,offset:0},{opacity:1,offset:.9},{opacity:.05,offset:.94},{opacity:1,offset:1}],
+        {duration:4200, iterations:Infinity});
+      sh.append(mk("path",{d:"M1134,606 L1134,648 q15,8 30,0 L1164,606 Z",fill:"#f6f1e2",stroke:"#d8cfb8","stroke-width":1}), eyes);
+      sway(sh, 2, 3500);
+      g.append(u, sc, sh);
+      gYard.append(g);
+      if(animate){
+        g.style.transformBox = "fill-box";
+        g.style.transformOrigin = "50% 100%";
+        g.animate([{transform:"scaleY(0)"},{transform:"scaleY(1)"}], {duration:550, easing:"ease-out"});
+      }
+    }
+
+    // ---- build menu (dock 「🔨 増築」)
+    function openBuild(){
+      const pair = richPair(30), single = richest(10);
+      const nm = k => N.CUR[k].name;
+      let html = `<span class="x">✕</span><h3>増築普請</h3>`+
+        `<div class="body">手持ち: ${esc(balLine())}</div>`;
+      html += S.annex >= 2
+        ? `<button class="choice" disabled style="opacity:.55">🏠 離れはもう二つ。これ以上は地主に叱られます</button>`
+        : `<button class="choice" id="${PK}-a">🏠 ${S.annex ? "離れに二階を乗せる" : "離れを建てる"}（${S.annex+1}／2）`+
+          `<span class="${PK}-cost">貝がら40枚 — 部屋がひとつ増えます</span></button>`;
+      html += S.yuya
+        ? `<button class="choice" disabled style="opacity:.55">♨ 湯屋は今日も湯気を上げています</button>`
+        : `<button class="choice" id="${PK}-y">♨ 湯屋を普請する<span class="${PK}-cost">`+
+          `${pair ? esc(nm(pair[0])) + "30＋" + esc(nm(pair[1])) + "30" : "どれか二種を30ずつ"} — 夕方、店子が湯に通います</span></button>`;
+      html += S.hoshi
+        ? `<button class="choice" disabled style="opacity:.55">👘 物干し台では今日も誰かが擬態しています</button>`
+        : `<button class="choice" id="${PK}-h">👘 物干し台を組む<span class="${PK}-cost">`+
+          `${single ? esc(nm(single)) + "10" : "どれか一種を10"} — 長屋に生活感が出ます</span></button>`;
+      const m = N.openModal(html);
+      const q = id => m.querySelector("#" + PK + "-" + id);
+      if(q("a")) q("a").addEventListener("click", () => {
+        if(cget("shima") < 40){ N.toast("貝がらが足りません。浜はずっと向こうです"); return; }
+        cset("shima", cget("shima") - 40);
+        buildAnnexN(true); save(); N.closeModal();
+        N.toast(S.annex === 1 ? "離れが建ちました。木の香りがします" : "離れに二階が乗りました。眺めは上々だそうです");
+        N.emit("build:done", {what:"annex", count:S.annex});
+      });
+      if(q("y")) q("y").addEventListener("click", () => {
+        const p = richPair(30);
+        if(!p){ N.toast("元手が足りません。湯は逃げませんが、職人は帰ります"); return; }
+        cset(p[0], cget(p[0]) - 30); cset(p[1], cget(p[1]) - 30);
+        S.yuya = true; drawYuya(true); save(); N.closeModal();
+        N.toast(`湯屋が湯気を上げはじめました（${N.CUR[p[0]].name}30＋${N.CUR[p[1]].name}30）`);
+        N.emit("build:done", {what:"yuya"});
+      });
+      if(q("h")) q("h").addEventListener("click", () => {
+        const k = richest(10);
+        if(!k){ N.toast("あと10ほど足りません。物干しは風では建ちません"); return; }
+        cset(k, cget(k) - 10);
+        S.hoshi = true; drawHoshi(true); save(); N.closeModal();
+        N.toast("物干し台ができました。さっそく一反木綿が擬態しています");
+        N.emit("build:done", {what:"monohoshi"});
+      });
+    }
+    N.addButton("🔨 増築", () => { try{ openBuild(); }catch(err){ console.error(PK, err); } });
+
+    // ---- 店子UX (a) hover tooltip
+    const tip = document.createElement("div");
+    tip.className = PK + "-tip";
+    document.body.appendChild(tip);
+    function roomAt(ux, uy){
+      for(const r of N.rooms){
+        const b = annexBox.get(r.idx) || [r.x, r.y, 166, 150];
+        if(ux >= b[0] && ux <= b[0] + b[2] && uy >= b[1] && uy <= b[1] + b[3]) return r;
+      }
+      return null;
+    }
+    document.addEventListener("pointermove", e => {
+      try{
+        if(!N.svg.contains(e.target)){ tip.style.opacity = 0; return; }
+        const m = N.svg.getScreenCTM();
+        if(!m){ tip.style.opacity = 0; return; }
+        const ux = (e.clientX - m.e) / m.a, uy = (e.clientY - m.f) / m.d;
+        const r = roomAt(ux, uy);
+        if(!r || !r.tenant){ tip.style.opacity = 0; return; }
+        const t = r.tenant, sp = N.SPECIES[t.sp], C = N.CUR[t.cur];
+        const segs = Array.from({length:5}, (_,i) =>
+          `<span class="sg"${t.mood >= i*20 + 10 ? ` style="background:${moodColor(t.mood)}"` : ""}></span>`).join("");
+        const due = r.due ? `<b style="color:#b5563c">回収待ち 💰</b>` : `あと${(3 - N.day % 3) % 3 || 3}日`;
+        tip.innerHTML =
+          `<div class="nm">${esc(t.name)}<small>${esc(sp.name)}・${esc(rname(r))}</small></div>`+
+          `<div style="margin:5px 0 2px">${segs}<span style="margin-left:6px;color:#6e5a44">${esc(moodWord(t.mood))}</span></div>`+
+          `<div>性癖: ${esc(t.quirk)}</div>`+
+          `<div>家賃: ${esc(C.name)}${t.rate}${esc(C.unit)}（${due}）・${t.since}日目から</div>`;
+        tip.style.left = Math.min(e.clientX + 16, innerWidth - 256) + "px";
+        tip.style.top  = Math.min(e.clientY + 14, innerHeight - 132) + "px";
+        tip.style.opacity = 1;
+      }catch(err){ tip.style.opacity = 0; }
+    });
+    window.addEventListener("blur", () => { tip.style.opacity = 0; });
+
+    // ---- 店子UX (b) 苦情キュー chip — opens list, jumps to mediation
+    const chip = document.createElement("button");
+    chip.className = "btn " + PK + "-chip";
+    chip.style.display = "none";
+    chip.addEventListener("click", () => { try{ openQueue(); }catch(err){ console.error(PK, err); } });
+    const topbar = document.querySelector(".topbar"), repBtn = document.getElementById("repBtn");
+    if(topbar && repBtn) topbar.insertBefore(chip, repBtn);
+    else (topbar || document.body).appendChild(chip);
+    let chipN = 0;
+    function syncChip(){
+      const n = N.bubbles.length;
+      if(n === chipN) return;
+      chip.textContent = `⚡ 苦情 ${n}`;
+      chip.style.display = n ? "" : "none";
+      if(n > chipN) chip.animate([{transform:"scale(1)"},{transform:"scale(1.14)"},{transform:"scale(1)"}], {duration:340});
+      chipN = n;
+    }
+    N.on("complaint", () => { try{ syncChip(); }catch(err){} });
+    function flashRoom(r){
+      if(!r || !r.outline) return;
+      r.outline.setAttribute("opacity", 1);
+      r.outline.animate([{opacity:1},{opacity:0}], {duration:1600, easing:"ease-out"})
+        .onfinish = () => { if(!isPicking()) r.outline.setAttribute("opacity", 0); };
+    }
+    function openQueue(){
+      if(!N.bubbles.length){
+        N.openModal(`<span class="x">✕</span><h3>苦情の列</h3>`+
+          `<div class="body">いまのところ、長屋は静かです。`+
+          `<span class="sig">静けさも大家の手柄のうち — 長屋世話役</span></div>`);
+        return;
+      }
+      const m = N.openModal(`<span class="x">✕</span><h3>苦情の列</h3>`+
+        `<div class="body">未処理の苦情が${N.bubbles.length}件。押すと現場へ。</div><div id="${PK}-q"></div>`);
+      const list = m.querySelector("#" + PK + "-q");
+      for(const b of N.bubbles.slice()){
+        const btn = document.createElement("button");
+        btn.className = "choice";
+        btn.innerHTML = `⚡ ${esc(b.comp.given)}さん（${esc(rname(N.rooms[b.comp.room]))}）`+
+          `<span class="${PK}-cost">「${esc(rname(N.rooms[b.cause.room]))}の${esc(b.cause.given)}さん、`+
+          `${esc(N.SPECIES[b.cause.sp].gripe)}」</span>`;
+        btn.addEventListener("click", () => {
+          try{
+            if(!N.bubbles.includes(b)){ N.toast("その苦情は、もう風に流れました"); openQueue(); return; }
+            flashRoom(N.rooms[b.comp.room]);
+            b.el.dispatchEvent(new MouseEvent("click"));   // opens the core mediation modal
+          }catch(err){ console.error(PK, err); }
+        });
+        list.append(btn);
+      }
+    }
+
+    // ---- 店子UX (c) storm-cloud doodle on very unhappy rooms
+    const clouds = new Map();
+    function addCloud(t){
+      const r = N.rooms[t.room];
+      if(!r) return;
+      const g = mk("g", {transform:`translate(${r.x+46} ${r.y+48})`, "pointer-events":"none"});
+      const b = mk("g");
+      const bolt = mk("path",{d:"M-3,9 l-4,7 l5,-2 l-4,7",stroke:"#c9a83c","stroke-width":1.5,
+        fill:"none","stroke-linecap":"round","stroke-linejoin":"round"});
+      b.append(
+        mk("path",{d:"M-18,5 q-7,-2 -5,-9 q2,-8 11,-6 q3,-7 12,-5 q10,-3 12,5 q7,3 2,9 q-4,5 -13,4 z",
+          fill:"#565b67",opacity:.5,stroke:"#3f4450","stroke-width":1}),
+        bolt);
+      bolt.animate([{opacity:0},{opacity:1},{opacity:0}], {duration:2100, iterations:Infinity, easing:"ease-in-out"});
+      b.animate([{transform:"translateY(0)"},{transform:"translateY(-3px)"},{transform:"translateY(0)"}],
+        {duration:2600, iterations:Infinity, easing:"ease-in-out"});
+      g.append(b);
+      g.animate([{opacity:0},{opacity:1}], {duration:600});
+      gFx.append(g);
+      clouds.set(t, g);
+    }
+    function removeCloud(t){
+      const g = clouds.get(t);
+      if(!g) return;
+      clouds.delete(t);
+      g.animate([{opacity:1},{opacity:0}], {duration:450});
+      setTimeout(() => g.remove(), 500);
+    }
+
+    // ---- 1s housekeeping tick ----
+    setInterval(() => {
+      try{
+        syncChip();
+        for(const t of N.tenants){
+          if(t.mood < 25 && !clouds.has(t)) addCloud(t);
+          else if(t.mood >= 33 && clouds.has(t)) removeCloud(t);
+        }
+        for(const t of [...clouds.keys()]) if(!N.tenants.includes(t)) removeCloud(t);
+        eveningCheck();
+      }catch(err){}
+    }, 1000);
+
+    // ---- 台帳 cards: give annex tenants their proper address ----
+    N.on("panel-rendered", arg => {
+      try{
+        const cont = arg && arg.container;
+        if(!cont || !N.tenants.some(t => t.room >= 8)) return;
+        const sorted = [...N.tenants].sort((a,b) => a.room - b.room);
+        cont.querySelectorAll(".tcard").forEach((c, i) => {
+          const t = sorted[i];
+          if(!t || t.room < 8) return;
+          const sm = c.querySelector(".nm small");
+          if(sm) sm.textContent = N.SPECIES[t.sp].name + "・" + rname(N.rooms[t.room]);
+        });
+      }catch(err){}
+    });
+
+    // ---- restore built structures + their tenants ----
+    const savedAnnex = S.annex;
+    S.annex = 0;
+    for(let i=0;i<savedAnnex;i++) buildAnnexN(false);
+    if(S.yuya) drawYuya(false);
+    if(S.hoshi) drawHoshi(false);
+    if(S.annex) restoreAnnexTenants();
+
+  }catch(err){ console.error("nagaya-zouchiku", err); }
+})();
+</script>
+
 </body>
 </html>
