@@ -1,0 +1,1277 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>苔庭と砂紋 · Zen Garden</title>
+<style>
+  :root{
+    --ink:#403a2c;
+    --paper:#ece5d3;
+    --sand:#d8cdb2;
+    --moss:#74895a;
+    --wood:#6e5138;
+    --dim:#8a8270;
+    --panel:rgba(246,241,228,.92);
+    --panel-edge:rgba(95,82,55,.3);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:var(--paper);
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",-apple-system,system-ui,sans-serif;
+    color:var(--ink);-webkit-font-smoothing:antialiased;}
+
+  #stage{position:fixed;inset:0;z-index:1;cursor:crosshair;touch-action:none}
+  #stage[data-tool="s1"],#stage[data-tool="s2"],#stage[data-tool="s3"]{cursor:copy}
+  #stage canvas,#fx{position:absolute;inset:0;pointer-events:none}
+  #stones{position:absolute;left:0;top:0;pointer-events:none}
+  #shade{position:absolute;pointer-events:none;border-radius:3px;
+    box-shadow:inset 0 0 30px rgba(72,60,38,.32), inset 0 0 6px rgba(72,60,38,.22)}
+  #daylight{position:fixed;inset:0;z-index:3;pointer-events:none}
+  .actor{position:absolute;left:0;top:0;pointer-events:none;will-change:transform}
+
+  .topbar{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;gap:14px;
+    padding:12px 18px;pointer-events:none;z-index:5;}
+  .brand{pointer-events:none;font-weight:700;letter-spacing:.06em;font-size:15px;color:#3a3424;
+    text-shadow:0 1px 0 rgba(255,255,255,.5)}
+  .brand small{display:block;font-weight:500;font-size:10px;color:#897e5e;letter-spacing:.24em;margin-top:2px}
+  .spacer{flex:1}
+  .btn{pointer-events:auto;cursor:pointer;border:1.5px solid var(--panel-edge);
+    background:var(--panel);color:var(--ink);border-radius:999px;padding:8px 15px;font-size:13px;
+    transition:.18s;white-space:nowrap;font-family:inherit;font-weight:600;
+    box-shadow:0 2px 8px rgba(70,55,25,.14)}
+  .btn:hover{border-color:rgba(116,137,90,.7);transform:translateY(-1px)}
+  .btn:active{transform:translateY(0)}
+
+  .dock{position:fixed;left:14px;bottom:14px;display:flex;flex-wrap:wrap;gap:8px;z-index:5;max-width:56vw}
+  .dock .btn{pointer-events:auto}
+  .dock.folded .btn:not(.dock-toggle){display:none}
+  .dock .dock-toggle{font-size:15px;padding:8px 12px}
+
+  .tray{position:fixed;left:50%;bottom:13px;transform:translateX(-50%);display:flex;gap:6px;z-index:5;
+    background:var(--panel);border:1.5px solid var(--panel-edge);border-radius:999px;padding:5px 7px;
+    box-shadow:0 4px 14px rgba(70,55,25,.18)}
+  .tbtn{cursor:pointer;border:1.5px solid transparent;background:transparent;color:var(--ink);
+    border-radius:999px;padding:6px 13px;font-size:13px;font-family:inherit;font-weight:600;transition:.18s}
+  .tbtn:hover{background:rgba(116,137,90,.1)}
+  .tbtn.active{border-color:rgba(116,137,90,.65);background:rgba(116,137,90,.14)}
+
+  .meter{position:fixed;right:16px;bottom:16px;z-index:5;width:150px;
+    background:var(--panel);border:1.5px solid var(--panel-edge);border-radius:12px;padding:10px 13px 11px;
+    box-shadow:0 4px 14px rgba(70,55,25,.16)}
+  .meter .mlabel{font-size:10.5px;letter-spacing:.2em;color:#6d6450;font-weight:700;margin-bottom:7px}
+  .meter .mbar{height:8px;border-radius:99px;background:rgba(110,95,60,.18);overflow:hidden}
+  .meter .mfill{height:100%;width:8%;border-radius:99px;
+    background:linear-gradient(90deg,#a9bd8a,#74895a);
+    transition:width 1.4s linear;animation:mbreathe 5s ease-in-out infinite}
+  @keyframes mbreathe{0%,100%{opacity:.72}50%{opacity:1}}
+
+  .hint{position:fixed;left:50%;top:44%;transform:translate(-50%,-50%);text-align:center;
+    color:#5d5640;font-size:14.5px;line-height:2.1;pointer-events:none;z-index:4;transition:opacity 1s}
+  .hint .big{font-size:19px;color:#3a3424;letter-spacing:.1em;font-weight:700}
+
+  .meicard{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%) scale(.96);width:min(420px,90vw);
+    background:var(--panel);border:1.5px solid var(--panel-edge);border-radius:16px;padding:26px 24px;
+    text-align:center;z-index:6;box-shadow:0 16px 44px rgba(60,45,20,.3);
+    opacity:0;pointer-events:none;transition:.35s;cursor:pointer}
+  .meicard.show{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+  .meicard .mname{font-family:"Hiragino Mincho ProN","Yu Mincho",serif;font-size:24px;letter-spacing:.14em;color:#3a3322}
+  .meicard .mkun{margin-top:12px;font-size:14px;color:#5d543d;letter-spacing:.06em}
+  .meicard .msub{margin-top:14px;font-size:11px;color:var(--dim)}
+
+  .toast{position:fixed;left:50%;bottom:62px;transform:translateX(-50%) translateY(20px);
+    background:rgba(58,52,36,.92);color:#f4f0e2;border-radius:999px;
+    padding:9px 18px;font-size:13px;opacity:0;transition:.3s;z-index:7;pointer-events:none}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<div id="stage" data-tool="rake">
+  <canvas id="base"></canvas>
+  <canvas id="sand"></canvas>
+  <canvas id="moss"></canvas>
+  <div id="shade"></div>
+  <svg id="stones" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="nw-stone" cx="36%" cy="30%" r="85%">
+        <stop offset="0%" stop-color="#b6b2a4"/>
+        <stop offset="55%" stop-color="#94907f"/>
+        <stop offset="100%" stop-color="#6f6b5c"/>
+      </radialGradient>
+      <filter id="nw-soft" x="-60%" y="-60%" width="220%" height="220%">
+        <feGaussianBlur stdDeviation="2.6"/>
+      </filter>
+    </defs>
+  </svg>
+  <div id="fx"></div>
+</div>
+<div id="daylight"></div>
+
+<div class="topbar">
+  <div class="brand">苔庭と砂紋<small>KARESANSUI · MOSS &amp; SAND</small></div>
+  <div class="spacer"></div>
+  <button class="btn" id="smooth">🌊 整える</button>
+  <button class="btn" id="meibtn">🏷 庭の銘を授かる</button>
+  <button class="btn" id="photo">📷 写真に残す</button>
+</div>
+
+<div class="hint" id="hint">
+  <div class="big">砂を、ゆっくり撫でてください</div>
+  ドラッグで熊手が砂紋を描きます。下の盆から石も置けます<br>
+  <span style="font-size:12.5px">石はドラッグで移動、ダブルクリックで撤去。苔は、あなたが構わないところから育ちます</span><br>
+  <span style="font-size:12px;color:#8a8270">得点はありません。締切もありません</span>
+</div>
+
+<div class="tray" id="tray">
+  <button class="tbtn active" data-tool="rake">🧹 熊手</button>
+  <button class="tbtn" data-tool="s1">🪨 石・小</button>
+  <button class="tbtn" data-tool="s2">🪨 石・中</button>
+  <button class="tbtn" data-tool="s3">🪨 石・大</button>
+</div>
+
+<div class="meter" id="meter">
+  <div class="mlabel">心の静けさ</div>
+  <div class="mbar"><div class="mfill" id="mfill"></div></div>
+</div>
+
+<div class="meicard" id="meicard"></div>
+<div class="toast" id="toast"></div>
+<div class="dock" id="dock"></div>
+
+<script>
+(() => {
+  "use strict";
+  // ════════════════════════════════════════════════════════════════════
+  //  苔庭と砂紋 — a scoreless karesansui sandbox.
+  //  熊手で砂紋を引き、石を据え、苔が育つのを邪魔しない遊びです。
+  // ════════════════════════════════════════════════════════════════════
+  const SVGNS = "http://www.w3.org/2000/svg";
+  const LSK = "niwa-garden-v1";
+  const FRAME = 14, CS = 26, GROW = 10*60e3;  // moss cell px / 0→1 growth ms
+  const RAKE_W = 30, TINES = [-13,-7.8,-2.6,2.6,7.8,13];
+  const MOSSC = ["#7d9460","#6b8551","#87a06b"];
+
+  const stage  = document.getElementById("stage");
+  const baseCv = document.getElementById("base");
+  const sandCv = document.getElementById("sand");
+  const mossCv = document.getElementById("moss");
+  const gStones= document.getElementById("stones");
+  const fx     = document.getElementById("fx");
+  const shade  = document.getElementById("shade");
+  const bctx = baseCv.getContext("2d");
+  const sctx = sandCv.getContext("2d");
+  const mctx = mossCv.getContext("2d");
+
+  // ---- state ----
+  let W=0, H=0, FX0=0, FY0=0, FX1=0, FY1=0, GX=0, GY=0, GW=0, GH=0;
+  let cols=0, rows=0;
+  const cells  = [];   // {m:0..1 moss, t:last-disturbed ms, f:fertility, b:boost, cap}
+  const stones = [];   // {id, x, y, r, seed, el, inner}
+  let nextStoneId = 1;
+  let tool = "rake";
+  let gardenName = "", gardenKun = "";
+  let smoothing = false;
+
+  // ---- event bus ----
+  const listeners = new Map();
+  function on(name, fn){
+    if(!listeners.has(name)) listeners.set(name, []);
+    listeners.get(name).push(fn);
+  }
+  function emit(name, arg){
+    for(const f of listeners.get(name) || []){
+      try{ f(arg); }catch(err){ console.error(`[plugin handler for "${name}"]`, err); }
+    }
+  }
+
+  // ---- helpers ----
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+  const pick  = a=>a[(Math.random()*a.length)|0];
+  const esc   = s=>String(s==null?"":s).replace(/[&<>"']/g,
+    c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+  function mk(tag, attrs){
+    const el = document.createElementNS(SVGNS, tag);
+    if(attrs) for(const k in attrs) el.setAttribute(k, attrs[k]);
+    return el;
+  }
+  function mulberry32(a){
+    return function(){
+      a|=0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a>>>15, 1|a);
+      t = t + Math.imul(t ^ t>>>7, 61|t) ^ t;
+      return ((t ^ t>>>14)>>>0) / 4294967296;
+    };
+  }
+  function clipG(ctx){ ctx.beginPath(); ctx.rect(GX,GY,GW,GH); ctx.clip(); }
+  function dotAt(ctx,x,y,r){ ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fill(); }
+
+  // ====================================================================
+  //  lore
+  // ====================================================================
+  const L = {
+    MEI: ["遠浅","月隠","風待","水鏡","山眠","朝凪","苔衣","静音","白雨","砂耳",
+          "雲間","枯水","夕凪","虫聞","石心","薄明","露置","冬隣","波枕","間"],
+    KUN: ["急がば、撫でよ","石は動かない。動くのは、あなたです","砂は覚えて、そして忘れてくれます",
+          "乱れもまた、紋様のうち","蛙の通り道に、口を出さないこと","掃き清めた端から、葉は落ちるものです",
+          "庭は完成しません。今日も、しませんでした","水を使わずに、波の音を聴くこと",
+          "迷ったら、円を描きなさい","苔の速さで、生きてよいのです",
+          "三歩さがって、何も見ないこと","「整える」とは、諦めの上手な言い方です"],
+    FROG: ["蛙は、芸術に興味がありません","蛙が横切りました。会釈はありませんでした",
+           "足あとが残りました。署名のつもりかもしれません","蛙に砂紋の感想を求めましたが、跳んで行きました"],
+    SPARROW: ["雀が三歩だけ歩いて、満足して帰りました","雀が降りました。地面の検査だそうです",
+              "雀は何も持たずに来て、足あとだけ置いていきました"],
+    LEAF: ["葉が一枚。庭が勝手に完成に近づきました","どこかの木から、寄贈がありました",
+           "落ち葉です。掃くかどうかは、あなたの庭です"],
+    RAKE: ["良い手つきです。砂が少し照れています","波が一往復、増えました",
+           "砂が低く鳴った気がしますが、気のせいです","熊手は今日も文句を言いません"],
+    STONE: ["石は、この場所を前から知っていた顔をしています","据わりました",
+            "石に意見はありません。たぶん賛成です","石がひとつ。庭が少し黙りました"],
+    STONEMOVE: ["石を動かしました。石は気づいていません","引きずった跡も、紋様のうちです"],
+    SMOOTH: ["整いました。また乱れます","砂は、すべてを水に流しました","白紙……ではなく、砂に戻りました"],
+    ENGAWA: ["縁側は、もう拭いてあります","縁側でひと休みするのも、庭仕事のうちです","そこは砂ではありません。お茶があります"],
+    PHOTO: ["写真に残しました。庭は澄ました顔をしています","記録しました。庭は明日には別の顔です"],
+    METER: "このメーターには何の機能もありません。きれいでしょう",
+  };
+
+  // ====================================================================
+  //  sand: texture, base scenery
+  // ====================================================================
+  function makeTile(){
+    const t = document.createElement("canvas");
+    t.width = t.height = 160;
+    const c = t.getContext("2d");
+    c.fillStyle = "#d8cdb2"; c.fillRect(0,0,160,160);
+    const rng = mulberry32(4242);
+    for(let i=0;i<520;i++){
+      c.fillStyle = rng()<.5 ? `rgba(110,92,66,${(.03+rng()*.05).toFixed(3)})`
+                             : `rgba(255,250,235,${(.04+rng()*.05).toFixed(3)})`;
+      c.fillRect(rng()*160, rng()*160, 1+rng(), 1+rng());
+    }
+    c.fillStyle = "rgba(120,100,70,.07)";
+    for(let i=0;i<26;i++) dotAt(c, rng()*160, rng()*160, 1.2+rng()*1.4);
+    return t;
+  }
+  const sandPat = sctx.createPattern(makeTile(), "repeat");
+
+  function paintBase(){
+    bctx.clearRect(0,0,W,H);
+    bctx.fillStyle = "#ece5d3"; bctx.fillRect(0,0,W,H);
+    const rg = mulberry32(7);
+    bctx.fillStyle = "rgba(140,120,80,.05)";
+    for(let i=0;i<140;i++) bctx.fillRect(rg()*W, rg()*H, 1.5, 1.5);
+
+    // engawa (porch) along the bottom
+    const ey = FY1;
+    bctx.fillStyle = "#8a6a49"; bctx.fillRect(0, ey, W, H-ey);
+    const rowH = Math.max(20, (H-ey)/3);
+    bctx.strokeStyle = "rgba(58,38,22,.35)"; bctx.lineWidth = 1.2;
+    for(let y=ey; y<=H; y+=rowH){
+      bctx.beginPath(); bctx.moveTo(0, y+.5); bctx.lineTo(W, y+.5); bctx.stroke();
+    }
+    bctx.strokeStyle = "rgba(58,38,22,.25)";
+    let row = 0;
+    for(let y=ey; y<H; y+=rowH, row++){
+      for(let x=((row%2)*90)+60; x<W; x+=180){
+        bctx.beginPath(); bctx.moveTo(x+.5, y+2); bctx.lineTo(x+.5, Math.min(H, y+rowH)-2); bctx.stroke();
+      }
+    }
+    const rk = mulberry32(99);
+    bctx.strokeStyle = "rgba(255,235,200,.07)"; bctx.lineWidth = 1;
+    for(let i=0;i<10;i++){
+      const y = ey + rk()*(H-ey);
+      bctx.beginPath(); bctx.moveTo(0,y);
+      bctx.bezierCurveTo(W*.3, y+4*(rk()-.5), W*.6, y+6*(rk()-.5), W, y); bctx.stroke();
+    }
+    bctx.fillStyle = "rgba(62,40,22,.3)";
+    for(let i=0;i<6;i++){
+      bctx.beginPath();
+      bctx.ellipse(rk()*W, ey+6+rk()*Math.max(4,H-ey-12), 2.6, 1.6, rk()*3, 0, 7);
+      bctx.fill();
+    }
+    // zabuton & yunomi on the porch
+    if(H-ey > 56 && W > 620){
+      const zx = W*.7, zy = ey+(H-ey)/2;
+      bctx.save(); bctx.translate(zx,zy); bctx.rotate(.04);
+      bctx.fillStyle = "rgba(40,30,15,.25)"; bctx.fillRect(-29,-21,60,46);
+      bctx.fillStyle = "#5d6b80"; bctx.fillRect(-31,-24,60,46);
+      bctx.strokeStyle = "rgba(255,255,255,.25)"; bctx.lineWidth = 1; bctx.strokeRect(-26,-19,50,36);
+      bctx.fillStyle = "rgba(255,255,255,.5)";
+      [[-26,-19],[24,-19],[-26,17],[24,17]].forEach(([px,py])=>dotAt(bctx,px,py,1.4));
+      bctx.restore();
+      bctx.fillStyle = "rgba(40,30,15,.25)"; dotAt(bctx, zx-52, zy+2, 9.5);
+      bctx.fillStyle = "#ddd5c0"; dotAt(bctx, zx-53, zy, 9);
+      bctx.fillStyle = "#7a9468"; dotAt(bctx, zx-53, zy, 6);
+      bctx.fillStyle = "rgba(255,255,255,.35)"; dotAt(bctx, zx-55, zy-2, 2);
+    }
+    // wooden frame
+    bctx.fillStyle = "#6e5138";
+    bctx.fillRect(FX0, FY0, FX1-FX0, FRAME);
+    bctx.fillRect(FX0, FY1-FRAME, FX1-FX0, FRAME);
+    bctx.fillRect(FX0, FY0, FRAME, FY1-FY0);
+    bctx.fillRect(FX1-FRAME, FY0, FRAME, FY1-FY0);
+    bctx.strokeStyle = "rgba(255,225,180,.18)"; bctx.lineWidth = 1.5;
+    bctx.strokeRect(FX0+2, FY0+2, FX1-FX0-4, FY1-FY0-4);
+    bctx.strokeStyle = "rgba(30,18,8,.4)"; bctx.lineWidth = 1;
+    bctx.strokeRect(FX0+.5, FY0+.5, FX1-FX0-1, FY1-FY0-1);
+    bctx.strokeRect(GX-.5, GY-.5, GW+1, GH+1);
+    bctx.strokeStyle = "rgba(30,18,8,.3)";
+    [[FX0,FY0,1,1],[FX1,FY0,-1,1],[FX0,FY1,1,-1],[FX1,FY1,-1,-1]].forEach(([x,y,sx,sy])=>{
+      bctx.beginPath(); bctx.moveTo(x,y); bctx.lineTo(x+FRAME*sx, y+FRAME*sy); bctx.stroke();
+    });
+    // flat sand under the sand canvas
+    bctx.fillStyle = "#d8cdb2"; bctx.fillRect(GX,GY,GW,GH);
+  }
+
+  // ====================================================================
+  //  stroke engine — full-stroke redraw over an "under" snapshot,
+  //  so raking over old marks erases them (本物の砂と同じ理屈)
+  // ====================================================================
+  const underCv = document.createElement("canvas");
+  const underCtx = underCv.getContext("2d");
+  let cur = null, sdrag = null, rakeRAF = 0;
+
+  function beginStroke(){
+    underCv.width = sandCv.width; underCv.height = sandCv.height;
+    underCtx.drawImage(sandCv, 0, 0);
+  }
+  function strokeActive(){ return !!(cur || sdrag); }
+  function withSand(fn){
+    fn(sctx);
+    if(strokeActive() && underCv.width) fn(underCtx);
+  }
+
+  function strokePoly(ctx, pts, style, w, dx, dy){
+    if(pts.length < 2) return;
+    const P = (dx||dy) ? pts.map(p=>({x:p.x+dx, y:p.y+dy})) : pts;
+    ctx.beginPath();
+    ctx.moveTo(P[0].x, P[0].y);
+    if(P.length === 2) ctx.lineTo(P[1].x, P[1].y);
+    else{
+      for(let i=1;i<P.length-1;i++)
+        ctx.quadraticCurveTo(P[i].x, P[i].y, (P[i].x+P[i+1].x)/2, (P[i].y+P[i+1].y)/2);
+      ctx.lineTo(P[P.length-1].x, P[P.length-1].y);
+    }
+    ctx.lineCap = ctx.lineJoin = "round";
+    ctx.strokeStyle = style; ctx.lineWidth = w; ctx.stroke();
+  }
+  function offsetPts(pts, o){
+    const n = pts.length, out = [];
+    for(let i=0;i<n;i++){
+      const a = pts[Math.max(0,i-1)], b = pts[Math.min(n-1,i+1)];
+      const dx = b.x-a.x, dy = b.y-a.y, len = Math.hypot(dx,dy)||1;
+      out.push({x: pts[i].x - dy/len*o, y: pts[i].y + dx/len*o});
+    }
+    return out;
+  }
+  function redrawStroke(pts, kind){
+    sctx.drawImage(underCv, 0, 0);
+    if(pts.length < 2) return;
+    sctx.save(); clipG(sctx);
+    if(kind === "furrow"){
+      strokePoly(sctx, pts, sandPat, 38);
+      strokePoly(sctx, offsetPts(pts, 11), "rgba(255,250,233,.55)", 1.8, .8, 1);
+      strokePoly(sctx, offsetPts(pts,-11), "rgba(255,250,233,.4)",  1.5, .8, 1);
+      strokePoly(sctx, pts, "rgba(104,87,64,.26)", 15);
+      strokePoly(sctx, pts, "rgba(104,87,64,.3)", 4);
+    }else{
+      strokePoly(sctx, pts, sandPat, RAKE_W+10);
+      for(const o of TINES){
+        const op = offsetPts(pts, o);
+        strokePoly(sctx, op, "rgba(255,250,233,.6)", 1.8, 1, 1.2);
+        strokePoly(sctx, op, "rgba(116,97,72,.5)", 2.1, 0, 0);
+      }
+    }
+    sctx.restore();
+  }
+  function requestRedraw(){
+    if(rakeRAF) return;
+    rakeRAF = requestAnimationFrame(()=>{
+      rakeRAF = 0;
+      if(cur) redrawStroke(cur.pts, "rake");
+      else if(sdrag) redrawStroke(sdrag.pts, "furrow");
+    });
+  }
+  function bakeIfLong(o){
+    if(o.pts.length <= 360) return;
+    redrawStroke(o.pts, cur ? "rake" : "furrow");
+    underCtx.drawImage(sandCv, 0, 0);
+    o.pts = o.pts.slice(-16);
+  }
+
+  // concentric rings around a placed stone (据えた石の作法)
+  function rings(s){
+    sctx.save(); clipG(sctx);
+    sctx.lineCap = "round";
+    for(const rr of [s.r+9, s.r+18, s.r+27]){
+      sctx.strokeStyle = sandPat; sctx.lineWidth = 7;
+      sctx.beginPath(); sctx.arc(s.x, s.y, rr, 0, 7); sctx.stroke();
+      sctx.strokeStyle = "rgba(255,250,233,.6)"; sctx.lineWidth = 1.8;
+      sctx.beginPath(); sctx.arc(s.x+1, s.y+1.2, rr, 0, 7); sctx.stroke();
+      sctx.strokeStyle = "rgba(116,97,72,.5)"; sctx.lineWidth = 2.1;
+      sctx.beginPath(); sctx.arc(s.x, s.y, rr, 0, 7); sctx.stroke();
+    }
+    sctx.restore();
+  }
+
+  // small stamps pressed into the sand (rakeable)
+  function stampPrints(x, y, scale){
+    scale = scale || 1.4;
+    withSand(ctx=>{
+      ctx.save(); clipG(ctx);
+      for(const [ox,oy] of [[-3.2,.6],[3.2,-.6]]){
+        const px = x+ox+(Math.random()-.5)*2, py = y+oy+(Math.random()-.5)*2, r = 1.6*scale;
+        ctx.fillStyle = "rgba(255,250,233,.5)"; dotAt(ctx, px+.8, py+1, r);
+        ctx.fillStyle = "rgba(108,90,66,.5)";  dotAt(ctx, px, py, r);
+      }
+      ctx.restore();
+    });
+  }
+  function leafShape(ctx, ox, oy){
+    ctx.beginPath();
+    ctx.moveTo(ox, oy-9);
+    ctx.quadraticCurveTo(ox+6.5, oy-2, ox, oy+10);
+    ctx.quadraticCurveTo(ox-6.5, oy-2, ox, oy-9);
+    ctx.closePath();
+  }
+  function stampLeaf(x, y, ang){
+    withSand(ctx=>{
+      ctx.save(); clipG(ctx);
+      ctx.translate(x,y); ctx.rotate(ang||0);
+      ctx.fillStyle = "rgba(70,55,30,.25)"; leafShape(ctx, 1.4, 1.7); ctx.fill();
+      ctx.fillStyle = pick(["#b5874a","#a8743d","#bd9355"]); leafShape(ctx, 0, 0); ctx.fill();
+      ctx.strokeStyle = "rgba(120,80,40,.5)"; ctx.lineWidth = .8;
+      ctx.beginPath(); ctx.moveTo(0,-7); ctx.lineTo(0,8); ctx.stroke();
+      ctx.restore();
+    });
+  }
+
+  // ====================================================================
+  //  moss — coarse cellular automaton; untouched sand grows green
+  // ====================================================================
+  function hash2(i,j){ return mulberry32(((i*73856093) ^ (j*19349663))>>>0)(); }
+  function fnoise(x,y){
+    const i = Math.floor(x), j = Math.floor(y), u = x-i, v = y-j;
+    const su = u*u*(3-2*u), sv = v*v*(3-2*v);
+    const a = hash2(i,j), b = hash2(i+1,j), c = hash2(i,j+1), d = hash2(i+1,j+1);
+    return a + (b-a)*su + (c-a)*sv + (a-b-c+d)*su*sv;
+  }
+  function buildGrid(old){
+    const oc = old ? old.cols : 0, orw = old ? old.rows : 0, ocells = old ? old.cells : null;
+    cols = Math.max(1, Math.ceil(GW/CS));
+    rows = Math.max(1, Math.ceil(GH/CS));
+    cells.length = 0;
+    const now = Date.now();
+    for(let r=0;r<rows;r++) for(let q=0;q<cols;q++){
+      const i = r*cols+q;
+      // smooth noise → moss grows in patchy colonies, not everywhere
+      const nz = fnoise(q/5.2, r/5.2)*.65 + fnoise(q/2.3+9.7, r/2.3+9.7)*.35;
+      const f = clamp((nz-.52)*2.4, 0, 1);
+      const cell = {m:0, t:now, f, b:1, cap:f};
+      if(ocells && oc && orw){
+        const sr = Math.min(orw-1, Math.round(r*orw/rows));
+        const sq = Math.min(oc-1,  Math.round(q*oc/cols));
+        const o = ocells[sr*oc+sq];
+        if(o){ cell.m = o.m; cell.t = o.t; }
+      }
+      cells.push(cell);
+    }
+  }
+  function renderCell(i){
+    const q = i%cols, r = (i/cols)|0;
+    const x0 = GX+q*CS, y0 = GY+r*CS;
+    mctx.save(); clipG(mctx);
+    mctx.clearRect(x0, y0, CS, CS);
+    const c = cells[i];
+    if(c && c.m > .02){
+      const rng = mulberry32((i+1)*2246822519);
+      const nd = 1 + Math.min(4, Math.floor(c.m*4 + rng()*1.5));
+      mctx.globalAlpha = .5 + .45*c.m;
+      for(let k=0;k<nd;k++){
+        const rr = Math.min(CS/2-1, (2.2+6.5*c.m)*(.65+rng()*.7));
+        const px = x0+rr+(CS-2*rr)*rng(), py = y0+rr+(CS-2*rr)*rng();
+        mctx.fillStyle = "rgba(46,60,34,.5)"; dotAt(mctx, px+.8, py+1, rr);
+        mctx.fillStyle = MOSSC[(rng()*MOSSC.length)|0]; dotAt(mctx, px, py, rr);
+        mctx.fillStyle = "rgba(235,240,210,.25)"; dotAt(mctx, px-rr*.3, py-rr*.35, rr*.35);
+      }
+      mctx.globalAlpha = 1;
+    }
+    mctx.restore();
+  }
+  function renderAllMoss(){ for(let i=0;i<cells.length;i++) renderCell(i); }
+
+  function disturbCell(i){
+    const c = cells[i];
+    if(!c) return;
+    c.t = Date.now();
+    if(c.m > .01){ c.m = 0; renderCell(i); }
+    else c.m = 0;
+  }
+  function mossClearSeg(a, b, w){
+    mctx.save();
+    mctx.globalCompositeOperation = "destination-out";
+    mctx.strokeStyle = "rgba(0,0,0,1)";
+    mctx.lineWidth = w+14; mctx.lineCap = "round";
+    mctx.beginPath(); mctx.moveTo(a.x,a.y); mctx.lineTo(b.x,b.y); mctx.stroke();
+    mctx.restore();
+    const d = Math.hypot(b.x-a.x, b.y-a.y), steps = Math.ceil(d/(CS*.5))+1;
+    const reach = w/2 + CS*.55;
+    for(let s=0;s<=steps;s++){
+      const px = a.x+(b.x-a.x)*s/steps, py = a.y+(b.y-a.y)*s/steps;
+      const q0 = clamp(Math.floor((px-reach-GX)/CS),0,cols-1), q1 = clamp(Math.floor((px+reach-GX)/CS),0,cols-1);
+      const r0 = clamp(Math.floor((py-reach-GY)/CS),0,rows-1), r1 = clamp(Math.floor((py+reach-GY)/CS),0,rows-1);
+      for(let r=r0;r<=r1;r++) for(let q=q0;q<=q1;q++){
+        const cx2 = GX+q*CS+CS/2, cy2 = GY+r*CS+CS/2;
+        if(Math.hypot(cx2-px, cy2-py) <= reach) disturbCell(r*cols+q);
+      }
+    }
+  }
+  function recomputeBoost(){
+    for(let i=0;i<cells.length;i++){
+      const c = cells[i];
+      const cx2 = GX+(i%cols)*CS+CS/2, cy2 = GY+((i/cols)|0)*CS+CS/2;
+      let near = false;
+      for(const s of stones){
+        if(Math.hypot(s.x-cx2, s.y-cy2) < s.r+85){ near = true; break; }
+      }
+      c.b = near ? 3 : 1;
+      c.cap = Math.min(1, c.f + (near ? .55 : 0));
+    }
+  }
+  let lastMossTick = Date.now();
+  setInterval(()=>{
+    const now = Date.now(), dt = Math.min(now-lastMossTick, 20000);
+    lastMossTick = now;
+    for(let i=0;i<cells.length;i++){
+      const c = cells[i];
+      if(c.m >= c.cap) continue;
+      if(now - c.t < 60000) continue;
+      c.m = Math.min(c.cap, c.m + dt/GROW * c.b * (.45+c.f));
+      if(c.m > .02) renderCell(i);
+    }
+  }, 5000);
+
+  // ====================================================================
+  //  stones — organic SVG blobs, draggable, leave furrows
+  // ====================================================================
+  function blobPts(rng, r){
+    const N=12, a1=2+(rng()*2|0), a2=4+(rng()*3|0), p1=rng()*6.283, p2=rng()*6.283;
+    const m1=.15+rng()*.1, m2=.07+rng()*.07, pts=[];
+    for(let i=0;i<N;i++){
+      const t = i/N*6.283;
+      const rr = r*(.84 + m1*Math.sin(a1*t+p1) + m2*Math.sin(a2*t+p2));
+      pts.push([Math.cos(t)*rr, Math.sin(t)*rr*.88]);
+    }
+    return pts;
+  }
+  function closedPath(pts, scale, dx, dy){
+    scale = scale||1; dx = dx||0; dy = dy||0;
+    const p = pts.map(([x,y])=>[x*scale+dx, y*scale+dy]);
+    const n = p.length;
+    let d = "";
+    for(let i=0;i<n;i++){
+      const c = p[i], nx = p[(i+1)%n];
+      const mx = (c[0]+nx[0])/2, my = (c[1]+nx[1])/2;
+      if(i===0) d = `M ${mx.toFixed(1)} ${my.toFixed(1)}`;
+      else d += ` Q ${c[0].toFixed(1)} ${c[1].toFixed(1)}, ${mx.toFixed(1)} ${my.toFixed(1)}`;
+    }
+    d += ` Q ${p[0][0].toFixed(1)} ${p[0][1].toFixed(1)}, ${((p[0][0]+p[1][0])/2).toFixed(1)} ${((p[0][1]+p[1][1])/2).toFixed(1)}`;
+    return d + " Z";
+  }
+  function renderStone(s){
+    const g = mk("g", {class:"stone"});
+    g.setAttribute("transform", `translate(${s.x} ${s.y})`);
+    g.style.pointerEvents = "auto";
+    const inner = mk("g");
+    inner.style.transformBox = "fill-box";
+    inner.style.transformOrigin = "center";
+    const rng = mulberry32(s.seed);
+    const pts = blobPts(rng, s.r);
+    inner.append(
+      mk("ellipse", {cx:2.5, cy:s.r*.16+2, rx:s.r*1.06, ry:s.r*.9,
+        fill:"rgba(56,48,36,.3)", filter:"url(#nw-soft)"}),
+      mk("path", {d:closedPath(pts), fill:"url(#nw-stone)", stroke:"#59554a", "stroke-width":1.1}),
+      mk("path", {d:closedPath(pts, .55, -s.r*.16, -s.r*.2), fill:"rgba(255,255,255,.13)"})
+    );
+    for(let i=0;i<3;i++)
+      inner.append(mk("circle", {cx:(rng()-.5)*s.r, cy:(rng()-.4)*s.r*.7,
+        r:.8+rng()*1.3, fill:"rgba(42,40,32,.2)"}));
+    g.append(inner);
+    s.inner = inner;
+    return g;
+  }
+  function attachStone(s){
+    s.el.style.cursor = "grab";
+    s.el.addEventListener("pointerdown", e=>{
+      if(e.button !== 0 || smoothing || cur) return;
+      e.preventDefault(); e.stopPropagation();
+      hideHint();
+      sdrag = {s, moved:0, pts:[{x:s.x, y:s.y}], ox:s.x-e.clientX, oy:s.y-e.clientY};
+      beginStroke();
+      s.el.style.cursor = "grabbing";
+    });
+    s.el.addEventListener("dblclick", e=>{
+      e.preventDefault();
+      removeStone(s.id);
+      toast("石を、そっと脇へ除けました");
+    });
+  }
+  function placeStone(x, y, r, opts){
+    opts = opts || {};
+    r = clamp(+r||20, 8, 70);
+    x = clamp(x, GX+r*.6, GX+GW-r*.6);
+    y = clamp(y, GY+r*.6, GY+GH-r*.6);
+    const s = {id:nextStoneId++, x, y, r, seed:(opts.seed>>>0) || ((Math.random()*1e9)|0) || 1};
+    s.el = renderStone(s);
+    gStones.append(s.el);
+    stones.push(s);
+    attachStone(s);
+    if(!opts.silent){
+      rings(s);
+      try{
+        s.inner.animate(
+          [{transform:"scale(.4)", opacity:0},
+           {transform:"scale(1.08)", opacity:1, offset:.7},
+           {transform:"scale(1)"}],
+          {duration:420, easing:"cubic-bezier(.2,.8,.3,1.2)"});
+      }catch(_){}
+      if(Math.random() < .5) toast(pick(L.STONE));
+    }
+    recomputeBoost();
+    emit("stone-placed", s);
+    scheduleSave();
+    return s;
+  }
+  function removeStone(id){
+    const i = stones.findIndex(s=>s.id===id || s===id);
+    if(i < 0) return null;
+    const s = stones[i];
+    stones.splice(i, 1);
+    try{ s.el.remove(); }catch(_){}
+    recomputeBoost();
+    emit("stone-removed", s);
+    scheduleSave();
+    return s;
+  }
+  window.addEventListener("pointermove", e=>{
+    if(!sdrag) return;
+    const s = sdrag.s;
+    const nx = clamp(e.clientX+sdrag.ox, GX+10, GX+GW-10);
+    const ny = clamp(e.clientY+sdrag.oy, GY+10, GY+GH-10);
+    const lp = sdrag.pts[sdrag.pts.length-1];
+    if(Math.hypot(nx-lp.x, ny-lp.y) < 3) return;
+    sdrag.moved += Math.hypot(nx-lp.x, ny-lp.y);
+    const p = {x:nx, y:ny};
+    sdrag.pts.push(p);
+    bakeIfLong(sdrag);
+    s.x = nx; s.y = ny;
+    s.el.setAttribute("transform", `translate(${nx} ${ny})`);
+    requestRedraw();
+    mossClearSeg(lp, p, 40);
+  });
+  window.addEventListener("pointerup", ()=>{
+    if(!sdrag) return;
+    const s = sdrag.s, moved = sdrag.moved, pts = sdrag.pts;
+    s.el.style.cursor = "grab";
+    if(rakeRAF){ cancelAnimationFrame(rakeRAF); rakeRAF = 0; }
+    if(moved > 9){
+      redrawStroke(pts, "furrow");
+      sdrag = null;
+      rings(s);
+      recomputeBoost();
+      emit("stone-moved", s);
+      if(Math.random() < .3) toast(pick(L.STONEMOVE));
+      scheduleSave();
+    }else sdrag = null;
+  });
+
+  // ====================================================================
+  //  rake interaction
+  // ====================================================================
+  function clampPt(x, y){ return {x:clamp(x,GX+2,GX+GW-2), y:clamp(y,GY+2,GY+GH-2)}; }
+  stage.addEventListener("pointerdown", e=>{
+    if(e.defaultPrevented || e.button !== 0) return;
+    hideHint();
+    if(smoothing) return;
+    const x = e.clientX, y = e.clientY;
+    if(x < GX-8 || x > GX+GW+8 || y < GY-8 || y > GY+GH+8){
+      if(y > FY1 && Math.random() < .45) toast(pick(L.ENGAWA));
+      return;
+    }
+    if(tool === "rake"){
+      cur = {pts:[clampPt(x,y)], len:0};
+      beginStroke();
+      try{ stage.setPointerCapture(e.pointerId); }catch(_){}
+    }else{
+      const base = tool==="s1" ? 15 : tool==="s2" ? 25 : 38;
+      placeStone(x, y, base*(.85+Math.random()*.3));
+    }
+  });
+  stage.addEventListener("pointermove", e=>{
+    if(!cur) return;
+    const p = clampPt(e.clientX, e.clientY);
+    const lp = cur.pts[cur.pts.length-1];
+    const d = Math.hypot(p.x-lp.x, p.y-lp.y);
+    if(d < 4) return;
+    cur.pts.push(p);
+    cur.len += d;
+    bakeIfLong(cur);
+    requestRedraw();
+    mossClearSeg(lp, p, RAKE_W+12);
+  });
+  function endStroke(){
+    if(!cur) return;
+    if(rakeRAF){ cancelAnimationFrame(rakeRAF); rakeRAF = 0; }
+    redrawStroke(cur.pts, "rake");
+    if(cur.len > 4){
+      emit("raked", {length:Math.round(cur.len)});
+      if(cur.len > 650 && Math.random() < .2) toast(pick(L.RAKE));
+      scheduleSave();
+    }
+    cur = null;
+  }
+  stage.addEventListener("pointerup", endStroke);
+  stage.addEventListener("pointercancel", endStroke);
+
+  // ====================================================================
+  //  整える — slow satisfying wave wipe back to flat
+  // ====================================================================
+  function smoothAll(){
+    if(smoothing || cur || sdrag) return;
+    smoothing = true;
+    const t0 = performance.now(), D = Math.max(1500, GW*1.1);
+    let lastX = GX;
+    function step(){
+      const u = Math.min(1, (performance.now()-t0)/D);
+      const eu = u*u*(3-2*u);
+      const x = GX + GW*eu;
+      sctx.save(); clipG(sctx);
+      sctx.fillStyle = sandPat;
+      const x0 = Math.max(GX, lastX-46);
+      sctx.fillRect(x0, GY, x-x0+1, GH);
+      if(u < 1){
+        const gr = sctx.createLinearGradient(x-26, 0, x+14, 0);
+        gr.addColorStop(0, "rgba(255,252,238,0)");
+        gr.addColorStop(.75, "rgba(255,252,238,.4)");
+        gr.addColorStop(1, "rgba(140,118,86,.25)");
+        sctx.fillStyle = gr;
+        sctx.fillRect(x-26, GY, 40, GH);
+      }
+      sctx.restore();
+      lastX = x;
+      if(u < 1) requestAnimationFrame(step);
+      else{
+        sctx.save(); clipG(sctx);
+        sctx.fillStyle = sandPat; sctx.fillRect(GX,GY,GW,GH);
+        sctx.restore();
+        smoothing = false;
+        emit("smoothed");
+        toast(pick(L.SMOOTH));
+        scheduleSave();
+      }
+    }
+    requestAnimationFrame(step);
+  }
+
+  // ====================================================================
+  //  visitors — they never care about your design
+  // ====================================================================
+  let zukan = null;
+  try{
+    const raw = localStorage.getItem("sea-zukan-v1");
+    if(raw){
+      const arr = JSON.parse(raw);
+      if(Array.isArray(arr) && arr.length) zukan = arr;
+    }
+  }catch(_){}
+
+  const FROG_SVG = `<svg viewBox="0 0 32 24" width="30" height="22" xmlns="http://www.w3.org/2000/svg"><ellipse cx="6" cy="18" rx="3.4" ry="2" fill="#5d7b40"/><ellipse cx="26" cy="18" rx="3.4" ry="2" fill="#5d7b40"/><ellipse cx="16" cy="14" rx="11" ry="8" fill="#6f8f4d"/><ellipse cx="16" cy="16.5" rx="8" ry="4.5" fill="#8aa75f"/><circle cx="10.5" cy="7.5" r="3.4" fill="#6f8f4d"/><circle cx="21.5" cy="7.5" r="3.4" fill="#6f8f4d"/><circle cx="10.5" cy="7" r="1.5" fill="#fff"/><circle cx="21.5" cy="7" r="1.5" fill="#fff"/><circle cx="10.7" cy="7.1" r=".8" fill="#222"/><circle cx="21.7" cy="7.1" r=".8" fill="#222"/></svg>`;
+  const SPARROW_SVG = `<svg viewBox="0 0 30 24" width="26" height="21" xmlns="http://www.w3.org/2000/svg"><ellipse cx="14" cy="14" rx="9" ry="7" fill="#a08868"/><path d="M 20 13 Q 28 11 27 17 Q 22 19 18 17 Z" fill="#7c6448"/><ellipse cx="13" cy="15" rx="6" ry="4.5" fill="#cdbb9e"/><circle cx="8.5" cy="8.5" r="4.6" fill="#8c7355"/><circle cx="7" cy="7.6" r="1" fill="#2c2418"/><path d="M 4.6 8.6 L 1.4 9.6 L 4.8 10.6 Z" fill="#d99a3d"/><path d="M 11 11 Q 16 9 19 12 Q 15 15 11 14 Z" fill="#7c6448"/></svg>`;
+  const LEAF_SVG = `<svg viewBox="0 0 20 28" width="17" height="24" xmlns="http://www.w3.org/2000/svg"><path d="M 10 2 Q 18 12 10 26 Q 2 12 10 2 Z" fill="#b5874a"/><path d="M 10 4 L 10 24" stroke="#8a5f2e" stroke-width="1" fill="none"/><path d="M 10 10 L 14 8 M 10 15 L 15 13 M 10 10 L 6 8 M 10 15 L 5 13" stroke="#8a5f2e" stroke-width=".6" fill="none"/></svg>`;
+  const FISH_SVG = `<svg viewBox="0 0 40 18" width="38" height="17" xmlns="http://www.w3.org/2000/svg"><ellipse cx="17" cy="9" rx="13" ry="6" fill="rgba(82,92,102,.5)"/><path d="M 28 9 L 38 3 L 36 9 L 38 15 Z" fill="rgba(82,92,102,.45)"/><circle cx="9" cy="7.4" r="1.1" fill="rgba(30,35,40,.55)"/></svg>`;
+
+  function makeActor(svgStr){
+    const el = document.createElement("div");
+    el.className = "actor";
+    el.innerHTML = svgStr;
+    fx.append(el);
+    return el;
+  }
+  function spawnFrog(){
+    const dir = Math.random() < .5 ? 1 : -1;
+    let y = GY+34+Math.random()*Math.max(20, GH-68);
+    const sx = dir>0 ? GX-40 : GX+GW+40, ex = dir>0 ? GX+GW+40 : GX-40;
+    const hop = 44+Math.random()*10;
+    const n = Math.max(4, Math.round(Math.abs(ex-sx)/hop));
+    const pts = [];
+    for(let i=0;i<=n;i++){
+      y = clamp(y+(Math.random()-.5)*22, GY+20, GY+GH-20);
+      pts.push({x:sx+(ex-sx)*i/n, y});
+    }
+    const el = makeActor(FROG_SVG);
+    const tr = (x,yy)=>`translate(${x-15}px,${yy-12}px) scaleX(${dir})`;
+    const frames = [];
+    for(let i=0;i<n;i++){
+      const a = pts[i], b = pts[i+1];
+      frames.push({offset:i/n, transform:tr(a.x,a.y), easing:"ease-in"});
+      frames.push({offset:(i+.42)/n, transform:tr((a.x+b.x)/2,(a.y+b.y)/2-15), easing:"ease-out"});
+    }
+    frames.push({offset:1, transform:tr(pts[n].x, pts[n].y)});
+    const dur = n*620;
+    try{
+      el.animate(frames, {duration:dur}).onfinish = ()=>el.remove();
+    }catch(_){ el.remove(); return; }
+    for(let i=1;i<n;i++){
+      const p = pts[i];
+      setTimeout(()=>stampPrints(p.x, p.y), (i/n)*dur);
+    }
+    if(Math.random() < .65) setTimeout(()=>toast(pick(L.FROG)), dur*.45);
+  }
+  async function spawnSparrow(){
+    const lx = GX+60+Math.random()*Math.max(20, GW-120);
+    const ly = GY+50+Math.random()*Math.max(20, GH-100);
+    const el = makeActor(SPARROW_SVG);
+    const place = (x,y,r)=>`translate(${x-13}px,${y-11}px) rotate(${r||0}deg)`;
+    try{
+      await el.animate(
+        [{transform:place(lx-90, ly-160), opacity:0}, {transform:place(lx,ly), opacity:1}],
+        {duration:850, easing:"cubic-bezier(.3,.7,.4,1)"}).finished;
+      el.style.transform = place(lx, ly);
+      let x = lx, y = ly;
+      for(let i=0;i<3;i++){
+        const nx = x+8+Math.random()*10, ny = y+(Math.random()-.5)*8;
+        await el.animate(
+          [{transform:place(x,y)},
+           {transform:place((x+nx)/2,(y+ny)/2-7), offset:.5},
+           {transform:place(nx,ny)}],
+          {duration:340, easing:"ease-out"}).finished;
+        x = nx; y = ny;
+        el.style.transform = place(x,y);
+        stampPrints(x, y+6, 1);
+      }
+      await el.animate(
+        [{transform:place(x,y,0)}, {transform:place(x,y,-14)}, {transform:place(x,y,0)}],
+        {duration:900, easing:"ease-in-out"}).finished;
+      await el.animate(
+        [{transform:place(x,y), opacity:1}, {transform:place(x+70,y-170), opacity:0}],
+        {duration:750, easing:"cubic-bezier(.5,0,.8,.6)"}).finished;
+    }catch(_){}
+    el.remove();
+    if(Math.random() < .6) toast(pick(L.SPARROW));
+  }
+  function spawnLeaf(){
+    const x = GX+40+Math.random()*Math.max(20, GW-80);
+    const y = GY+40+Math.random()*Math.max(20, GH-80);
+    const rot = (Math.random()*360)|0;
+    const el = makeActor(LEAF_SVG);
+    const sway = [-30,24,-18,10,0];
+    const frames = sway.map((dx,k)=>({
+      transform:`translate(${x+dx-9}px, ${GY-70+(y-(GY-70))*(k/4)}px) rotate(${rot+k*65}deg)`,
+      easing:"ease-in-out"
+    }));
+    try{
+      el.animate(frames, {duration:4300+Math.random()*1500}).onfinish = ()=>{
+        el.remove();
+        stampLeaf(x, y, (rot+260)*Math.PI/180);
+        if(Math.random() < .6) toast(pick(L.LEAF));
+      };
+    }catch(_){ el.remove(); }
+  }
+  function spawnSakana(){
+    if(!zukan){ spawnFrog(); return; }
+    const c = pick(zukan) || {};
+    const nm = String(c.name || "なにか").slice(0, 14);
+    const dir = Math.random() < .5 ? 1 : -1;
+    const y0 = GY+60+Math.random()*Math.max(20, GH-120);
+    const sx = dir>0 ? GX-44 : GX+GW+44, ex = dir>0 ? GX+GW+44 : GX-44;
+    const el = makeActor(FISH_SVG);
+    const n = 26, dur = 6200, frames = [];
+    const pts = [];
+    for(let k=0;k<=n;k++){
+      const x = sx+(ex-sx)*k/n, y = y0+Math.sin(k*.85)*15;
+      pts.push({x,y});
+      frames.push({offset:k/n,
+        transform:`translate(${x-19}px,${y-8}px) scaleX(${dir}) rotate(${(Math.cos(k*.85)*12*dir).toFixed(1)}deg)`});
+    }
+    try{
+      el.animate(frames, {duration:dur, easing:"linear"}).onfinish = ()=>el.remove();
+    }catch(_){ el.remove(); return; }
+    for(let k=2;k<n;k+=2){
+      const p = pts[k];
+      setTimeout(()=>stampPrints(p.x, p.y, .8), (k/n)*dur);
+    }
+    setTimeout(()=>toast(`図鑑の「${nm}」が、砂の中を泳いでいきました`), dur*.55);
+  }
+  function spawnVisitor(kind){
+    const kinds = ["frog","frog","sparrow","sparrow","leaf","leaf"];
+    if(zukan) kinds.push("sakana");
+    kind = kind || pick(kinds);
+    if(kind === "frog") spawnFrog();
+    else if(kind === "sparrow") spawnSparrow();
+    else if(kind === "sakana") spawnSakana();
+    else{ kind = "leaf"; spawnLeaf(); }
+    emit("visitor", {kind});
+    return kind;
+  }
+  let firstVisit = true;
+  function nextVisitor(){
+    const delay = firstVisit ? 45e3+Math.random()*45e3 : 120e3+Math.random()*180e3;
+    firstVisit = false;
+    setTimeout(()=>{
+      try{ if(!document.hidden) spawnVisitor(); }catch(_){}
+      nextVisitor();
+    }, delay);
+  }
+
+  // ====================================================================
+  //  心の静けさ — responds to nothing, fills regardless
+  // ====================================================================
+  const mfill = document.getElementById("mfill");
+  const meterEl = document.getElementById("meter");
+  const meterT0 = Date.now(), meterSeed = 6+Math.random()*10;
+  let meterFullSaid = false, meterSayT = 0;
+  setInterval(()=>{
+    const pct = Math.min(100, meterSeed + (Date.now()-meterT0)/(16*60e3)*100);
+    mfill.style.width = pct.toFixed(1)+"%";
+    if(pct >= 100 && !meterFullSaid){
+      meterFullSaid = true;
+      toast("心の静けさが満ちました。特に何も起こりません");
+    }
+  }, 1500);
+  meterEl.addEventListener("pointerenter", ()=>{
+    const n = Date.now();
+    if(n-meterSayT > 25e3){ meterSayT = n; toast(L.METER); }
+  });
+
+  // ====================================================================
+  //  庭の銘
+  // ====================================================================
+  const meicard = document.getElementById("meicard");
+  let meiT = null;
+  function grantName(){
+    const renamed = !!gardenName;
+    gardenName = pick(L.MEI);
+    gardenKun = pick(L.KUN);
+    meicard.innerHTML =
+      `<div class="mname">銘『${esc(gardenName)}』</div>` +
+      `<div class="mkun">訓「${esc(gardenKun)}」</div>` +
+      `<div class="msub">${renamed ? "改銘いたしました。前の銘は、砂が覚えています" : "この庭に、銘が授かりました"}</div>`;
+    meicard.classList.add("show");
+    clearTimeout(meiT);
+    meiT = setTimeout(()=>meicard.classList.remove("show"), 9000);
+    emit("named", {name:gardenName, kun:gardenKun});
+    scheduleSave();
+  }
+  meicard.addEventListener("click", ()=>meicard.classList.remove("show"));
+
+  // ====================================================================
+  //  写真に残す — paper-album framed PNG
+  // ====================================================================
+  function savePhoto(){
+    const PADX = 66, PADT = 52, CAP = 96;
+    const cw = GW+PADX*2, ch = GH+PADT+CAP;
+    const cv = document.createElement("canvas");
+    cv.width = cw; cv.height = ch;
+    const c = cv.getContext("2d");
+    c.fillStyle = "#f4eedc"; c.fillRect(0,0,cw,ch);
+    const rng = mulberry32(11);
+    c.fillStyle = "rgba(150,130,90,.08)";
+    for(let i=0;i<70;i++) c.fillRect(rng()*cw, rng()*ch, 1.6, 1.6);
+    c.strokeStyle = "rgba(120,100,60,.5)"; c.lineWidth = 1.6;
+    c.strokeRect(14.5, 14.5, cw-29, ch-29);
+    c.lineWidth = .8;
+    c.strokeRect(20.5, 20.5, cw-41, ch-41);
+    const px = PADX, py = PADT;
+    function finish(){
+      c.strokeStyle = "rgba(60,50,30,.35)"; c.lineWidth = 2;
+      c.strokeRect(px+1, py+1, GW-2, GH-2);
+      c.fillStyle = "#857455";
+      [[px,py,1,1],[px+GW,py,-1,1],[px,py+GH,1,-1],[px+GW,py+GH,-1,-1]].forEach(([x,y,sx,sy])=>{
+        c.beginPath();
+        c.moveTo(x-6*sx, y-6*sy); c.lineTo(x+18*sx, y-6*sy); c.lineTo(x-6*sx, y+18*sy);
+        c.closePath(); c.fill();
+      });
+      c.fillStyle = "#4a4334"; c.textAlign = "center";
+      c.font = "600 19px 'Hiragino Mincho ProN','Yu Mincho',serif";
+      c.fillText(gardenName ? `銘『${gardenName}』` : "無銘の庭", cw/2, py+GH+44);
+      const d = new Date();
+      c.fillStyle = "#8a8270";
+      c.font = "11px 'Hiragino Kaku Gothic ProN',sans-serif";
+      c.fillText(`${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 撮影`, cw/2, py+GH+66);
+      cv.toBlob(b=>{
+        if(!b){ toast("写真に失敗しました。現像所が休みのようです"); return; }
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(b);
+        a.download = `koke-niwa-${gardenName || "mumei"}.png`;
+        a.click();
+        setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+        toast(pick(L.PHOTO));
+        emit("photo-saved", {name:gardenName});
+      }, "image/png");
+    }
+    c.drawImage(baseCv, GX, GY, GW, GH, px, py, GW, GH);
+    c.drawImage(sandCv, GX, GY, GW, GH, px, py, GW, GH);
+    c.drawImage(mossCv, GX, GY, GW, GH, px, py, GW, GH);
+    try{
+      const clone = gStones.cloneNode(true);
+      clone.setAttribute("viewBox", `${GX} ${GY} ${GW} ${GH}`);
+      clone.setAttribute("width", GW);
+      clone.setAttribute("height", GH);
+      const url = URL.createObjectURL(new Blob(
+        [new XMLSerializer().serializeToString(clone)],
+        {type:"image/svg+xml;charset=utf-8"}));
+      const img = new Image();
+      img.onload = ()=>{ c.drawImage(img, px, py, GW, GH); URL.revokeObjectURL(url); finish(); };
+      img.onerror = ()=>{ URL.revokeObjectURL(url); finish(); };
+      img.src = url;
+    }catch(_){ finish(); }
+  }
+
+  // ====================================================================
+  //  persistence — the garden is yours across visits
+  // ====================================================================
+  function save(){
+    try{
+      const d = {
+        v:1, savedAt:Date.now(), name:gardenName, kun:gardenKun,
+        g:{x:GX, y:GY, w:GW, h:GH},
+        stones: stones.map(s=>({x:Math.round(s.x), y:Math.round(s.y),
+          r:Math.round(s.r*10)/10, seed:s.seed})),
+        moss:{cols, rows, m:cells.map(c=>Math.round(c.m*100))},
+        sand:null,
+      };
+      try{
+        const du = sandCv.toDataURL("image/png");
+        if(du.length < 3.4e6) d.sand = du;
+      }catch(_){}
+      try{ localStorage.setItem(LSK, JSON.stringify(d)); }
+      catch(_){
+        d.sand = null;
+        try{ localStorage.setItem(LSK, JSON.stringify(d)); }catch(__){}
+      }
+    }catch(_){}
+  }
+  let saveT = null;
+  function scheduleSave(){ clearTimeout(saveT); saveT = setTimeout(save, 1500); }
+
+  function starter(){
+    const s = placeStone(GX+GW*.62, GY+GH*.36, 26, {silent:true});
+    if(s) rings(s);
+    for(let i=0;i<cells.length;i++){
+      const cx2 = GX+(i%cols)*CS+CS/2, cy2 = GY+((i/cols)|0)*CS+CS/2;
+      if(s && Math.hypot(s.x-cx2, s.y-cy2) < 95 && Math.random() < .5){
+        cells[i].m = Math.min(cells[i].cap, .25+Math.random()*.45);
+        renderCell(i);
+      }
+    }
+  }
+  function load(){
+    let d = null;
+    try{
+      const raw = localStorage.getItem(LSK);
+      if(raw) d = JSON.parse(raw);
+    }catch(_){ d = null; }
+    if(!d || d.v !== 1 || !d.g || !(d.g.w > 0) || !(d.g.h > 0)){ starter(); return; }
+    try{
+      gardenName = typeof d.name === "string" ? d.name : "";
+      gardenKun  = typeof d.kun  === "string" ? d.kun  : "";
+      const og = d.g, rx = GW/og.w, ry = GH/og.h;
+      (Array.isArray(d.stones) ? d.stones : []).slice(0,80).forEach(o=>{
+        if(!isFinite(o.x) || !isFinite(o.y)) return;
+        placeStone(GX+(o.x-og.x)*rx, GY+(o.y-og.y)*ry, o.r, {seed:o.seed, silent:true});
+      });
+      if(d.moss && Array.isArray(d.moss.m) && d.moss.cols > 0 && d.moss.rows > 0){
+        const mc = d.moss.cols, mr = d.moss.rows;
+        for(let r=0;r<rows;r++) for(let q=0;q<cols;q++){
+          const sr = Math.min(mr-1, Math.round(r*mr/rows));
+          const sq = Math.min(mc-1, Math.round(q*mc/cols));
+          cells[r*cols+q].m = clamp((+d.moss.m[sr*mc+sq]||0)/100, 0, 1);
+        }
+      }
+      recomputeBoost();
+      // 留守の間の苔 (capped)
+      const eff = Math.min(Math.max(0, Date.now()-(+d.savedAt || Date.now())), 6*36e5);
+      if(eff > 6e4){
+        for(const c of cells){
+          if(c.m < c.cap)
+            c.m = Math.min(c.cap, c.m + (eff-6e4)/GROW * c.b * (.45+c.f) * .5);
+        }
+        if(eff > 6e5) setTimeout(()=>toast("留守の間に、苔が少し育っていました"), 1800);
+      }
+      renderAllMoss();
+      if(typeof d.sand === "string" && d.sand.slice(0,10) === "data:image"){
+        const img = new Image();
+        img.onload = ()=>{
+          try{
+            sctx.save(); clipG(sctx);
+            sctx.drawImage(img, og.x, og.y, og.w, og.h, GX, GY, GW, GH);
+            sctx.restore();
+          }catch(_){}
+        };
+        img.src = d.sand;
+      }
+    }catch(_){ starter(); }
+  }
+  window.addEventListener("beforeunload", save);
+  document.addEventListener("visibilitychange", ()=>{ if(document.hidden) save(); });
+  setInterval(save, 90e3);
+
+  // ====================================================================
+  //  layout / resize
+  // ====================================================================
+  function layout(first){
+    let old = null, snap = null;
+    if(!first && cols){
+      old = {cols, rows, cells:cells.slice(), g:{x:GX, y:GY, w:GW, h:GH}};
+      snap = document.createElement("canvas");
+      snap.width = sandCv.width || 1; snap.height = sandCv.height || 1;
+      snap.getContext("2d").drawImage(sandCv, 0, 0);
+    }
+    W = window.innerWidth; H = window.innerHeight;
+    FX0 = 24; FY0 = 58; FX1 = W-24; FY1 = H-86;
+    GX = FX0+FRAME; GY = FY0+FRAME;
+    GW = Math.max(60, FX1-FRAME-GX);
+    GH = Math.max(60, FY1-FRAME-GY);
+    [baseCv, sandCv, mossCv].forEach(cv=>{ cv.width = W; cv.height = H; });
+    gStones.setAttribute("width", W);
+    gStones.setAttribute("height", H);
+    gStones.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    shade.style.left = GX+"px"; shade.style.top = GY+"px";
+    shade.style.width = GW+"px"; shade.style.height = GH+"px";
+    paintBase();
+    sctx.save(); clipG(sctx);
+    sctx.fillStyle = sandPat; sctx.fillRect(GX,GY,GW,GH);
+    if(snap && old) sctx.drawImage(snap, old.g.x, old.g.y, old.g.w, old.g.h, GX, GY, GW, GH);
+    sctx.restore();
+    if(old){
+      const rx = GW/old.g.w, ry = GH/old.g.h;
+      for(const s of stones){
+        s.x = GX+(s.x-old.g.x)*rx;
+        s.y = GY+(s.y-old.g.y)*ry;
+        s.el.setAttribute("transform", `translate(${s.x} ${s.y})`);
+      }
+    }
+    buildGrid(old);
+    recomputeBoost();
+    renderAllMoss();
+  }
+  let rszT = null;
+  window.addEventListener("resize", ()=>{
+    clearTimeout(rszT);
+    rszT = setTimeout(()=>{ layout(false); scheduleSave(); }, 180);
+  });
+
+  // ====================================================================
+  //  UI: topbar, tray, dock, hint, toast, keyboard
+  // ====================================================================
+  document.getElementById("smooth").addEventListener("click", smoothAll);
+  document.getElementById("meibtn").addEventListener("click", grantName);
+  document.getElementById("photo").addEventListener("click", savePhoto);
+
+  const TOOLS = ["rake","s1","s2","s3"];
+  function setTool(t){
+    if(!TOOLS.includes(t)) return;
+    tool = t;
+    stage.dataset.tool = t;
+    document.querySelectorAll(".tbtn").forEach(b=>b.classList.toggle("active", b.dataset.tool === t));
+  }
+  document.querySelectorAll(".tbtn").forEach(b=>
+    b.addEventListener("click", ()=>setTool(b.dataset.tool)));
+  window.addEventListener("keydown", e=>{
+    if(e.metaKey || e.ctrlKey || e.altKey) return;
+    const i = ["1","2","3","4"].indexOf(e.key);
+    if(i >= 0) setTool(TOOLS[i]);
+    else if(e.key === "Escape") meicard.classList.remove("show");
+  });
+
+  const dock = document.getElementById("dock");
+  const dockToggle = document.createElement("button");
+  dockToggle.className = "btn dock-toggle";
+  dockToggle.textContent = "🧰";
+  dockToggle.title = "おもちゃ箱をひらく／たたむ";
+  dockToggle.addEventListener("click", ()=>dock.classList.toggle("folded"));
+  dock.append(dockToggle);
+  function addButton(label, onClick){
+    const b = document.createElement("button");
+    b.className = "btn";
+    b.textContent = label;
+    b.addEventListener("click", onClick);
+    dock.append(b);
+    return b;
+  }
+
+  const hint = document.getElementById("hint");
+  let hintHidden = false;
+  function hideHint(){
+    if(hintHidden) return;
+    hintHidden = true;
+    hint.style.opacity = 0;
+  }
+  const toastEl = document.getElementById("toast");
+  let toastT = null;
+  function toast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toastT);
+    toastT = setTimeout(()=>toastEl.classList.remove("show"), 2600);
+  }
+
+  // soft daylight, warm↔cool over minutes (wall-time driven)
+  try{
+    document.getElementById("daylight").animate([
+      {backgroundColor:"rgba(255,176,96,.07)"},
+      {backgroundColor:"rgba(255,240,205,.02)"},
+      {backgroundColor:"rgba(116,148,222,.075)"},
+      {backgroundColor:"rgba(255,240,205,.02)"},
+      {backgroundColor:"rgba(255,176,96,.07)"},
+    ], {duration:300000, iterations:Infinity, easing:"linear"});
+  }catch(_){}
+
+  // ==================================================================
+  //  plugin API
+  // ==================================================================
+  // events:
+  //   raked({length})        — 一筆ごと。length は筆致の長さ(px)
+  //   stone-placed(stone)    — stone: {id, x, y, r, seed, el, inner}
+  //   stone-moved(stone)
+  //   stone-removed(stone)
+  //   visitor({kind})        — kind: "frog" | "sparrow" | "leaf" | "sakana"
+  //   named({name, kun})
+  //   smoothed()
+  //   photo-saved({name})
+  //   plugins may emit custom namespaced events (e.g. "shishiodoshi:clack")
+  window.NIWA = {
+    stage, baseCv, sandCv, mossCv, fx,
+    stonesSvg: gStones,
+    sctx, mctx, sandPat,
+    get garden(){ return {x:GX, y:GY, w:GW, h:GH}; },
+    get W(){ return W; }, get H(){ return H; },
+    get name(){ return gardenName; }, get kun(){ return gardenKun; },
+    stones,                            // live array (do not reassign)
+    moss: {
+      cells, CS,                       // live cells: {m, t, f, b, cap}
+      get cols(){ return cols; }, get rows(){ return rows; },
+      renderCell, disturbCell,
+    },
+    get tool(){ return tool; }, setTool,
+    mk, toast, pick, esc,
+    placeStone,                        // (x, y, r, {seed, silent}?) -> stone
+    removeStone,                       // (id|stone) -> stone | null
+    rings,                             // (stone) concentric grooves
+    stampPrints, stampLeaf,            // pressed into the sand (rakeable)
+    smoothAll, grantName, savePhoto,
+    spawnVisitor,                      // (kind?) -> kind
+    save,
+    addButton,
+    lore: L,
+    on, emit,
+  };
+
+  // ---- init ----
+  layout(true);
+  load();
+  setTool("rake");
+  nextVisitor();
+})();
+</script>
+</body>
+</html>

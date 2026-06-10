@@ -1,0 +1,1137 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>終電後の駅 · After the Last Train</title>
+<style>
+  :root{
+    --ink:#efe6d0;
+    --dim:#8d96b8;
+    --acc:#ffb558;
+    --panel:rgba(9,14,34,.82);
+    --panel-edge:rgba(255,181,88,.20);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:#060a1c;
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",-apple-system,system-ui,sans-serif;
+    color:var(--ink);-webkit-font-smoothing:antialiased;}
+  #eki{position:fixed;inset:0;display:block;width:100vw;height:100vh;}
+
+  /* ---- toolbar ---- */
+  .topbar{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;gap:14px;
+    padding:14px 18px;pointer-events:none;z-index:5;}
+  .brand{pointer-events:none;font-weight:600;letter-spacing:.04em;font-size:15px;
+    text-shadow:0 0 18px rgba(255,181,88,.45);}
+  .brand small{display:block;font-weight:400;font-size:11px;color:var(--dim);letter-spacing:.18em;margin-top:2px}
+  .spacer{flex:1}
+  .btn{pointer-events:auto;cursor:pointer;border:1px solid var(--panel-edge);
+    background:var(--panel);color:var(--ink);border-radius:999px;padding:8px 15px;font-size:13px;
+    backdrop-filter:blur(10px);transition:.18s;white-space:nowrap;font-family:inherit}
+  .btn:hover{border-color:rgba(255,181,88,.55);background:rgba(20,26,52,.9);transform:translateY(-1px)}
+  .btn:active{transform:translateY(0)}
+
+  /* ---- plugin dock (toy box) ---- */
+  .dock{position:fixed;left:14px;bottom:14px;display:flex;flex-wrap:wrap;gap:8px;z-index:5;max-width:60vw}
+  .dock .btn{pointer-events:auto}
+  .dock.folded .btn:not(.dock-toggle){display:none}
+  .dock .dock-toggle{font-size:15px;padding:8px 12px}
+
+  /* ---- hint ---- */
+  .hint{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);text-align:center;
+    color:var(--dim);font-size:14.5px;line-height:2;pointer-events:none;z-index:2;
+    transition:opacity 1.2s;text-shadow:0 0 20px rgba(0,0,0,.85)}
+  .hint .big{font-size:19px;color:var(--ink);letter-spacing:.08em}
+
+  /* ---- duty record panel ---- */
+  .panel{position:fixed;top:64px;right:14px;width:300px;max-height:calc(100vh - 84px);overflow-y:auto;
+    background:var(--panel);border:1px solid var(--panel-edge);border-radius:16px;padding:16px;
+    backdrop-filter:blur(14px);z-index:6;box-shadow:0 18px 50px rgba(0,0,0,.5);
+    transition:transform .3s,opacity .3s;scrollbar-width:thin}
+  .panel.hidden{transform:translateX(120%);opacity:0;pointer-events:none}
+  .panel h2{margin:2px 2px 10px;font-size:12px;letter-spacing:.18em;color:var(--dim);font-weight:600}
+  .prow{display:flex;justify-content:space-between;font-size:13px;padding:7px 2px;
+    border-bottom:1px dashed rgba(255,255,255,.07)}
+  .prow b{color:var(--acc);font-weight:600}
+  .pnote{font-size:11.5px;color:var(--dim);line-height:1.9;margin-top:10px}
+
+  /* ---- ticket booth ---- */
+  .booth{position:fixed;right:14px;bottom:14px;width:344px;z-index:6;display:flex;flex-direction:column;gap:10px}
+  .ticket{position:relative;background:linear-gradient(160deg,#f6eedb,#e9dec2);color:#2c2a22;
+    border-radius:10px;padding:12px 14px;min-height:104px;border:1px dashed rgba(90,70,40,.45);
+    box-shadow:0 10px 30px rgba(0,0,0,.5);font-size:13px;overflow:hidden}
+  .ticket .tlabel{font-size:9.5px;letter-spacing:.34em;color:#8c7a55}
+  .ticket .pname{font-weight:700;font-size:14.5px;margin-top:5px;color:#33301f}
+  .ticket .pm{font-weight:400;font-size:11px;color:#7c6f52;margin-left:7px}
+  .ticket .riddle{margin-top:8px;font-size:14.5px;line-height:1.8}
+  .ticket .hints div{font-size:12px;color:#a0522d;margin-top:4px}
+  .ticket .nobody{display:flex;align-items:center;justify-content:center;min-height:80px;
+    color:#9b8d6b;font-size:12.5px;letter-spacing:.06em}
+  .inkmark{position:absolute;right:14px;top:10px;width:56px;height:56px;border:3px solid var(--inkc,#d9412c);
+    color:var(--inkc,#d9412c);border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:25px;font-weight:700;pointer-events:none;mix-blend-mode:multiply;
+    animation:slam .38s cubic-bezier(.2,1.5,.4,1) both}
+  @keyframes slam{0%{transform:scale(2.4) rotate(-32deg);opacity:0}
+    62%{transform:scale(.9) rotate(var(--rot,-10deg));opacity:1}
+    100%{transform:scale(1) rotate(var(--rot,-10deg));opacity:.9}}
+  .stamps{display:flex;gap:9px;align-items:center;justify-content:flex-end}
+  .hanko{cursor:pointer;width:58px;height:58px;border-radius:50%;border:2px solid #a8503c;
+    background:radial-gradient(circle at 35% 30%,#3c2531,#1f1322);color:var(--ink);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-size:19px;font-family:inherit;transition:.15s;box-shadow:0 4px 14px rgba(0,0,0,.5)}
+  .hanko span{font-size:9px;letter-spacing:.12em;color:var(--dim);margin-top:1px}
+  .hanko:hover{transform:translateY(-3px);border-color:#e0452f}
+  .hanko.press{animation:press .3s ease-out}
+  @keyframes press{35%{transform:translateY(6px) rotate(-9deg) scale(.93)}100%{transform:none}}
+  .holdb{cursor:pointer;height:58px;padding:0 13px;border-radius:12px;border:1px dashed var(--panel-edge);
+    background:var(--panel);color:var(--dim);font-family:inherit;font-size:12px;transition:.15s}
+  .holdb:hover{color:var(--ink);border-color:var(--acc)}
+
+  /* ---- results ---- */
+  .results{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    background:rgba(3,6,18,.62);backdrop-filter:blur(4px);z-index:9;opacity:0;pointer-events:none;transition:.4s}
+  .results.show{opacity:1;pointer-events:auto}
+  .rcard{width:min(390px,90vw);background:var(--panel);border:1px solid var(--panel-edge);
+    border-radius:18px;padding:22px 24px;box-shadow:0 24px 70px rgba(0,0,0,.6)}
+  .rcard h3{margin:0 0 12px;font-size:13px;letter-spacing:.22em;color:var(--acc);font-weight:600}
+  .rrow{display:flex;justify-content:space-between;font-size:14px;padding:8px 2px;
+    border-bottom:1px dashed rgba(255,255,255,.08)}
+  .rcom{font-size:12.5px;color:var(--dim);line-height:2.1;margin-top:13px}
+  .rcard .btn{margin-top:16px;width:100%}
+
+  /* ---- toast & offer ---- */
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);
+    background:var(--panel);border:1px solid var(--panel-edge);border-radius:999px;
+    padding:9px 18px;font-size:13px;backdrop-filter:blur(10px);opacity:0;transition:.3s;z-index:7;pointer-events:none}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .offer{position:fixed;left:50%;bottom:66px;transform:translateX(-50%) translateY(16px);
+    background:var(--panel);border:1px solid var(--panel-edge);border-radius:14px;padding:10px 16px;
+    font-size:13px;z-index:8;opacity:0;transition:.3s;pointer-events:none;backdrop-filter:blur(10px)}
+  .offer.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
+  .offer a{color:var(--acc)}
+</style>
+</head>
+<body>
+<svg id="eki" xmlns="http://www.w3.org/2000/svg"></svg>
+
+<div class="topbar">
+  <div class="brand">終電後の駅<small>AFTER THE LAST TRAIN</small></div>
+  <div class="spacer"></div>
+  <button class="btn" id="paBtn">📣 アナウンス</button>
+  <button class="btn" id="rainBtn">☂ 雨</button>
+  <button class="btn" id="recBtn">📋 勤務記録</button>
+</div>
+
+<div class="hint" id="hint">
+  <div class="big">ようこそ。終電はもう出ました</div>
+  それでも列車は来ます。降りてきた人の切符のなぞなぞを読んで、<br>
+  正しい世界のはんこを押してください<br>
+  <span style="font-size:12px">はんこは 1〜4 キー、保留は B でも押せます</span>
+</div>
+
+<div class="panel hidden" id="panel">
+  <h2>勤務記録</h2>
+  <div id="recRows"></div>
+  <div class="pnote" id="recNote"></div>
+</div>
+
+<div class="booth">
+  <div class="ticket" id="ticket"><div class="nobody">改札には誰もいません</div></div>
+  <div class="stamps" id="stamps">
+    <button class="holdb" id="holdBtn" title="ベンチで待ってもらう">保留</button>
+  </div>
+</div>
+
+<div class="results" id="results"></div>
+<div class="offer" id="offer"></div>
+<div class="toast" id="toast"></div>
+<div class="dock" id="dock"></div>
+
+<script>
+(() => {
+  "use strict";
+  const SVGNS = "http://www.w3.org/2000/svg";
+  const svg = document.getElementById("eki");
+  const VW = 1200, VH = 675;             // fixed world coordinates
+  svg.setAttribute("viewBox", `0 0 ${VW} ${VH}`);
+  svg.setAttribute("preserveAspectRatio", "xMidYMax slice");
+
+  // ---- helpers ----
+  function mk(tag, attrs){
+    const el = document.createElementNS(SVGNS, tag);
+    if(attrs) for(const k in attrs) el.setAttribute(k, attrs[k]);
+    return el;
+  }
+  function pick(a){ return a[(Math.random()*a.length)|0]; }
+  function esc(s){ return String(s).replace(/[&<>"']/g, c =>
+    ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+  function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+  function lsSet(k, v){ try{ localStorage.setItem(k, v); }catch(e){} }
+
+  // ---- plugin event bus ----
+  const listeners = new Map();
+  function on(name, fn){
+    if(!listeners.has(name)) listeners.set(name, []);
+    listeners.get(name).push(fn);
+  }
+  function emit(name, arg){
+    for(const f of listeners.get(name) || []){
+      try{ f(arg); }catch(err){ console.error(`[plugin handler for "${name}"]`, err); }
+    }
+  }
+
+  // ====================================================================
+  //  layers
+  // ====================================================================
+  const defs     = mk("defs");
+  const gSky     = mk("g");   // night sky, stars, moon, rain
+  const gTown    = mk("g");   // distant town silhouette
+  const gStation = mk("g");   // platform, roof, lamps, bench, booth, board, clock
+  const gTrain   = mk("g");   // arriving trains (on the tracks below the platform)
+  const gPeople  = mk("g");   // passengers
+  const gFx      = mk("g");   // portal glow, cat, plugin actors
+  svg.append(defs, gSky, gTown, gTrain, gStation, gPeople, gFx);
+
+  defs.innerHTML = `
+    <linearGradient id="night" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#03040f"/>
+      <stop offset="55%" stop-color="#0a1130"/>
+      <stop offset="100%" stop-color="#1a1f44"/>
+    </linearGradient>
+    <radialGradient id="lampGlow" cx=".5" cy=".5" r=".5">
+      <stop offset="0%" stop-color="#ffc46b" stop-opacity=".55"/>
+      <stop offset="100%" stop-color="#ffc46b" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="headGlow" cx=".5" cy=".5" r=".5">
+      <stop offset="0%" stop-color="#fff3c0" stop-opacity=".9"/>
+      <stop offset="100%" stop-color="#fff3c0" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>`;
+
+  const PLAT_Y = 460;          // where feet stand
+  const GATE_X = 905;          // front-of-gate position
+  const BENCH_X = 235;         // bench left end
+  const PORTAL_X = 34;         // exit portal
+
+  // ---- sky / town ----
+  gSky.append(mk("rect", {x:0, y:0, width:VW, height:VH, fill:"url(#night)"}));
+  for(let i=0;i<70;i++){
+    const s = mk("circle", {cx:(Math.random()*VW)|0, cy:(Math.random()*300)|0,
+      r:(Math.random()*1.1+.3).toFixed(2), fill:"#cfd8ff", opacity:.7});
+    s.animate([{opacity:.15},{opacity:.8},{opacity:.15}],
+      {duration:3000+Math.random()*5000, iterations:Infinity, delay:-Math.random()*4000, easing:"ease-in-out"});
+    gSky.append(s);
+  }
+  gSky.append(mk("circle", {cx:1050, cy:80, r:26, fill:"#e8e4d2", opacity:.75, filter:"url(#soft)"}));
+  const gRain = mk("g"); gRain.style.display = "none"; gSky.append(gRain);
+  for(let i=0;i<90;i++){
+    const x = Math.random()*VW, len = 10+Math.random()*14, d = 700+Math.random()*600;
+    const r = mk("line", {x1:x, y1:-30, x2:x-4, y2:-30+len, stroke:"#9fb4e8",
+      "stroke-width":1, opacity:.4});
+    r.animate([{transform:"translate(0,0)"},{transform:`translate(-60px,${VH+60}px)`}],
+      {duration:d, iterations:Infinity, delay:-Math.random()*d, easing:"linear"});
+    gRain.append(r);
+  }
+  for(let i=0;i<14;i++){
+    const bw = 40+Math.random()*70, bh = 60+Math.random()*150, bx = i*90+(Math.random()*30|0);
+    gTown.append(mk("rect", {x:bx, y:330-bh, width:bw, height:bh, fill:"#070b22"}));
+    if(Math.random()<.6) gTown.append(mk("rect",
+      {x:bx+6+(Math.random()*(bw-14)|0), y:336-bh+(Math.random()*(bh-20)|0),
+       width:5, height:7, fill:"#ffc46b", opacity:.5}));
+  }
+
+  // ---- platform / tracks ----
+  gStation.append(
+    mk("rect", {x:0, y:PLAT_Y, width:VW, height:8, fill:"#3a3f63"}),                 // platform top
+    mk("rect", {x:0, y:PLAT_Y+8, width:VW, height:56, fill:"#23284a"}),              // slab face
+    mk("rect", {x:0, y:PLAT_Y-2, width:VW, height:3, fill:"#d9c27a", opacity:.55}),  // tactile line
+    mk("rect", {x:0, y:PLAT_Y+64, width:VW, height:VH-PLAT_Y-64, fill:"#05060f"})    // ballast dark
+  );
+  for(let x=20; x<VW; x+=46)
+    gStation.append(mk("rect", {x, y:600, width:30, height:7, fill:"#11142b"}));      // sleepers
+  gStation.append(
+    mk("rect", {x:0, y:592, width:VW, height:3, fill:"#4a5076"}),
+    mk("rect", {x:0, y:622, width:VW, height:3, fill:"#3c4163"})
+  );
+
+  // ---- roof + pillars + hanging things ----
+  gStation.append(mk("rect", {x:60, y:160, width:1100, height:13, fill:"#11152e"}));
+  gStation.append(mk("rect", {x:60, y:173, width:1100, height:3, fill:"#ffc46b", opacity:.18}));
+  for(const px of [200, 560, 920])
+    gStation.append(mk("rect", {x:px, y:173, width:9, height:PLAT_Y-173, fill:"#141833"}));
+
+  // station name sign
+  const sign = mk("g");
+  sign.append(
+    mk("line", {x1:330, y1:173, x2:330, y2:196, stroke:"#141833", "stroke-width":3}),
+    mk("line", {x1:470, y1:173, x2:470, y2:196, stroke:"#141833", "stroke-width":3}),
+    mk("rect", {x:312, y:196, width:176, height:42, rx:6, fill:"#0d1230", stroke:"#3a3f63"}),
+    mk("text", {x:400, y:215, "text-anchor":"middle", fill:"#efe6d0", "font-size":15,
+      "font-weight":"600", "letter-spacing":"4"}, ),
+    mk("text", {x:400, y:231, "text-anchor":"middle", fill:"#8d96b8", "font-size":8,
+      "letter-spacing":"3"})
+  );
+  sign.children[3].textContent = "よぞら";
+  sign.children[4].textContent = "Y O Z O R A";
+  gStation.append(sign);
+
+  // hanging clock
+  const clockG = mk("g");
+  clockG.append(
+    mk("line", {x1:620, y1:173, x2:620, y2:192, stroke:"#141833", "stroke-width":3}),
+    mk("rect", {x:578, y:192, width:84, height:34, rx:7, fill:"#0d1230", stroke:"#3a3f63"})
+  );
+  const clockTxt = mk("text", {x:620, y:216, "text-anchor":"middle", fill:"#ffd98f",
+    "font-size":19, "font-weight":"700", "letter-spacing":"2",
+    "font-family":"ui-monospace,Menlo,monospace"});
+  clockTxt.textContent = "0:07";
+  clockG.append(clockTxt);
+  gStation.append(clockG);
+
+  // departures board
+  const boardG = mk("g");
+  boardG.append(
+    mk("line", {x1:740, y1:173, x2:740, y2:190, stroke:"#141833", "stroke-width":3}),
+    mk("line", {x1:1000, y1:173, x2:1000, y2:190, stroke:"#141833", "stroke-width":3}),
+    mk("rect", {x:712, y:190, width:316, height:58, rx:7, fill:"#080c20", stroke:"#3a3f63"})
+  );
+  const boardL1 = mk("text", {x:870, y:214, "text-anchor":"middle", fill:"#7fe8a8",
+    "font-size":14, "letter-spacing":"1.5"});
+  const boardL2 = mk("text", {x:870, y:236, "text-anchor":"middle", fill:"#8d96b8",
+    "font-size":11.5, "letter-spacing":"1.5"});
+  boardL1.textContent = "次の終電　調整中";
+  boardL2.textContent = "本日の終電は すでに出ております";
+  boardG.append(boardL1, boardL2);
+  gStation.append(boardG);
+
+  // sodium lamps
+  for(const lx of [130, 480, 830, 1130]){
+    const lamp = mk("g");
+    lamp.append(
+      mk("rect", {x:lx-2, y:280, width:5, height:PLAT_Y-280, fill:"#141833"}),
+      mk("rect", {x:lx-16, y:272, width:34, height:10, rx:4, fill:"#1d2240"}),
+      mk("ellipse", {cx:lx, cy:300, rx:64, ry:90, fill:"url(#lampGlow)"})
+    );
+    const bulb = mk("circle", {cx:lx, cy:282, r:5, fill:"#ffd98f"});
+    bulb.animate([{opacity:1},{opacity:.65},{opacity:1}],
+      {duration:2400+Math.random()*2600, iterations:Infinity, easing:"ease-in-out"});
+    lamp.append(bulb);
+    gStation.append(lamp);
+  }
+
+  // vending machine (hums)
+  const vend = mk("g");
+  vend.append(
+    mk("rect", {x:96, y:PLAT_Y-86, width:46, height:86, rx:4, fill:"#161b3a", stroke:"#2c3158"}),
+    mk("rect", {x:102, y:PLAT_Y-78, width:34, height:42, rx:3, fill:"#fff3c0", opacity:.28}),
+    mk("rect", {x:102, y:PLAT_Y-30, width:34, height:8, rx:2, fill:"#090d24"})
+  );
+  vend.children[1].animate([{opacity:.28},{opacity:.18},{opacity:.28}],
+    {duration:5200, iterations:Infinity, easing:"ease-in-out"});
+  for(let i=0;i<6;i++) vend.append(mk("circle",
+    {cx:108+(i%3)*11, cy:PLAT_Y-70+((i/3)|0)*14, r:3.4, fill:pick(["#b9a7ff","#5fe8d2","#ffd27a"]), opacity:.8}));
+  gStation.append(vend);
+
+  // bench (保留 seats)
+  gStation.append(
+    mk("rect", {x:BENCH_X-35, y:PLAT_Y-26, width:170, height:7, rx:3, fill:"#3b3050"}),
+    mk("rect", {x:BENCH_X-28, y:PLAT_Y-19, width:6, height:19, fill:"#241c38"}),
+    mk("rect", {x:BENCH_X+122, y:PLAT_Y-19, width:6, height:19, fill:"#241c38"})
+  );
+
+  // gate booth (the player's post)
+  const booth = mk("g");
+  booth.append(
+    mk("rect", {x:952, y:PLAT_Y-130, width:170, height:130, rx:6, fill:"#101536", stroke:"#2c3158"}),
+    mk("rect", {x:944, y:PLAT_Y-142, width:186, height:14, rx:5, fill:"#1d2240"}),
+    mk("rect", {x:968, y:PLAT_Y-108, width:62, height:48, rx:4, fill:"#ffe9b8", opacity:.32}),
+    mk("rect", {x:1048, y:PLAT_Y-112, width:58, height:30, rx:4, fill:"#0d1230", stroke:"#3a3f63"})
+  );
+  const boothSign = mk("text", {x:1077, y:PLAT_Y-92, "text-anchor":"middle",
+    fill:"#ffd98f", "font-size":14, "letter-spacing":"4"});
+  boothSign.textContent = "改札";
+  booth.append(boothSign);
+  // gate bars
+  booth.append(
+    mk("rect", {x:GATE_X+18, y:PLAT_Y-44, width:8, height:44, fill:"#2c3158"}),
+    mk("rect", {x:GATE_X+18, y:PLAT_Y-44, width:30, height:6, rx:3, fill:"#3a3f63"})
+  );
+  gStation.append(booth);
+
+  // exit portal (left edge)
+  const portal = mk("g");
+  const portalGlow = mk("ellipse", {cx:PORTAL_X, cy:PLAT_Y-44, rx:30, ry:74,
+    fill:"#ffd27a", opacity:0, filter:"url(#soft)"});
+  const portalCore = mk("ellipse", {cx:PORTAL_X, cy:PLAT_Y-44, rx:10, ry:52,
+    fill:"#fff", opacity:0, filter:"url(#soft)"});
+  portal.append(portalGlow, portalCore);
+  gFx.append(portal);
+  function portalFlash(color){
+    portalGlow.setAttribute("fill", color);
+    portalGlow.animate([{opacity:0},{opacity:.8},{opacity:0}],
+      {duration:1500, easing:"ease-in-out"});
+    portalCore.animate([{opacity:0},{opacity:.65},{opacity:0}],
+      {duration:1500, easing:"ease-in-out"});
+  }
+
+  // ====================================================================
+  //  worlds & lore
+  // ====================================================================
+  const WORLDS = {
+    hoshizora: {key:"hoshizora", emoji:"🌌", label:"星空", char:"星", color:"#b9a7ff",
+      href:"../constellation-maker/index.html"},
+    shinkai:   {key:"shinkai", emoji:"🐠", label:"深海", char:"海", color:"#5fe8d2",
+      href:"../deep-sea-aquarium/index.html"},
+    shima:     {key:"shima", emoji:"🏝", label:"島々", char:"島", color:"#ffd27a",
+      href:"../island-maker/index.html"},
+    rekishi:   {key:"rekishi", emoji:"🏛", label:"年代記", char:"史", color:"#ff9d7a",
+      href:"../chronicle/index.html"},
+  };
+  const WORLD_KEYS = ["hoshizora","shinkai","shima","rekishi"];
+
+  const RIDDLES = {
+    hoshizora: [
+      {t:"上ばかり見てしまうところまで", h:"首が疲れる方の上です"},
+      {t:"落ちてこない光が並んでいるところまで", h:"天井のない売り場です"},
+      {t:"線で結ぶと絵になるところまで", h:"点と点の間は想像で補うそうです"},
+      {t:"願いごとの受付があるところまで", h:"流れている間だけ受付中です"},
+      {t:"夜しか開いていない遊園地まで", h:"屋上にあると聞きました"},
+      {t:"七つ数えると良いことがあるところまで", h:"数えているうちに朝になります"},
+      {t:"いちばん遠い隣町まで", h:"光の足でも数年かかります"},
+      {t:"瞬きをするのは向こうのほうのところまで", h:"こちらが瞬きすると見失います"},
+      {t:"神話の登場人物が住所を持っているところまで", h:"全員、空の上に住んでいます"},
+    ],
+    shinkai: [
+      {t:"光るものが泳いでいるところまで", h:"電気は通っていません。自家発電です"},
+      {t:"いちばん深い地下売り場まで", h:"デパ地下の、さらにずっと下です"},
+      {t:"空より暗いのに住人が明るいところまで", h:"性格ではなく、物理的に明るいのです"},
+      {t:"積もらない雪が降り続けるところまで", h:"その雪は、降る途中で食べられます"},
+      {t:"水圧が名物のところまで", h:"お土産は持ち帰れない形をしています"},
+      {t:"誰も底を見たことがないところまで", h:"底のほうも、こちらを見たことがありません"},
+      {t:"提灯を持った魚が歩いているところまで", h:"正確には歩きません。泳ぎます"},
+      {t:"沈んだものが全部届くところまで", h:"落とし物センターより確実だそうです"},
+    ],
+    shima: [
+      {t:"波の音が名産のところまで", h:"お持ち帰りは自由です"},
+      {t:"地図にまだ載っていない陸地まで", h:"載る予定も特にないそうです"},
+      {t:"まわり全部が海のところまで", h:"入口も出口も砂浜です"},
+      {t:"ヤシの実が時報のところまで", h:"落ちた数で時刻が分かるらしいです"},
+      {t:"砂でできた銀行があるところまで", h:"預けたものは波が引き出します"},
+      {t:"鳥がいちばん偉いところまで", h:"二番目は貝です"},
+      {t:"浮かんでいるのに沈まない土地まで", h:"本人もその理由を知りません"},
+      {t:"足あとがすぐ消える砂浜のあるところまで", h:"消すのは波の仕事です"},
+    ],
+    rekishi: [
+      {t:"物語が勝手に増えるところまで", h:"書記が寝ている間も増えます"},
+      {t:"滅んだものが元気なところまで", h:"元気に「記録」されています"},
+      {t:"王さまが三日ごとに代わるところまで", h:"王冠のほうが長持ちします"},
+      {t:"昔のことしか起きないところまで", h:"最新ニュースが千年前です"},
+      {t:"石碑が口コミのところまで", h:"一件書くのに三年かかります"},
+      {t:"戦争が注釈ひとつで終わるところまで", h:"「※諸説あります」で終わります"},
+      {t:"暦が何度もやり直されたところまで", h:"いまは何回目かの紀元だそうです"},
+      {t:"掘ると増えるところまで", h:"掘った穴も、あとで遺跡になります"},
+    ],
+  };
+  const ANYTICKET = ["どこでもいい", "どこでも。任せます", "遠いところならどこでも"];
+
+  const ORIGINS = ["先週", "うみのそこ", "まだ存在しない火曜日", "となりの空", "夢の中央",
+    "反対側のホーム", "去年の夏", "地図の余白", "0時よりすこし前", "蜃気楼中央", "噂の出どころ",
+    "ふりだし", "押入れの奥", "前前前駅"];
+  const SEI = ["月見坂", "夜長", "水たまり", "紙吹雪", "古時計", "北枕", "真空", "終点",
+    "薄明", "缶詰", "右隣", "留守番", "硯", "蚊帳", "停電", "九時"];
+  const MANNERS = ["切符を逆さに持っている", "整理券を三枚持っている", "時刻表を暗唱している",
+    "すでにすこし透けている", "傘から砂がこぼれている", "歩くたび小さく鈴の音がする",
+    "敬語がやや古い", "改札を拝んでから並んだ", "影が半歩遅れてついてくる",
+    "ずっと小声で何かを数えている", "帽子の下にもう一つ帽子をかぶっている",
+    "荷物が呼吸している気がする"];
+  const PA = [
+    "本日の終電は、すでに出ております。次の終電をお待ちください。",
+    "白線の内側は、おおむね安全です。",
+    "お忘れ物センターは、現在お忘れ物でいっぱいです。",
+    "3番線は存在しません。3番線でお待ちのお客様は、もう一度お確かめください。",
+    "駆け込み乗車は、列車のほうが驚きますのでおやめください。",
+    "ただいまの時刻をお知らせします。だいたい、夜です。",
+    "自動販売機は今夜も営業中です。主にあたたかいほうが売れています。",
+    "ベンチでお休みのお客様、それはそれで構いません。",
+  ];
+  const COMMENTS = {
+    great: "完璧に近い夜でした。改札がすこし誇らしげです。",
+    good: "おおむね正しい方角へ送り出しました。上出来です。",
+    soso: "迷った人の数だけ、駅は学びました。",
+    bad: "方向音痴の駅員という新しい働き方を開拓しました。",
+    none: "誰も来ない夜も、駅は駅でした。",
+  };
+
+  // ====================================================================
+  //  passengers
+  // ====================================================================
+  const passengers = [];   // all on the platform
+  const queue = [];        // waiting at the gate (queue[0] = being served)
+  const bench = [];        // 保留 (held)
+  let nextPid = 1;
+
+  function zukanName(){
+    try{
+      const z = JSON.parse(lsGet("sea-zukan-v1") || "[]");
+      if(Array.isArray(z) && z.length) return String(pick(z).name || "");
+    }catch(e){}
+    return "";
+  }
+
+  function makePassenger(over){
+    over = over || {};
+    const p = {
+      id: nextPid++,
+      name: over.name || (pick(SEI) + "さん"),
+      manner: over.manner || pick(MANNERS),
+      vip: !!over.vip,
+      misses: 0,
+      state: "walk",            // walk | queue | gate | bench | exit | gone
+      x: over.x != null ? over.x : 600,
+      targetX: GATE_X,
+      dir: 1,
+      speed: 70 + Math.random()*40,
+      el: null, inner: null,
+    };
+    if(over.world){
+      p.world = over.world;
+      p.riddle = over.riddle || pick(RIDDLES[over.world]);
+    } else if(!p.vip && Math.random() < .08){
+      p.world = "any";
+      p.riddle = {t: pick(ANYTICKET), h:"本当にどこでもいいそうです"};
+    } else {
+      p.world = p.vip ? "shinkai" : pick(WORLD_KEYS);
+      p.riddle = pick(RIDDLES[p.world]);
+    }
+    p.el = personGroup(p);
+    p.el.setAttribute("transform", `translate(${p.x} ${PLAT_Y})`);
+    gPeople.append(p.el);
+    p.el.animate([{opacity:0},{opacity:1}], {duration:500, easing:"ease-out"});
+    p.el.style.cursor = "pointer";
+    p.el.addEventListener("pointerdown", e => {
+      e.preventDefault();
+      if(p.state === "bench") callFromBench(p);
+    });
+    passengers.push(p);
+    return p;
+  }
+
+  function personGroup(p){
+    const g = mk("g", {class:"eki-person"});
+    const inner = mk("g");
+    g.append(inner);
+    const hue = p.vip ? "#1c4a4d" : pick(["#141b33","#1a1530","#10203a","#1f1a2e"]);
+    inner.append(
+      mk("rect", {x:-3.5, y:-12, width:3, height:12, rx:1.5, fill:hue}),
+      mk("rect", {x:.5,  y:-12, width:3, height:12, rx:1.5, fill:hue}),
+      mk("ellipse", {cx:0, cy:-24, rx:8.5, ry:14, fill:hue,
+        stroke:"rgba(255,181,88,.35)", "stroke-width":1}),
+      mk("circle", {cx:0, cy:-43, r:6.2, fill:hue, stroke:"rgba(255,181,88,.35)", "stroke-width":1})
+    );
+    // accessories
+    const acc = Math.random();
+    if(p.vip){
+      const dr = mk("circle", {cx:5, cy:-16, r:1.6, fill:"#5fe8d2", opacity:.9});
+      dr.animate([{transform:"translate(0,0)", opacity:.9},{transform:"translate(0,14px)", opacity:0}],
+        {duration:1600, iterations:Infinity, easing:"ease-in"});
+      inner.append(mk("circle", {cx:0, cy:-43, r:8.4, fill:"none",
+        stroke:"#5fe8d2", "stroke-width":1, opacity:.5}), dr);
+    } else if(acc < .22){
+      inner.append(mk("rect", {x:-7, y:-52, width:14, height:4, rx:2, fill:hue},),
+        mk("rect", {x:-4.5, y:-58, width:9, height:7, rx:2, fill:hue}));
+    } else if(acc < .4){
+      inner.append(mk("path", {d:"M 9 -40 q 9 -14 18 0 z", fill:hue, opacity:.95}),
+        mk("line", {x1:18, y1:-40, x2:18, y2:-10, stroke:hue, "stroke-width":2}));
+    } else if(acc < .58){
+      inner.append(mk("rect", {x:8, y:-22, width:9, height:11, rx:2, fill:hue,
+        stroke:"rgba(255,181,88,.3)", "stroke-width":1}));
+    } else if(acc < .7){
+      inner.append(mk("path", {d:"M 0 -49 q 5 -7 1 -11", fill:"none",
+        stroke:hue, "stroke-width":1.6}));
+    }
+    inner.animate([{transform:"translate(0,0)"},{transform:"translate(0,-1.6px)"},{transform:"translate(0,0)"}],
+      {duration:760+Math.random()*420, iterations:Infinity, easing:"ease-in-out"});
+    p.inner = inner;
+    return g;
+  }
+
+  function reflowQueue(){
+    queue.forEach((p, i) => {
+      p.targetX = GATE_X - i*44;
+      if(i === 0){ if(p.state !== "gate") p.state = "queue"; }
+      else p.state = "queue";
+    });
+  }
+
+  function seatBench(p){
+    p.state = "bench";
+    const i = bench.indexOf(p);
+    p.targetX = BENCH_X + ((i<0?bench.length:i)%5)*34;
+  }
+
+  function enqueue(p){
+    if(!p || queue.includes(p)) return;
+    queue.push(p);
+    reflowQueue();
+    refreshTicket();
+  }
+
+  function callFromBench(p){
+    const i = bench.indexOf(p);
+    if(i < 0) return;
+    bench.splice(i, 1);
+    bench.forEach(seatBench);
+    queue.unshift(p);
+    p.state = "queue";
+    reflowQueue();
+    refreshTicket();
+    toast(`${p.name}をお呼びしました`);
+    emit("passenger-called", p);
+  }
+
+  function removePassenger(p){
+    p.state = "gone";
+    const qi = queue.indexOf(p); if(qi >= 0) queue.splice(qi, 1);
+    const bi = bench.indexOf(p); if(bi >= 0) bench.splice(bi, 1);
+    const pi = passengers.indexOf(p); if(pi >= 0) passengers.splice(pi, 1);
+    p.el.remove();
+  }
+
+  // ====================================================================
+  //  trains
+  // ====================================================================
+  let train = null;          // {el, n, origin, doorXs, width}
+  let trainTimer = 4;        // real seconds until next arrival
+  let shiftOver = false;
+
+  function trainGroup(n){
+    const g = mk("g");
+    const CW = 150, GAP = 8;
+    const doorXs = [];
+    for(let i=0;i<n;i++){
+      const cx = i*(CW+GAP);
+      const car = mk("g");
+      car.append(mk("rect", {x:cx, y:478, width:CW, height:96, rx:12,
+        fill:"#1b2147", stroke:"#3a4070", "stroke-width":1.5}));
+      car.append(mk("rect", {x:cx, y:478, width:CW, height:10, rx:5, fill:"#2c3158"}));
+      for(const wx of [cx+26, cx+CW-26])
+        car.append(mk("circle", {cx:wx, cy:580, r:9, fill:"#0b0e22", stroke:"#3a4070"}));
+      // windows
+      for(const wx of [cx+14, cx+58, cx+102]){
+        const win = mk("rect", {x:wx, y:494, width:34, height:24, rx:4,
+          fill:"#ffe9b8", opacity:.5});
+        win.animate([{opacity:.5},{opacity:.36},{opacity:.5}],
+          {duration:3000+Math.random()*2000, iterations:Infinity, easing:"ease-in-out"});
+        car.append(win);
+      }
+      // door (dark interior behind, panel fades to "open")
+      const dx = cx + CW/2 - 13;
+      car.append(mk("rect", {x:dx, y:496, width:26, height:74, rx:3, fill:"#080b1c"}));
+      const door = mk("rect", {x:dx, y:496, width:26, height:74, rx:3,
+        fill:"#2c3158", stroke:"#3a4070"});
+      door.dataset.door = "1";
+      car.append(door);
+      doorXs.push(dx + 13);
+      g.append(car);
+    }
+    // headlight on the front (right) car
+    const fx = n*(CW+GAP) - GAP;
+    g.append(mk("circle", {cx:fx-8, cy:556, r:5, fill:"#fff3c0"}));
+    const beam = mk("ellipse", {cx:fx+60, cy:556, rx:80, ry:26, fill:"url(#headGlow)"});
+    beam.dataset.beam = "1";
+    g.append(beam);
+    return {g, doorXs, width: fx};
+  }
+
+  function spawnTrain(){
+    if(train || shiftOver) return null;
+    const n = 2 + (Math.random()*4|0);              // 2..5 cars
+    const origin = pick(ORIGINS);
+    const {g, doorXs, width} = trainGroup(n);
+    gTrain.append(g);
+    const stopX = 1180 - width;
+    g.setAttribute("transform", `translate(${-width-140} 0)`);
+    train = {el:g, n, origin, doorXs, width, stopX, state:"arriving"};
+    boardL1.textContent = `${n}両編成　${origin}発`;
+    boardL2.textContent = "まもなく とうちゃくします";
+    const anim = g.animate(
+      [{transform:`translate(${-width-140}px,0)`}, {transform:`translate(${stopX}px,0)`}],
+      {duration:3200, easing:"cubic-bezier(.15,.75,.25,1)", fill:"forwards"});
+    const settle = () => {
+      g.setAttribute("transform", `translate(${stopX} 0)`);
+      try{ anim.cancel(); }catch(e){}
+      arrived();
+    };
+    anim.onfinish = settle;
+    setTimeout(settle, 3500);   // belt and braces: throttled tabs may delay onfinish
+    toast("キィィーー……（よく効くブレーキの音）");
+    return train;
+  }
+
+  function arrived(){
+    if(!train || train.state !== "arriving") return;
+    train.state = "stopped";
+    boardL2.textContent = "停車中　足元にお気をつけください";
+    emit("train-arrived", train);
+    const beam = train.el.querySelector("[data-beam]");
+    if(beam) beam.animate([{opacity:1},{opacity:0}], {duration:800, fill:"forwards"});
+    // doors open
+    for(const d of train.el.querySelectorAll("[data-door]"))
+      d.animate([{opacity:1},{opacity:.06}], {duration:550, easing:"ease-out", fill:"forwards"});
+    // disembark
+    const count = Math.min(2 + (Math.random()*3|0), Math.max(0, 9 - queue.length));
+    const vipRoll = Math.random() < .08 ? (Math.random()*count|0) : -1;
+    for(let i=0;i<count;i++){
+      setTimeout(() => {
+        if(!train) return;
+        const doorX = train.stopX + pick(train.doorXs);
+        let over = {x: Math.max(60, Math.min(1140, doorX))};
+        if(i === vipRoll){
+          const nm = zukanName();
+          if(nm){ over.vip = true; over.name = nm; over.manner = "切符は濡れている"; }
+        }
+        const p = makePassenger(over);
+        queue.push(p);
+        reflowQueue();
+      }, 600 + i*450);
+    }
+    if(count === 0) boardL2.textContent = "停車中　降りる人はいないようです";
+    // dwell, then depart
+    setTimeout(depart, 6500 + count*450);
+  }
+
+  function depart(){
+    if(!train) return;
+    const t = train;
+    t.state = "departing";
+    for(const d of t.el.querySelectorAll("[data-door]"))
+      d.animate([{opacity:.06},{opacity:1}], {duration:450, fill:"forwards"});
+    boardL1.textContent = `${t.n}両編成　${t.origin}発`;
+    boardL2.textContent = "発車しました　お見送りありがとうございます";
+    setTimeout(() => {
+      const a = t.el.animate(
+        [{transform:`translate(${t.stopX}px,0)`}, {transform:`translate(${t.stopX+t.width+500}px,0)`}],
+        {duration:2700, easing:"cubic-bezier(.6,0,.9,.4)", fill:"forwards"});
+      a.onfinish = () => t.el.remove();
+      setTimeout(() => t.el.remove(), 3400);
+    }, 700);
+    train = null;
+    trainTimer = 20 + Math.random()*20;
+    emit("train-departed", t);
+    setTimeout(() => {
+      if(!train && !shiftOver){
+        boardL1.textContent = "次の終電　調整中";
+        boardL2.textContent = pick(["時刻は未定です", "来るとは限りません", "たぶん来ます"]);
+      }
+    }, 4200);
+  }
+
+  // ====================================================================
+  //  the gate: ticket card & stamping
+  // ====================================================================
+  const ticketEl = document.getElementById("ticket");
+  const stats = {served:0, attempts:0, correct:0, self:0};
+  const streaks = {hoshizora:0, shinkai:0, shima:0, rekishi:0};
+
+  function current(){
+    const p = queue[0];
+    return (p && p.state === "gate") ? p : null;
+  }
+
+  function refreshTicket(){
+    const p = queue[0];
+    if(!p || p.state !== "gate"){
+      ticketEl.innerHTML = `<div class="nobody">${
+        queue.length ? "お客様が改札に向かっています……" : "改札には誰もいません"}</div>`;
+      return;
+    }
+    ticketEl.innerHTML =
+      `<div class="tlabel">きっぷ ｜ TICKET</div>`+
+      `<div class="pname">${esc(p.name)}<span class="pm">${esc(p.manner)}</span></div>`+
+      `<div class="riddle">「${esc(p.riddle.t)}」</div>`+
+      `<div class="hints">${p.misses > 0 && p.riddle.h
+        ? `<div>※ ${esc(p.riddle.h)}</div>` : ""}</div>`;
+  }
+
+  function inkMark(world, ok){
+    const m = document.createElement("div");
+    m.className = "inkmark";
+    m.textContent = world ? WORLDS[world].char : "保";
+    m.style.setProperty("--inkc", ok ? "#d9412c" : "#8a8f9c");
+    m.style.setProperty("--rot", (-18 + Math.random()*22).toFixed(0) + "deg");
+    ticketEl.append(m);
+    setTimeout(() => m.remove(), 1500);
+  }
+
+  function stamp(worldKey){
+    if(shiftOver){ toast("勤務は終了しています"); return; }
+    const p = current();
+    if(!p){ toast("いま改札には誰もいません"); return; }
+    const btn = document.querySelector(`.hanko[data-w="${worldKey}"]`);
+    if(btn){ btn.classList.remove("press"); void btn.offsetWidth; btn.classList.add("press"); }
+    const ok = (p.world === "any") || (p.world === worldKey);
+    stats.attempts++;
+    inkMark(worldKey, ok);
+    emit("passenger-stamped", {passenger:p, correct:ok, world:worldKey});
+    if(ok){
+      stats.correct++;
+      stats.served++;
+      if(p.world === "any") toast(`${p.name}は満足げにうなずいた`);
+      sendThrough(p, worldKey);
+      streaks[worldKey]++;
+      if(streaks[worldKey] === 3) offerTrip(worldKey);
+    } else {
+      p.misses++;
+      p.inner.animate(
+        [{transform:"rotate(0)"},{transform:"rotate(14deg)"},{transform:"rotate(0)"}],
+        {duration:700, easing:"ease-in-out"});
+      if(p.misses >= 2){
+        stats.self++;
+        stats.served++;
+        const real = p.world === "any" ? pick(WORLD_KEYS) : p.world;
+        toast(`${p.name}「……自分で行きます」`);
+        sendThrough(p, real, true);
+      } else {
+        toast(`${p.name}は首をかしげている（ヒントが増えました）`);
+        refreshTicket();
+      }
+    }
+  }
+
+  function sendThrough(p, worldKey, self){
+    const w = WORLDS[worldKey];
+    queue.shift();
+    reflowQueue();
+    p.state = "exit";
+    p.exitWorld = worldKey;
+    p.targetX = PORTAL_X + 8;
+    if(!self){
+      p.inner.animate(
+        [{transform:"rotate(0)"},{transform:"rotate(22deg) translate(0,3px)"},{transform:"rotate(0)"}],
+        {duration:760, easing:"ease-in-out"});
+      toast(pick([`${p.name}は深くおじぎをした`, `${p.name}「助かりました」`,
+        `${p.name}は無言で会釈した`]) + `　→ ${w.emoji} ${w.label}`);
+    }
+    refreshTicket();
+  }
+
+  function hold(){
+    if(shiftOver){ toast("勤務は終了しています"); return; }
+    const p = current();
+    if(!p){ toast("いま改札には誰もいません"); return; }
+    if(bench.length >= 5){ toast("ベンチが満席です"); return; }
+    queue.shift();
+    reflowQueue();
+    bench.push(p);
+    seatBench(p);
+    inkMark(null, false);
+    toast(`${p.name}はベンチで待つことにした`);
+    emit("passenger-held", p);
+    refreshTicket();
+  }
+
+  function offerTrip(worldKey){
+    const w = WORLDS[worldKey];
+    const offer = document.getElementById("offer");
+    offer.innerHTML = `${w.emoji} ${esc(w.label)}行きが好評です。あなたも行きますか？　`+
+      `<a href="${w.href}">→ ${esc(w.label)}へ</a>`;
+    offer.classList.add("show");
+    clearTimeout(offerTrip._t);
+    offerTrip._t = setTimeout(() => offer.classList.remove("show"), 8000);
+  }
+
+  // ====================================================================
+  //  clock & main loop (elapsed wall time)
+  // ====================================================================
+  const SHIFT_START = 7;            // 0:07
+  const SHIFT_END = 4*60 + 44;      // 4:44
+  let gameMin = SHIFT_START;
+  let paTimer = 9, catTimer = 30;
+  let lastNow = 0;
+
+  function fmtClock(m){
+    m = Math.floor(m) % (24*60);
+    return `${Math.floor(m/60)}:${String(m%60).padStart(2,"0")}`;
+  }
+
+  function frame(now){
+    const dt = Math.min(.1, (now - lastNow)/1000 || 0);
+    lastNow = now;
+    tick(dt);
+    requestAnimationFrame(frame);
+  }
+
+  function tick(dt){
+    dt = Math.max(0, Math.min(2, +dt || 0));
+    if(!shiftOver){
+      gameMin += dt * 0.5;          // 1 game minute per 2 real seconds
+      clockTxt.textContent = fmtClock(gameMin);
+      if(gameMin >= SHIFT_END) endShift();
+      trainTimer -= dt;
+      if(trainTimer <= 0 && !train){ trainTimer = 1e9; spawnTrain(); }
+      paTimer -= dt;
+      if(paTimer <= 0){ paTimer = 16 + Math.random()*14; announce(); }
+      catTimer -= dt;
+      if(catTimer <= 0){ catTimer = 50 + Math.random()*60; crossCat(); }
+    }
+
+    // walk passengers (copy: exits splice the live array)
+    for(const p of [...passengers]){
+      if(p.state === "gone") continue;
+      const d = p.targetX - p.x;
+      if(Math.abs(d) > 2){
+        const step = Math.sign(d) * Math.min(Math.abs(d), p.speed * dt);
+        p.x += step;
+        p.dir = Math.sign(d) || p.dir;
+        p.el.setAttribute("transform",
+          `translate(${p.x.toFixed(1)} ${PLAT_Y}) scale(${p.dir} 1)`);
+      } else if(p.state === "exit"){
+        const w = WORLDS[p.exitWorld] || WORLDS.shima;
+        portalFlash(w.color);
+        const el = p.el;
+        el.animate([{opacity:1},{opacity:0}], {duration:700, easing:"ease-in", fill:"forwards"})
+          .onfinish = () => el.remove();
+        emit("passenger-exit", p);
+        removePassenger(p);
+      } else if((p.state === "queue" || p.state === "walk") && queue[0] === p){
+        p.state = "gate";
+        p.dir = 1;
+        p.el.setAttribute("transform", `translate(${p.x.toFixed(1)} ${PLAT_Y}) scale(1 1)`);
+        refreshTicket();
+      } else if(p.state === "bench" && !p.sat){
+        p.sat = true;
+        p.el.setAttribute("transform",
+          `translate(${p.x.toFixed(1)} ${PLAT_Y-12}) scale(${p.dir} .94)`);
+      }
+      if(p.state !== "bench" && p.sat) p.sat = false;
+    }
+  }
+  requestAnimationFrame(t => { lastNow = t; requestAnimationFrame(frame); });
+
+  // ---- idle life ----
+  function announce(line){
+    const msg = line || pick(PA);
+    toast("📢 " + msg);
+    emit("pa", msg);
+  }
+  function crossCat(){
+    const cat = mk("g");
+    cat.append(
+      mk("ellipse", {cx:0, cy:-6, rx:11, ry:5.5, fill:"#0c0f24"}),
+      mk("circle", {cx:10, cy:-11, r:4.4, fill:"#0c0f24"}),
+      mk("path", {d:"M 7 -14 l 1.6 -3.4 2 2.8 z M 13 -14 l -1.6 -3.4 -2 2.8 z", fill:"#0c0f24"}),
+      mk("path", {d:"M -10 -7 q -8 -2 -7 -10", fill:"none", stroke:"#0c0f24", "stroke-width":2.4,
+        "stroke-linecap":"round"})
+    );
+    cat.setAttribute("transform", "translate(-40 598)");
+    gFx.append(cat);
+    cat.animate([{transform:"translate(-40px,598px)"},{transform:`translate(${VW+60}px,598px)`}],
+      {duration:9000, easing:"linear"}).onfinish = () => cat.remove();
+    if(Math.random() < .5) toast("猫が線路を点検していきました");
+    emit("cat");
+  }
+
+  // ====================================================================
+  //  shift end & records
+  // ====================================================================
+  const REC_KEY = "eki-stats-v1";
+  function loadRec(){
+    try{
+      const r = JSON.parse(lsGet(REC_KEY) || "{}");
+      return {shifts:r.shifts|0, totalServed:r.totalServed|0, bestServed:r.bestServed|0,
+        bestRate:r.bestRate|0, lastBench:Array.isArray(r.lastBench)?r.lastBench:[]};
+    }catch(e){ return {shifts:0, totalServed:0, bestServed:0, bestRate:0, lastBench:[]}; }
+  }
+
+  function endShift(){
+    if(shiftOver) return;
+    shiftOver = true;
+    clockTxt.textContent = "4:44";
+    boardL1.textContent = "本日の業務　終了";
+    boardL2.textContent = "おつかれさまでした";
+    const rate = stats.attempts ? Math.round(stats.correct/stats.attempts*100) : 100;
+    const rec = loadRec();
+    rec.shifts++;
+    rec.totalServed += stats.served;
+    if(stats.served > rec.bestServed) rec.bestServed = stats.served;
+    if(stats.served >= 5 && rate > rec.bestRate) rec.bestRate = rate;
+    rec.lastBench = bench.map(p => p.name).slice(0, 5);
+    lsSet(REC_KEY, JSON.stringify(rec));
+    let com = stats.served === 0 ? COMMENTS.none
+      : rate >= 90 ? COMMENTS.great : rate >= 70 ? COMMENTS.good
+      : rate >= 40 ? COMMENTS.soso : COMMENTS.bad;
+    if(bench.length) com += `<br>ベンチの${bench.length}人は、朝までここにいるそうです。`;
+    const res = document.getElementById("results");
+    res.innerHTML = `<div class="rcard">
+      <h3>勤務終了　4:44</h3>
+      <div class="rrow"><span>案内した人</span><span>${stats.served}人</span></div>
+      <div class="rrow"><span>正答率</span><span>${rate}%</span></div>
+      <div class="rrow"><span>自力で行った人</span><span>${stats.self}人</span></div>
+      <div class="rrow"><span>ベンチに残った人</span><span>${bench.length}人</span></div>
+      <div class="rcom">${com}</div>
+      <button class="btn" id="napBtn">始発まで仮眠する</button>
+    </div>`;
+    res.classList.add("show");
+    document.getElementById("napBtn").addEventListener("click", nextShift);
+    emit("shift-end", {stats:{...stats, rate, bench:bench.length}});
+  }
+
+  function nextShift(){
+    document.getElementById("results").classList.remove("show");
+    // queued passengers wander off into the night; bench regulars stay
+    for(const p of [...queue]){
+      p.state = "exit";
+      p.exitWorld = pick(WORLD_KEYS);
+      p.targetX = PORTAL_X + 8;
+    }
+    queue.length = 0;
+    stats.served = stats.attempts = stats.correct = stats.self = 0;
+    for(const k of WORLD_KEYS) streaks[k] = 0;
+    gameMin = SHIFT_START;
+    shiftOver = false;
+    trainTimer = 5 + Math.random()*5;
+    boardL1.textContent = "次の終電　調整中";
+    boardL2.textContent = "本日の終電は すでに出ております";
+    refreshTicket();
+    toast("……仮眠のつもりが、もう次の夜です");
+    emit("shift-start", {shift: loadRec().shifts + 1});
+  }
+
+  // ====================================================================
+  //  chrome: stamps, buttons, dock, hint, toast, panel, keyboard
+  // ====================================================================
+  const stampsRow = document.getElementById("stamps");
+  const holdBtn = document.getElementById("holdBtn");
+  for(const k of WORLD_KEYS){
+    const w = WORLDS[k];
+    const b = document.createElement("button");
+    b.className = "hanko";
+    b.dataset.w = k;
+    b.innerHTML = `${w.emoji}<span>${w.label}</span>`;
+    b.title = `${w.label}行きのはんこ`;
+    b.addEventListener("click", () => stamp(k));
+    stampsRow.insertBefore(b, holdBtn);
+  }
+  holdBtn.addEventListener("click", hold);
+
+  document.addEventListener("keydown", e => {
+    if(e.metaKey || e.ctrlKey || e.altKey) return;
+    const i = "1234".indexOf(e.key);
+    if(i >= 0) stamp(WORLD_KEYS[i]);
+    else if(e.key === "b" || e.key === "B") hold();
+  });
+
+  document.getElementById("paBtn").addEventListener("click", () => announce());
+  const rainBtn = document.getElementById("rainBtn");
+  let raining = lsGet("eki-rain-v1") === "1";
+  function applyRain(){
+    gRain.style.display = raining ? "" : "none";
+    rainBtn.textContent = raining ? "☂ 雨をやませる" : "☂ 雨";
+    lsSet("eki-rain-v1", raining ? "1" : "0");
+  }
+  rainBtn.addEventListener("click", () => {
+    raining = !raining;
+    applyRain();
+    toast(raining ? "夜に雨を足しました" : "雨は引き取りました");
+  });
+  applyRain();
+
+  const panel = document.getElementById("panel");
+  document.getElementById("recBtn").addEventListener("click", () => {
+    if(panel.classList.contains("hidden")) renderRecords();
+    panel.classList.toggle("hidden");
+  });
+  function renderRecords(){
+    const r = loadRec();
+    const rate = stats.attempts ? Math.round(stats.correct/stats.attempts*100) : 100;
+    document.getElementById("recRows").innerHTML =
+      `<div class="prow"><span>勤務した夜</span><b>${r.shifts}夜</b></div>`+
+      `<div class="prow"><span>案内した人（累計）</span><b>${r.totalServed}人</b></div>`+
+      `<div class="prow"><span>いちばん多く案内した夜</span><b>${r.bestServed}人</b></div>`+
+      `<div class="prow"><span>最高正答率</span><b>${r.bestRate ? r.bestRate+"%" : "—"}</b></div>`+
+      `<div class="prow"><span>今夜（現在）</span><b>${stats.served}人 / ${rate}%</b></div>`;
+    document.getElementById("recNote").textContent = r.lastBench.length
+      ? `前の夜、ベンチに残っていた人：${r.lastBench.join("、")}`
+      : "終電後の記録です。誰も検収しません。";
+  }
+
+  // ---- dock ----
+  const dock = document.getElementById("dock");
+  const dockToggle = document.createElement("button");
+  dockToggle.className = "btn dock-toggle";
+  dockToggle.textContent = "🧰";
+  dockToggle.title = "おもちゃ箱をひらく／たたむ";
+  dockToggle.addEventListener("click", () => dock.classList.toggle("folded"));
+  dock.append(dockToggle);
+  function addButton(label, onClick){
+    const b = document.createElement("button");
+    b.className = "btn";
+    b.textContent = label;
+    b.addEventListener("click", onClick);
+    dock.append(b);
+    return b;
+  }
+
+  // ---- hint & toast ----
+  const hint = document.getElementById("hint");
+  let hintT = setTimeout(hideHint, 11000);
+  function hideHint(){ clearTimeout(hintT); hint.style.opacity = 0; }
+  document.addEventListener("pointerdown", hideHint, {once:true});
+
+  const toastEl = document.getElementById("toast");
+  let toastT = null;
+  function toast(msg){
+    toastEl.textContent = msg; toastEl.classList.add("show");
+    clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove("show"), 2600);
+  }
+
+  // ==================================================================
+  //  plugin API
+  // ==================================================================
+  window.EKI = {
+    svg, defs,
+    layers: {gSky, gTown, gStation, gTrain, gPeople, gFx},
+    passengers, queue, bench,            // live arrays (do not reassign)
+    get clock(){ return fmtClock(gameMin); },
+    get minutes(){ return gameMin; },
+    get train(){ return train; },
+    get stats(){ return {...stats, bench: bench.length, shiftOver}; },
+    mk, toast, pick, esc,
+    makePassenger, removePassenger,      // makePassenger({name?,manner?,world?,riddle?,x?,vip?})
+    enqueue,                             // enqueue(passenger): send them to line up at the gate
+    spawnTrain, announce, crossCat,
+    stamp, hold, callFromBench,          // stamp("hoshizora"|"shinkai"|"shima"|"rekishi")
+    portalFlash, refreshTicket,
+    tick,                                // tick(dtSeconds): advance the station manually (fast-forward plugins)
+    WORLDS,
+    addButton,
+    lore: {RIDDLES, ANYTICKET, ORIGINS, SEI, MANNERS, PA, COMMENTS},
+    on, emit,
+    // events: train-arrived(train), train-departed(train),
+    //   passenger-stamped({passenger, correct, world}), passenger-held(p),
+    //   passenger-called(p), passenger-exit(p), pa(line), cat(),
+    //   shift-end({stats}), shift-start({shift})
+    // plugins may emit custom namespaced events (e.g. "kiosk:open")
+  };
+
+  // ---- opening ----
+  refreshTicket();
+  // regulars from the previous night, still on the bench
+  try{
+    const r = loadRec();
+    if(r.lastBench.length && Math.random() < .75){
+      setTimeout(() => {
+        const p = makePassenger({x:BENCH_X+10, name:r.lastBench[0],
+          manner:"前の夜からここにいる"});
+        bench.push(p);
+        seatBench(p);
+        toast(`${p.name}は、まだベンチにいます`);
+      }, 6000);
+    }
+  }catch(e){}
+})();
+</script>
+</body>
+</html>

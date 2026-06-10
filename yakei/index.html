@@ -1,0 +1,1079 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>百貨店の夜警 · Night Watch</title>
+<style>
+  :root{
+    --ink:#e8e4d8;
+    --dim:#8b93a8;
+    --acc:#ffd27a;
+    --cool:#7fa8d8;
+    --panel:rgba(10,12,24,.82);
+    --panel-edge:rgba(255,210,122,.16);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:#030409;
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",-apple-system,system-ui,sans-serif;
+    color:var(--ink);-webkit-font-smoothing:antialiased;}
+  #store{position:fixed;inset:0;display:block;width:100vw;height:100vh;}
+
+  /* ---- toolbar ---- */
+  .topbar{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;gap:12px;
+    padding:13px 18px;pointer-events:none;z-index:5;}
+  .brand{pointer-events:none;font-weight:600;letter-spacing:.04em;font-size:15px;
+    text-shadow:0 0 18px rgba(255,210,122,.4);}
+  .brand small{display:block;font-weight:400;font-size:11px;color:var(--dim);letter-spacing:.18em;margin-top:2px}
+  .spacer{flex:1}
+  .btn{pointer-events:auto;cursor:pointer;border:1px solid var(--panel-edge);
+    background:var(--panel);color:var(--ink);border-radius:999px;padding:8px 15px;font-size:13px;
+    backdrop-filter:blur(10px);transition:.18s;white-space:nowrap;font-family:inherit}
+  .btn:hover{border-color:rgba(255,210,122,.5);background:rgba(26,24,16,.85);transform:translateY(-1px)}
+  .btn:active{transform:translateY(0)}
+  .chip{pointer-events:none;border:1px solid var(--panel-edge);background:var(--panel);
+    color:var(--ink);border-radius:999px;padding:8px 14px;font-size:13px;backdrop-filter:blur(10px);
+    white-space:nowrap;font-variant-numeric:tabular-nums;letter-spacing:.06em}
+  .chip small{color:var(--dim);margin-right:6px;font-size:11px}
+
+  /* ---- plugin dock (toy box) ---- */
+  .dock{position:fixed;left:14px;bottom:14px;display:flex;flex-wrap:wrap;gap:8px;z-index:5;max-width:70vw}
+  .dock .btn{pointer-events:auto}
+  .dock.folded .btn:not(.dock-toggle){display:none}
+  .dock .dock-toggle{font-size:15px;padding:8px 12px}
+
+  /* ---- hint ---- */
+  .hint{position:fixed;left:50%;top:44%;transform:translate(-50%,-50%);text-align:center;
+    color:var(--dim);font-size:15px;line-height:2;pointer-events:none;z-index:4;
+    transition:opacity 1.2s;text-shadow:0 0 20px rgba(0,0,0,.9)}
+  .hint .big{font-size:19px;color:var(--ink);letter-spacing:.08em}
+
+  /* ---- diary panel ---- */
+  .panel{position:fixed;top:64px;right:14px;width:340px;max-height:calc(100vh - 84px);
+    overflow-y:auto;background:var(--panel);border:1px solid var(--panel-edge);border-radius:16px;
+    padding:14px;backdrop-filter:blur(14px);z-index:6;
+    box-shadow:0 18px 50px rgba(0,0,0,.5);transition:transform .3s, opacity .3s;scrollbar-width:thin;}
+  .panel.hidden{transform:translateX(120%);opacity:0;pointer-events:none}
+  .panel::-webkit-scrollbar{width:7px}
+  .panel::-webkit-scrollbar-thumb{background:rgba(255,210,122,.25);border-radius:4px}
+  .panel h2{margin:2px 4px 10px;font-size:13px;letter-spacing:.14em;color:var(--dim);font-weight:600}
+  .panel .empty{color:var(--dim);font-size:13px;padding:8px 6px;line-height:1.8}
+  .dsep{display:flex;align-items:center;gap:10px;color:var(--dim);font-size:11px;
+    letter-spacing:.2em;margin:14px 2px 8px}
+  .dsep::before,.dsep::after{content:"";flex:1;height:1px;background:rgba(255,210,122,.14)}
+  .dent{border-left:2px solid rgba(255,210,122,.3);padding:2px 0 2px 10px;margin:0 2px 11px}
+  .dent .dt{font-size:11px;color:var(--acc);letter-spacing:.08em;opacity:.85}
+  .dent .dx{font-size:12.5px;line-height:1.95;color:#d9d4c4;margin-top:2px}
+
+  /* ---- 3:00 vignette ---- */
+  .vignette{position:fixed;inset:0;pointer-events:none;z-index:3;opacity:0;transition:opacity 3s;
+    background:radial-gradient(ellipse at center, transparent 26%, rgba(6,3,14,.9) 100%)}
+  .vignette.on{opacity:1;animation:yk-blink 5.5s ease-in-out infinite}
+  @keyframes yk-blink{0%,100%{opacity:1}50%{opacity:.78}}
+
+  /* ---- morning summary ---- */
+  .sumwrap{position:fixed;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;
+    background:rgba(3,4,9,.55);backdrop-filter:blur(3px);opacity:0;transition:opacity .6s;padding:18px}
+  .sumwrap.hidden{display:none}
+  .sumwrap.show{opacity:1}
+  .summary{width:min(430px,92vw);background:var(--panel);border:1px solid var(--panel-edge);
+    border-radius:16px;padding:22px 24px;backdrop-filter:blur(14px);
+    box-shadow:0 22px 70px rgba(0,0,0,.65);transform:translateY(14px);transition:transform .6s}
+  .sumwrap.show .summary{transform:translateY(0)}
+  .summary h3{margin:0 0 4px;font-size:17px;letter-spacing:.08em;font-weight:600}
+  .summary h3 small{display:block;font-weight:400;font-size:10px;color:var(--dim);letter-spacing:.24em;margin-top:3px}
+  .summary .row{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 4px}
+  .sumchip{border:1px solid var(--panel-edge);border-radius:999px;padding:4px 12px;font-size:12px;
+    color:var(--dim);background:rgba(255,255,255,.03)}
+  .sumchip b{color:var(--ink);font-weight:600;margin-left:4px}
+  .summary .line{font-size:12.5px;line-height:2;color:#d9d4c4;margin:13px 0 2px;
+    border-left:2px solid rgba(255,210,122,.3);padding-left:10px}
+  .summary .line .lt{font-size:11px;color:var(--dim);letter-spacing:.14em;display:block}
+  .summary .quiet{font-size:11.5px;color:var(--cool);margin-top:9px;letter-spacing:.04em}
+  .summary .total{font-size:11px;color:var(--dim);margin-top:11px;letter-spacing:.06em}
+  .summary .nap{margin-top:16px;width:100%;text-align:center;font-size:14px;padding:10px}
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);
+    background:var(--panel);border:1px solid var(--panel-edge);border-radius:999px;
+    padding:9px 18px;font-size:13px;backdrop-filter:blur(10px);opacity:0;transition:.3s;z-index:7;pointer-events:none}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<svg id="store" xmlns="http://www.w3.org/2000/svg"></svg>
+
+<div class="topbar">
+  <div class="brand">百貨店の夜警<small>YOZORA DEPT. — NIGHT WATCH</small></div>
+  <div class="spacer"></div>
+  <div class="chip" id="clockChip"><small>第1夜</small>23:00</div>
+  <div class="chip" id="floorChip">1F・改装中</div>
+  <button class="btn" id="diaryBtn">📖 夜警日誌</button>
+</div>
+
+<div class="hint" id="hint">
+  <div class="big">23時。閉店した百貨店を、見回ってください</div>
+  ← → で歩く　／　↑ ↓ か 階名クリックでエレベーター<br>
+  <span style="font-size:13px">異変を懐中電灯で照らしつづけると、だいたい解決します</span>
+</div>
+
+<div class="panel hidden" id="panel">
+  <h2>夜警日誌</h2>
+  <div id="diaryList"></div>
+</div>
+
+<div class="vignette" id="vignette"></div>
+<div class="sumwrap hidden" id="sumwrap"><div class="summary" id="summary"></div></div>
+<div class="toast" id="toast"></div>
+<div class="dock" id="dock"></div>
+
+<script>
+(() => {
+  "use strict";
+  const SVGNS = "http://www.w3.org/2000/svg";
+  const svg = document.getElementById("store");
+
+  // ---- layers (bottom -> top) ----
+  const defs    = mk("defs");
+  const gBuild  = mk("g");   // building, floors, props (under darkness)
+  const gAnoms  = mk("g");   // anomaly figures (under darkness, revealed by light)
+  const darkR   = mk("rect");// the darkness itself (masked by the flashlight)
+  const gGlow   = mk("g");   // faint glows visible THROUGH darkness
+  const gGlowS  = mk("g");   // ...static (stars, signs) — rebuilt on resize
+  const gGlowA  = mk("g");   // ...anomaly markers
+  const gFx     = mk("g");   // particles, key flights, streaks
+  const gGuard  = mk("g");   // the guard + visible beam (above darkness)
+  const gUI     = mk("g");   // floor labels, focus rings (always visible)
+  gGlow.append(gGlowS, gGlowA);
+  svg.append(defs, gBuild, gAnoms, darkR, gGlow, gFx, gGuard, gUI);
+
+  defs.innerHTML = `
+    <radialGradient id="yk-holeRad">
+      <stop offset="0%" stop-color="#000"/>
+      <stop offset="55%" stop-color="#2a2a2a"/>
+      <stop offset="100%" stop-color="#fff"/>
+    </radialGradient>
+    <linearGradient id="yk-holeCone" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#000"/>
+      <stop offset="62%" stop-color="#4a4a4a"/>
+      <stop offset="100%" stop-color="#fff"/>
+    </linearGradient>
+    <linearGradient id="yk-beam" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ffd27a" stop-opacity=".22"/>
+      <stop offset="100%" stop-color="#ffd27a" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="yk-holeblur" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="7"/>
+    </filter>
+    <filter id="yk-glow" x="-120%" y="-120%" width="340%" height="340%">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>`;
+
+  // flashlight mask: white = darkness stays, black = darkness cut away
+  const maskEl  = mk("mask", {id:"yk-darkmask", maskUnits:"userSpaceOnUse"});
+  const maskBg  = mk("rect", {fill:"#fff"});
+  const hole    = mk("g", {filter:"url(#yk-holeblur)"});
+  const holeCone= mk("polygon", {points:"6,-7 232,-62 246,-26 246,26 232,62 6,7", fill:"url(#yk-holeCone)"});
+  const holeOrb = mk("circle", {r:62, fill:"url(#yk-holeRad)"});
+  hole.append(holeCone, holeOrb);
+  maskEl.append(maskBg, hole);
+  defs.append(maskEl);
+  darkR.setAttribute("fill", "#020308");
+  darkR.setAttribute("opacity", ".94");
+  darkR.setAttribute("mask", "url(#yk-darkmask)");
+  darkR.style.pointerEvents = "none";
+
+  // ---- helpers ----
+  function mk(tag, attrs){
+    const el = document.createElementNS(SVGNS, tag);
+    if(attrs) for(const k in attrs) el.setAttribute(k, attrs[k]);
+    return el;
+  }
+  function pick(a){ return a[(Math.random()*a.length)|0]; }
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g,
+    m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+  function lsGet(k, fb){
+    try{ const r = localStorage.getItem(k); return r == null ? fb : JSON.parse(r); }
+    catch(err){ return fb; }
+  }
+  function lsSet(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(err){} }
+
+  // ---- plugin event bus ----
+  const listeners = new Map();
+  function on(name, fn){
+    if(!listeners.has(name)) listeners.set(name, []);
+    listeners.get(name).push(fn);
+  }
+  function emit(name, arg){
+    for(const f of listeners.get(name) || []){
+      try{ f(arg); }catch(err){ console.error(`[plugin handler for "${name}"]`, err); }
+    }
+  }
+
+  // ====================================================================
+  //  the building
+  // ====================================================================
+  const FLOORS = [
+    {key:"R",   dn:"屋上",  name:"屋上",         sub:"星空が漏れる"},
+    {key:"2F",  dn:"2F",   name:"島づくり用品",   sub:"在庫: 島"},
+    {key:"1F",  dn:"1F",   name:"改装中",        sub:"立入可・真っ暗"},
+    {key:"B1F", dn:"B1F",  name:"深海水族館",     sub:"消灯済 (たぶん)"},
+    {key:"B5F", dn:"B5F",  name:"考古・文明売り場", sub:"文明 各種"},
+  ];
+  const TINTS = ["#0a1124","#0e1322","#0d1120","#091526","#120f1e"];
+  let W = 0, H = 0, bx = 0, bw = 0, floorTop = 70, floorH = 100;
+  const MACH_XR = .18;          // vending machine, 1F
+  function floorY(i){ return floorTop + (i+1)*floorH; }   // walking line of floor i
+  const labelEls = [];
+
+  function buildBuilding(){
+    gBuild.replaceChildren(); gGlowS.replaceChildren(); gUI.replaceChildren();
+    labelEls.length = 0;
+    const slab = 8;
+
+    for(let i=0;i<5;i++){
+      const yT = floorY(i) - floorH, yF = floorY(i);
+      gBuild.append(mk("rect",{x:bx, y:yT, width:bw, height:floorH, fill:TINTS[i]}));
+      gBuild.append(mk("rect",{x:bx-6, y:yF, width:bw+12, height:slab, fill:"#1b2236"})); // slab
+      drawProps(i, yT, yF);
+      // elevator door (right side)
+      const ex = bx + bw - 52;
+      gBuild.append(mk("rect",{x:ex, y:yF-58, width:36, height:58, rx:2, fill:"#141b30", stroke:"#222c47","stroke-width":1}));
+      gBuild.append(mk("line",{x1:ex+18, y1:yF-56, x2:ex+18, y2:yF-2, stroke:"#0a0e1c","stroke-width":2}));
+      // emergency-exit green dot — visible through darkness
+      gGlowS.append(mk("rect",{x:ex-16, y:yF-62, width:10, height:6, rx:2, fill:"#3fae6a",
+        opacity:.4, filter:"url(#yk-glow)"}));
+      // floor label chip (always lit signage)
+      const lab = mk("g", {cursor:"pointer"});
+      lab.append(mk("rect",{x:bx+8, y:yT+10, width:44, height:22, rx:11,
+        fill:"rgba(10,12,24,.8)", stroke:"rgba(255,210,122,.25)","stroke-width":1}));
+      const lt = mk("text",{x:bx+30, y:yT+25, "text-anchor":"middle","font-size":"11",
+        fill:"#cfd8ea","letter-spacing":".05em"});
+      lt.textContent = FLOORS[i].key;
+      const nm = mk("text",{x:bx+60, y:yT+25, "font-size":"10.5", fill:"#8b93a8",
+        opacity:".55","letter-spacing":".12em"});
+      nm.textContent = `${FLOORS[i].name}　${FLOORS[i].sub}`;
+      lab.append(lt, nm);
+      lab.addEventListener("pointerdown", e => { e.stopPropagation(); gotoFloor(i); hideHint(); });
+      gUI.append(lab);
+      labelEls.push({box:lab.firstChild, txt:lt});
+    }
+    // building shell
+    gBuild.append(mk("rect",{x:bx-6, y:floorTop-4, width:bw+12, height:floorH*5+slab+4,
+      fill:"none", stroke:"#202840","stroke-width":2}));
+    paintLabels();
+  }
+  function paintLabels(){
+    labelEls.forEach((l,i) => {
+      const cur = i === guard.floor;
+      l.box.setAttribute("stroke", cur ? "rgba(255,210,122,.85)" : "rgba(255,210,122,.25)");
+      l.txt.setAttribute("fill", cur ? "#ffd27a" : "#cfd8ea");
+    });
+  }
+
+  function drawProps(i, yT, yF){
+    const g = gBuild, dark = "#10182b", lite = "#182238";
+    const X = r => bx + r*bw;          // ratio -> px
+    if(i === 0){ // R 屋上 — open sky, railing, water tank
+      for(let r=.04; r<.97; r+=.045)
+        g.append(mk("line",{x1:X(r), y1:yF, x2:X(r), y2:yF-16, stroke:dark,"stroke-width":2}));
+      g.append(mk("line",{x1:X(.03), y1:yF-16, x2:X(.965), y2:yF-16, stroke:lite,"stroke-width":2.5}));
+      g.append(mk("rect",{x:X(.78), y:yF-44, width:46, height:44, rx:5, fill:dark}));   // tank
+      g.append(mk("rect",{x:X(.3), y:yF-12, width:54, height:12, rx:3, fill:dark}));    // bench
+      g.append(mk("line",{x1:X(.6), y1:yF, x2:X(.6), y2:yF-52, stroke:dark,"stroke-width":2})); // antenna
+      g.append(mk("circle",{cx:X(.6), cy:yF-54, r:2.5, fill:lite}));
+      // leaking stars — visible through darkness
+      for(let s=0;s<16;s++){
+        const st = mk("circle",{cx:bx+20+Math.random()*(bw-40), cy:yT+8+Math.random()*(floorH*.55),
+          r:(.6+Math.random()*1.1).toFixed(2), fill:"#cfe2ff", opacity:.5});
+        st.animate([{opacity:.15},{opacity:.65},{opacity:.15}],
+          {duration:2400+Math.random()*4200, iterations:Infinity, easing:"ease-in-out", delay:-Math.random()*4000});
+        gGlowS.append(st);
+      }
+    }
+    else if(i === 1){ // 2F 島づくり用品
+      for(const r of [.12, .42, .68]){
+        g.append(mk("rect",{x:X(r), y:yF-46, width:bw*.16, height:46, fill:dark}));
+        g.append(mk("line",{x1:X(r), y1:yF-24, x2:X(r)+bw*.16, y2:yF-24, stroke:lite,"stroke-width":1.5}));
+        g.append(mk("polygon",{points:`${X(r)+10},${yF-46} ${X(r)+24},${yF-62} ${X(r)+38},${yF-46}`, fill:lite})); // 島(小)
+      }
+      g.append(mk("line",{x1:X(.92), y1:yF, x2:X(.92), y2:yF-34, stroke:dark,"stroke-width":3})); // ヤシ
+      g.append(mk("path",{d:`M ${X(.92)} ${yF-34} q -14 -10 -24 -6 M ${X(.92)} ${yF-34} q 14 -10 24 -6 M ${X(.92)} ${yF-34} q 2 -14 10 -18`,
+        stroke:lite,"stroke-width":2, fill:"none"}));
+      g.append(mk("rect",{x:X(.33), y:yF-13, width:20, height:13, fill:dark})); // 砂袋
+    }
+    else if(i === 2){ // 1F 改装中
+      g.append(mk("path",{d:`M ${X(.45)} ${yF} q 14 -38 30 -38 q 18 0 26 38 Z`, fill:dark})); // シート
+      g.append(mk("path",{d:`M ${X(.62)} ${yF} q 8 -24 20 -24 q 12 0 16 24 Z`, fill:lite, opacity:.7}));
+      g.append(mk("line",{x1:X(.8), y1:yF, x2:X(.8)+18, y2:yF-52, stroke:dark,"stroke-width":3})); // 脚立
+      g.append(mk("line",{x1:X(.8)+36, y1:yF, x2:X(.8)+18, y2:yF-52, stroke:dark,"stroke-width":3}));
+      for(let s=1;s<4;s++)
+        g.append(mk("line",{x1:X(.8)+s*4.5, y1:yF-s*12, x2:X(.8)+36-s*4.5, y2:yF-s*12, stroke:lite,"stroke-width":2}));
+      g.append(mk("rect",{x:X(.32), y:yF-12, width:11, height:12, fill:dark})); // ペンキ缶
+      g.append(mk("rect",{x:X(.32)+14, y:yF-9, width:11, height:9, fill:dark}));
+      const sign = mk("g");                                                     // 立入可
+      sign.append(mk("rect",{x:X(.55), y:yF-30, width:40, height:18, rx:2, fill:lite}),
+        mk("line",{x1:X(.55)+6, y1:yF, x2:X(.55)+12, y2:yF-13, stroke:lite,"stroke-width":2}));
+      const st = mk("text",{x:X(.55)+20, y:yF-17, "text-anchor":"middle","font-size":"9", fill:"#0a0e1c"});
+      st.textContent = "立入可"; sign.append(st); g.append(sign);
+      // vending machine — the only warm light in the building
+      const mx = X(MACH_XR);
+      const mach = mk("g",{cursor:"pointer"});
+      mach.append(
+        mk("rect",{x:mx-17, y:yF-60, width:34, height:60, rx:3, fill:"#1c2336", stroke:"#2a3450","stroke-width":1}),
+        mk("rect",{x:mx-12, y:yF-54, width:24, height:30, rx:2, fill:"#2b3250"}),
+        mk("rect",{x:mx-12, y:yF-18, width:24, height:8, rx:1, fill:"#11162a"}));
+      for(let s=0;s<3;s++)
+        mach.append(mk("rect",{x:mx-9+s*8, y:yF-50, width:6, height:9, rx:1, fill:"#3a4668"}));
+      mach.addEventListener("pointerdown", e => { e.stopPropagation(); buyCoffee(); hideHint(); });
+      g.append(mach);
+      const mg = mk("rect",{x:mx-12, y:yF-54, width:24, height:30, fill:"#ffb36a",
+        opacity:.18, filter:"url(#yk-glow)"});
+      mg.animate([{opacity:.1},{opacity:.24},{opacity:.1}],
+        {duration:3000, iterations:Infinity, easing:"ease-in-out"});
+      mg.style.pointerEvents = "none";
+      gGlowS.append(mg);
+    }
+    else if(i === 3){ // B1F 深海水族館
+      for(const r of [.1, .38, .66]){
+        const tx = X(r), tw = bw*.2;
+        g.append(mk("rect",{x:tx, y:yF-52, width:tw, height:52, rx:6, fill:"#081a2e", stroke:"#1b3450","stroke-width":1.5}));
+        g.append(mk("path",{d:`M ${tx+tw*.2} ${yF} q -5 -16 3 -30 q 6 -10 2 -18`, stroke:"#143049","stroke-width":2.5, fill:"none"}));
+        g.append(mk("path",{d:`M ${tx+tw*.7} ${yF} q 6 -14 -2 -26`, stroke:"#143049","stroke-width":2, fill:"none"}));
+        g.append(mk("ellipse",{cx:tx+tw*.5, cy:yF-30, rx:6, ry:2.4, fill:"#1d4666"}));
+        const tg = mk("rect",{x:tx, y:yF-52, width:tw, height:52, rx:6, fill:"#3fa8d8", opacity:.07});
+        tg.style.pointerEvents = "none";
+        gGlowS.append(tg);
+      }
+      g.append(mk("rect",{x:X(.9), y:yF-26, width:18, height:26, rx:2, fill:dark})); // 餌バケツ棚
+    }
+    else { // B5F 考古・文明売り場
+      g.append(mk("path",{d:`M ${X(.1)} ${yF} l 5 -38 l 8 -6 l 8 6 l 5 38 Z`, fill:dark}));  // 像
+      g.append(mk("circle",{cx:X(.1)+13, cy:yF-48, r:7, fill:dark}));
+      g.append(mk("path",{d:`M ${X(.55)} ${yF} l 4 -30 l 7 -5 l 7 5 l 4 30 Z`, fill:dark}));
+      g.append(mk("circle",{cx:X(.55)+11, cy:yF-39, r:5.5, fill:dark}));
+      g.append(mk("rect",{x:X(.3), y:yF-50, width:bw*.14, height:50, fill:dark}));           // 書棚
+      for(let s=1;s<4;s++)
+        g.append(mk("line",{x1:X(.3), y1:yF-s*12.5, x2:X(.3)+bw*.14, y2:yF-s*12.5, stroke:lite,"stroke-width":1.5}));
+      g.append(mk("path",{d:`M ${X(.74)} ${yF} q -3 -14 4 -22 q 8 -8 4 -16 l 8 0 q -4 8 4 16 q 7 8 4 22 Z`, fill:dark})); // 壺
+      g.append(mk("path",{d:`M ${X(.86)} ${yF} l 6 -14 l 6 14 M ${X(.86)+6} ${yF-14} l 0 -5`, stroke:lite,"stroke-width":2, fill:"none"})); // 篝火台(消)
+      g.append(mk("ellipse",{cx:X(.86)+6, cy:yF-21, rx:7, ry:3, fill:dark}));
+    }
+  }
+
+  // ====================================================================
+  //  the guard
+  // ====================================================================
+  const guard = { floor:2, xr:.5, dir:1, bob:0, moving:false, sleepy:false, riding:false };
+  let walkTarget = null;     // xr or null
+  const guardEl = mk("g");
+  (function drawGuard(){
+    const b = "#222b44", c = "#39466b";
+    guardEl.append(
+      mk("ellipse",{cx:0, cy:1.5, rx:9, ry:2.4, fill:"#000", opacity:.5}),
+      mk("rect",{x:-5, y:-22, width:10, height:20, rx:4.5, fill:b}),               // body
+      mk("rect",{x:-5, y:-12, width:10, height:3, fill:c}),                        // belt
+      mk("circle",{cx:0, cy:-27, r:5.5, fill:"#caa17e"}),                          // face
+      mk("path",{d:"M -6 -29 a 6 6 0 0 1 12 0 l 2 0 l 0 2 l -16 0 l 0 -2 Z", fill:b}), // cap
+      mk("circle",{cx:2.6, cy:-27.5, r:.9, fill:"#1a1410"}),                       // eye
+      mk("rect",{x:3, y:-19, width:9, height:3.4, rx:1.7, fill:c}),                // arm
+      mk("rect",{x:10, y:-21, width:7, height:6.5, rx:1.5, fill:"#444f73"}),       // flashlight
+      mk("circle",{cx:17.5, cy:-17.8, r:2.6, fill:"#ffe9b8", filter:"url(#yk-glow)"})
+    );
+  })();
+  const beam = mk("polygon",{points:holeCone.getAttribute("points"), fill:"url(#yk-beam)", opacity:.5});
+  beam.style.pointerEvents = "none";
+  gGuard.append(beam, guardEl);
+
+  // ---- elevator ding (tiny, WebAudio, optional) ----
+  let actx = null;
+  function ding(freqs){
+    try{
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      if(actx.state === "suspended") actx.resume();
+      const t = actx.currentTime;
+      (freqs || [880, 1318]).forEach((f, i) => {
+        const o = actx.createOscillator(), g = actx.createGain();
+        o.type = "sine"; o.frequency.value = f;
+        g.gain.setValueAtTime(0, t + i*.13);
+        g.gain.linearRampToValueAtTime(.07, t + i*.13 + .012);
+        g.gain.exponentialRampToValueAtTime(.0001, t + i*.13 + .5);
+        o.connect(g); g.connect(actx.destination);
+        o.start(t + i*.13); o.stop(t + i*.13 + .55);
+      });
+    }catch(err){}
+  }
+
+  function gotoFloor(i){
+    i = Math.max(0, Math.min(4, i));
+    if(i === guard.floor || guard.riding || ended) return;
+    guard.riding = true;
+    walkTarget = null;
+    ding();
+    guardEl.animate([{opacity:1},{opacity:0}],{duration:200, fill:"forwards", easing:"ease-in"});
+    beam.animate([{opacity:.5},{opacity:0}],{duration:200, fill:"forwards"});
+    setTimeout(() => {
+      guard.floor = i;
+      guard.riding = false;
+      guardEl.animate([{opacity:0},{opacity:1}],{duration:260, fill:"forwards", easing:"ease-out"});
+      beam.animate([{opacity:0},{opacity:.5}],{duration:260, fill:"forwards"});
+      paintLabels();
+      floorChip.textContent = `${FLOORS[i].key}・${FLOORS[i].name}`;
+      emit("floor-changed", {floor:FLOORS[i].key, index:i});
+      const here = anomalies.filter(a => a.floor === i);
+      if(here.length) toast("……このフロアだ。何かいる。");
+    }, 340);
+  }
+
+  // ====================================================================
+  //  night clock   23:00 -> 6:00 = 420 game-min,  1 game-min / 1.5s
+  // ====================================================================
+  const DKEY = "yakei-diary-v1", RKEY = "yakei-rec-v1";
+  const rec = Object.assign({nights:0, resolved:0, missed:0, quiet:0, best:null}, lsGet(RKEY, {}));
+  let night = (rec.nights|0) + 1;
+  let gameMin = 0, ended = false;
+  let sleepyDone = false, quietDone = false, quietT = 0, quietHappened = false;
+  let nightResolved = 0;
+  const nightLines = [];
+
+  function timeStr(m){
+    const t = (1380 + Math.floor(m == null ? gameMin : m)) % 1440;
+    return `${Math.floor(t/60)}:${String(t%60).padStart(2,"0")}`;
+  }
+
+  // ---- diary ----
+  const diary = (() => { const d = lsGet(DKEY, []); return Array.isArray(d) ? d : []; })();
+  let pendingSep = true;
+  function writeDiary(text, floorDn, t){
+    if(pendingSep){ pendingSep = false; diary.push({sep:1, n:night}); }
+    const e = { t: t || timeStr(),
+                f: floorDn == null ? FLOORS[guard.floor].dn : floorDn,
+                x: String(text), n: night };
+    diary.push(e);
+    while(diary.length > 200) diary.shift();
+    lsSet(DKEY, diary);
+    if(!panel.classList.contains("hidden")) renderDiary();
+    emit("diary-entry", e);
+    return e;
+  }
+  const panel = document.getElementById("panel");
+  const diaryList = document.getElementById("diaryList");
+  function renderDiary(){
+    diaryList.replaceChildren();
+    if(!diary.length){
+      const e = document.createElement("div");
+      e.className = "empty";
+      e.textContent = "まだ何も書いていません。異状なしも、いずれ書きます。";
+      diaryList.append(e);
+      return;
+    }
+    for(const e of [...diary].reverse()){
+      if(e.sep){
+        const d = document.createElement("div");
+        d.className = "dsep";
+        d.textContent = `第${e.n|0}夜`;
+        diaryList.append(d);
+      }else{
+        const d = document.createElement("div");
+        d.className = "dent";
+        d.innerHTML = `<span class="dt">${esc(e.t)}　${esc(e.f)}</span><div class="dx">${esc(e.x)}</div>`;
+        diaryList.append(d);
+      }
+    }
+  }
+  document.getElementById("diaryBtn").addEventListener("click", () => {
+    if(panel.classList.contains("hidden")) renderDiary();
+    panel.classList.toggle("hidden");
+  });
+
+  // ====================================================================
+  //  anomalies — the leaking worlds
+  // ====================================================================
+  function zukanFish(){
+    try{
+      const d = JSON.parse(localStorage.getItem("sea-zukan-v1"));
+      const arr = Array.isArray(d) ? d : (d && Array.isArray(d.entries) ? d.entries : null);
+      if(arr && arr.length){
+        const e = arr[(Math.random()*arr.length)|0];
+        if(e && e.name) return String(e.name).slice(0, 24);
+      }
+    }catch(err){}
+    return pick(["ヒカリウオ", "ナナシノウオ", "ユメギンポ"]);
+  }
+
+  const ANOM = {
+    hoshiashi:{ floor:0, label:"星座の獣の足あと", hue:210,
+      far:"……屋上で、何かが歩く音がします", done:"足あとは、手すりまでだった",
+      diary:[
+        "足あとは手すりで途切れていた。空を見たが、見なかったことにした。",
+        "四足、爪あり、おそらく星座。立入禁止の札を一応立てておいた。",
+        "足あとを辿ると売り場を一周していた。買い物だったのかもしれない。",
+      ],
+      draw(g){
+        for(let i=0;i<3;i++){
+          const px = -16 + i*16, py = -2 - (i%2)*5;
+          g.append(mk("ellipse",{cx:px, cy:py, rx:3.4, ry:2.4, fill:"#9fc4ff", opacity:.9}));
+          for(let t=0;t<3;t++)
+            g.append(mk("circle",{cx:px-3+t*3, cy:py-3.6, r:1, fill:"#9fc4ff", opacity:.9}));
+        }
+        g.setAttribute("filter","url(#yk-glow)");
+      }},
+    ryusei:{ floor:0, label:"落ちている流れ星", hue:48,
+      far:"……屋上が、すこし明るい気がします", done:"流れ星は拾得物として処理した",
+      diary:[
+        "小さな流れ星が売り場に落ちていた。まだ温かい。報告書には「落とし物」と書く。",
+        "流れ星を拾得物として処理した。願い事は受け付けていない。",
+        "星は箒で掃くと嫌がることが分かった。今夜の収穫はそれだけだ。",
+      ],
+      draw(g){
+        const star = mk("path",{d:"M 0 -9 L 2.6 -2.8 L 9 -2.4 L 4 1.8 L 5.6 8 L 0 4.4 L -5.6 8 L -4 1.8 L -9 -2.4 L -2.6 -2.8 Z",
+          fill:"#ffe18a"});
+        star.animate([{opacity:.55},{opacity:1},{opacity:.55}],
+          {duration:1700, iterations:Infinity, easing:"ease-in-out"});
+        g.append(mk("path",{d:"M 6 -6 q 14 -8 26 -18", stroke:"#ffe18a","stroke-width":1.6, fill:"none", opacity:.5}), star);
+        g.setAttribute("filter","url(#yk-glow)");
+      }},
+    ryuki:{ floor:1, label:"勝手に隆起する島", hue:120,
+      far:"……2Fで、地面が伸びをする音がします", done:"島の隆起を確認。命名は保留",
+      diary:[
+        "棚の上の島がまた隆起していた。標高3センチ。命名は保留した。",
+        "島づくり用品売り場で島が自作されていた。商品の鑑だと思う。",
+        "隆起した島に小さな灯台が立っていた。在庫にない商品だ。",
+      ],
+      draw(g){
+        const m = mk("polygon",{points:"-14,0 0,-16 14,0", fill:"#6fae7f"});
+        m.style.transformOrigin = "0px 0px";
+        m.animate([{transform:"translateY(5px) scaleY(.7)"},{transform:"translateY(0) scaleY(1)"},{transform:"translateY(5px) scaleY(.7)"}],
+          {duration:4200, iterations:Infinity, easing:"ease-in-out"});
+        g.append(m, mk("line",{x1:0, y1:-16, x2:0, y2:-22, stroke:"#cfe8d6","stroke-width":1.4}),
+          mk("polygon",{points:"0,-22 7,-20 0,-18", fill:"#cfe8d6"}));
+        g.setAttribute("filter","url(#yk-glow)");
+      }},
+    kainaki:{ floor:1, label:"鳴くみやげ物の貝", hue:330,
+      far:"……2Fから、かすかに歌が聞こえます", done:"貝は照れて鳴き止んだ",
+      diary:[
+        "みやげ物の貝が鳴いていた。波の音ではなく、演歌に近かった。",
+        "鳴く貝に耳を当てたら「閉店時間です」と言われた。こっちの台詞だ。",
+        "貝は照らすと鳴き止んだ。照れたのだと思うことにする。",
+      ],
+      draw(g){
+        g.append(mk("path",{d:"M -7 0 A 7 7 0 0 1 7 0 Z", fill:"#e8a8c8"}),
+          mk("path",{d:"M -4 0 L -5 -5 M 0 0 L 0 -6.4 M 4 0 L 5 -5", stroke:"#b8779c","stroke-width":1, fill:"none"}));
+        for(let i=0;i<3;i++){
+          const w = mk("path",{d:`M ${9+i*5} -4 q 3 -4 0 -8`, stroke:"#e8a8c8","stroke-width":1.3, fill:"none"});
+          w.animate([{opacity:0},{opacity:.9},{opacity:0}],
+            {duration:1800, iterations:Infinity, delay:i*300, easing:"ease-in-out"});
+          g.append(w);
+        }
+        g.setAttribute("filter","url(#yk-glow)");
+      }},
+    nami:{ floor:2, label:"波の音", hue:195,
+      far:"……1Fから、波の音がします", done:"照らすと、潮が引いた",
+      diary:[
+        "改装中の1Fで波の音がした。光を当てると、潮が引くように静かになった。",
+        "波の音の出どころは見つからなかった。床は乾いている。靴は濡れた。",
+        "波の音だけがする。海はまだ入荷していないはずだが、発注書を確認しておく。",
+      ],
+      draw(g){
+        for(let i=0;i<3;i++){
+          const w = mk("path",{d:`M -16 ${-3-i*5} q 8 -5 16 0 q 8 5 16 0`,
+            stroke:"#7fd8e8","stroke-width":1.6, fill:"none"});
+          w.animate([{opacity:.1, transform:"translateX(-5px)"},{opacity:.85, transform:"translateX(0)"},{opacity:.1, transform:"translateX(5px)"}],
+            {duration:2600, iterations:Infinity, delay:i*420, easing:"ease-in-out"});
+          g.append(w);
+        }
+        g.setAttribute("filter","url(#yk-glow)");
+      }},
+    hikaru:{ floor:3, label:"水槽から逃げた光る魚", hue:175,
+      far:"……B1Fの通路が、ぼんやり光っています", done:"魚は水槽に帰った",
+      diary:[
+        "水槽から逃げた{fish}が通路で光っていた。帰り道を照らしてやると、自分で帰った。賢い。",
+        "{fish}がエスカレーターを上ろうとしていた。閉店後は動いていないと教えた。",
+        "逃げた{fish}を確保。本人は「散歩」と主張しているような目をしていた。",
+      ],
+      draw(g){
+        const f = mk("g");
+        f.append(mk("path",{d:"M -9 0 C -4 -5, 5 -5, 9 0 C 5 5, -4 5, -9 0 Z", fill:"#7fe8d2"}),
+          mk("polygon",{points:"-9,0 -14,-4 -14,4", fill:"#5fc8b2"}),
+          mk("circle",{cx:5.4, cy:-1, r:1.1, fill:"#06302a"}));
+        f.animate([{transform:"translateY(0)"},{transform:"translateY(-7px)"},{transform:"translateY(0)"}],
+          {duration:3000, iterations:Infinity, easing:"ease-in-out"});
+        const wrap = mk("g",{transform:"translate(0,-18)"});
+        wrap.append(f);
+        g.append(wrap);
+        g.setAttribute("filter","url(#yk-glow)");
+      }},
+    tako:{ floor:3, label:"鍵を持ったタコ", hue:25, harmless:true,
+      far:"……B1Fで、鍵束の音がします", done:"タコは鍵を返してくれた",
+      diary:[
+        "タコがマスターキーを持っていた。目が合うと、すまなそうに返してきた。不問とする。",
+        "タコの鍵当番は今夜で終わりにしてもらった。腕が八本あっても権限はない。",
+        "タコは鍵で何も開けていなかった。持ちたかっただけらしい。分かる。",
+      ],
+      draw(g){
+        g.append(mk("circle",{cx:0, cy:-12, r:7.5, fill:"#e88a6a"}));
+        for(let i=0;i<5;i++){
+          const lx = -8 + i*4;
+          g.append(mk("path",{d:`M ${lx} -7 q ${(i-2)*2} 5 ${(i-2)*3} 7`,
+            stroke:"#e88a6a","stroke-width":2.4, fill:"none","stroke-linecap":"round"}));
+        }
+        g.append(mk("circle",{cx:-2.5, cy:-13, r:1.1, fill:"#3a1408"}),
+          mk("circle",{cx:2.5, cy:-13, r:1.1, fill:"#3a1408"}));
+        const key = mk("path",{d:"M 9 -16 a 2.6 2.6 0 1 0 .1 0 M 11 -14 l 5 5 m -2 -2 l 2 -2",
+          stroke:"#ffd27a","stroke-width":1.5, fill:"none"});
+        key.style.transformOrigin = "9px -16px";
+        key.animate([{transform:"rotate(-8deg)"},{transform:"rotate(8deg)"},{transform:"rotate(-8deg)"}],
+          {duration:2200, iterations:Infinity, easing:"ease-in-out"});
+        g.append(key);
+        g.setAttribute("filter","url(#yk-glow)");
+      }},
+    kagaribi:{ floor:4, label:"文明の小さな篝火", hue:18,
+      far:"……B5Fが、ほんのり暖かい気がします", done:"篝火は小さくおじぎをして消えた",
+      diary:[
+        "B5Fで文明の篝火がまた燃えていた。火気厳禁の札の隣で、実に行儀よく燃えていた。",
+        "篝火を照らすと、向こうも遠慮して小さくなった。文明は察しがいい。",
+        "篝火の周りに小さな宴の跡。レジは通っていない。ツケにしておく。",
+      ],
+      draw(g){
+        g.append(mk("path",{d:"M -6 0 l 6 -5 l 6 5 Z", fill:"#5a4636"}));
+        const fl = mk("path",{d:"M 0 -5 q -5 -7 0 -14 q 2 4 4 6 q 3 5 -4 8 Z", fill:"#ffae5a"});
+        fl.style.transformOrigin = "0px -5px";
+        fl.animate([{transform:"scaleY(1) scaleX(1)"},{transform:"scaleY(1.25) scaleX(.88)"},{transform:"scaleY(1) scaleX(1)"}],
+          {duration:900, iterations:Infinity, easing:"ease-in-out"});
+        g.append(fl, mk("circle",{cx:0, cy:-12, r:2, fill:"#ffe9b8"}));
+        g.setAttribute("filter","url(#yk-glow)");
+      }},
+    shomotsu:{ floor:4, label:"自分でめくれる書物", hue:265,
+      far:"……B5Fから、紙をめくる音がします", done:"本に栞を挟んだ",
+      diary:[
+        "書物が自分でめくれていた。速読だった。",
+        "めくれる本を照らすと、栞を挟んで止まった。続きが気になるのは分かる。",
+        "本が最終ページで止まっていた。結末は聞かないでおいた。",
+      ],
+      draw(g){
+        g.append(mk("path",{d:"M -10 -3 q 10 -5 20 0 l 0 3 q -10 -5 -20 0 Z", fill:"#b8a8e8"}));
+        const pg = mk("path",{d:"M 0 -4 q 6 -7 9 -4", stroke:"#e4dcf8","stroke-width":1.4, fill:"none"});
+        pg.animate([{transform:"rotate(0deg)", opacity:0},{transform:"rotate(-60deg)", opacity:1},{transform:"rotate(-120deg)", opacity:0}],
+          {duration:1400, iterations:Infinity, easing:"ease-in-out"});
+        pg.style.transformOrigin = "0px -4px";
+        g.append(pg);
+        g.setAttribute("filter","url(#yk-glow)");
+      }},
+  };
+  const FLOOR_POOL = [["hoshiashi","ryusei"],["ryuki","kainaki"],["nami"],["hikaru","tako"],["kagaribi","shomotsu"]];
+
+  const anomalies = [];
+  let anomId = 1;
+  let nextSpawn = 0;
+
+  function spawnAnomaly(typeKey, floorIdx){
+    if(ended) return null;
+    const fi = (floorIdx == null) ? (Math.random()*5)|0 : Math.max(0, Math.min(4, floorIdx));
+    const key = typeKey && ANOM[typeKey] ? typeKey : pick(FLOOR_POOL[fi]);
+    const T = ANOM[key];
+    const a = {
+      id: anomId++, key, type: T, floor: T.floor,
+      xr: .1 + Math.random()*.74, prog: 0,
+      fish: key === "hikaru" ? zukanFish() : null,
+      root: mk("g"), ring: null, glow: null,
+    };
+    const fig = mk("g");
+    T.draw(fig);
+    a.root.append(fig);
+    gAnoms.append(a.root);
+    a.glow = mk("circle",{r:5, fill:`hsl(${T.hue},90%,72%)`, opacity:.3, filter:"url(#yk-glow)"});
+    a.glow.animate([{opacity:.12},{opacity:.4},{opacity:.12}],
+      {duration:2400, iterations:Infinity, easing:"ease-in-out"});
+    a.glow.style.pointerEvents = "none";
+    gGlowA.append(a.glow);
+    const C = 2*Math.PI*15;
+    a.ring = mk("circle",{r:15, fill:"none", stroke:"#ffd27a","stroke-width":2.5,
+      "stroke-dasharray":C, "stroke-dashoffset":C, opacity:0, "stroke-linecap":"round"});
+    a.ring.style.pointerEvents = "none";
+    gUI.append(a.ring);
+    positionAnomaly(a);
+    anomalies.push(a);
+    if(guard.floor === a.floor) toast("……同じフロアで、何かの気配がする。");
+    else toast(T.far);
+    emit("anomaly-spawn", a);
+    return a;
+  }
+  function positionAnomaly(a){
+    const ax = bx + a.xr*bw, ay = floorY(a.floor);
+    a.root.setAttribute("transform", `translate(${ax.toFixed(1)} ${ay.toFixed(1)})`);
+    a.glow.setAttribute("cx", ax); a.glow.setAttribute("cy", ay - 12);
+    a.ring.setAttribute("cx", ax); a.ring.setAttribute("cy", ay - 10);
+    a.ring.setAttribute("transform", `rotate(-90 ${ax} ${ay - 10})`);
+  }
+
+  function resolveAnomaly(a){
+    const i = anomalies.indexOf(a);
+    if(i < 0) return;
+    anomalies.splice(i, 1);
+    nightResolved++;
+    const ax = bx + a.xr*bw, ay = floorY(a.floor);
+    // reveal pop
+    const fig = a.root.firstChild;
+    if(fig){
+      fig.style.transformOrigin = "0px -10px";
+      fig.animate([
+        {transform:"scale(1)", opacity:1},
+        {transform:"scale(1.5) translateY(-8px)", opacity:0}
+      ],{duration:650, easing:"cubic-bezier(.2,.8,.3,1)", fill:"forwards"});
+    }
+    sparkle(ax, ay - 12, a.type.hue);
+    if(a.key === "tako") keyFlight(ax, ay);
+    setTimeout(() => { a.root.remove(); }, 700);
+    a.glow.remove(); a.ring.remove();
+    const line = pick(a.type.diary).replace(/\{fish\}/g, `『${a.fish || "魚"}』`);
+    const e = writeDiary(line, FLOORS[a.floor].dn);
+    nightLines.push(`${e.t} ${e.f}。${e.x}`);
+    toast(a.key === "hikaru" ? `『${a.fish}』は水槽に帰った` : a.type.done);
+    ding([1318, 1760]);
+    emit("anomaly-resolved", a);
+  }
+  function sparkle(x, y, hue){
+    for(let i=0;i<9;i++){
+      const p = mk("circle",{cx:x, cy:y, r:1.2+Math.random()*1.8,
+        fill:`hsl(${hue},90%,75%)`, opacity:.9});
+      gFx.append(p);
+      const ang = Math.random()*Math.PI*2, d = 18+Math.random()*30;
+      p.animate([
+        {transform:"translate(0,0)", opacity:.9},
+        {transform:`translate(${Math.cos(ang)*d}px, ${Math.sin(ang)*d - 10}px)`, opacity:0}
+      ],{duration:700+Math.random()*500, easing:"ease-out"}).onfinish = () => p.remove();
+    }
+  }
+  function keyFlight(ax, ay){
+    const gx = bx + guard.xr*bw;
+    const k = mk("g",{transform:`translate(${ax} ${ay - 18})`});
+    const inner = mk("path",{d:"M 0 0 a 3 3 0 1 0 .1 0 M 2 2 l 7 7 m -3 -3 l 3 -3",
+      stroke:"#ffd27a","stroke-width":1.8, fill:"none", filter:"url(#yk-glow)"});
+    inner.style.transformOrigin = "0px 0px";
+    k.append(inner);
+    gFx.append(k);
+    inner.animate([
+      {transform:"translate(0,0) rotate(0deg)", opacity:1},
+      {transform:`translate(${(gx-ax)*.6}px, -26px) rotate(180deg)`, opacity:1},
+      {transform:`translate(${gx-ax}px, -6px) rotate(360deg)`, opacity:0}
+    ],{duration:950, easing:"ease-in-out"}).onfinish = () => k.remove();
+  }
+
+  // ====================================================================
+  //  coffee (1F vending machine)
+  // ====================================================================
+  const COFFEE_FAR = ["自販機は遠い。光は届くが、腕は届かない。","自販機は1Fの奥だ。歩こう。"];
+  const COFFEE_LINES = [
+    "自販機のコーヒーで覚醒した。豆の産地は不明。効き目は確かだった。",
+    "コーヒーを飲んだ。眠気は引き継ぎ事項から削除する。",
+    "熱い缶を頬に当ててから飲んだ。夜警の正式な作法である。",
+  ];
+  function buyCoffee(){
+    if(ended || guard.riding) return;
+    if(guard.floor !== 2){ toast("自販機は1Fにある。"); return; }
+    const gx = bx + guard.xr*bw, mx = bx + MACH_XR*bw;
+    if(Math.abs(gx - mx) > 70){ toast(pick(COFFEE_FAR)); return; }
+    ding([660, 880]);
+    const my = floorY(2);
+    for(let i=0;i<4;i++){
+      const s = mk("path",{d:`M ${mx-4+i*3} ${my-16} q 3 -6 0 -12`,
+        stroke:"#d8cfc0","stroke-width":1.2, fill:"none", opacity:.7});
+      gFx.append(s);
+      s.animate([{opacity:.7, transform:"translateY(0)"},{opacity:0, transform:"translateY(-14px)"}],
+        {duration:1100+i*180, easing:"ease-out"}).onfinish = () => s.remove();
+    }
+    if(guard.sleepy){
+      guard.sleepy = false;
+      vignette.classList.remove("on");
+      toast("ホットコーヒー。目が覚めた。たぶん。");
+    }else{
+      toast("目は冴えている。それでも飲む。");
+    }
+    writeDiary(pick(COFFEE_LINES), "1F");
+    emit("coffee:bought");
+  }
+
+  // ====================================================================
+  //  night flow
+  // ====================================================================
+  const QUIET_LINES = [
+    "何も起きなかった。記録すべきことが無いことを、記録しておく。",
+    "売り場がしんとしていた。「良い夜だ」と書く欄が日誌に欲しい。",
+    "一分間、店がただの店だった。",
+  ];
+  const vignette = document.getElementById("vignette");
+  const sumwrap = document.getElementById("sumwrap");
+  const summary = document.getElementById("summary");
+  const clockChip = document.getElementById("clockChip");
+  const floorChip = document.getElementById("floorChip");
+
+  function endNight(){
+    if(ended) return;
+    ended = true;
+    const missed = anomalies.length;
+    for(const a of anomalies){
+      a.root.animate([{opacity:1},{opacity:0}],{duration:1200, fill:"forwards"});
+      a.glow.remove(); a.ring.remove();
+      setTimeout(((r)=>()=>r.remove())(a.root), 1300);
+    }
+    anomalies.length = 0;
+    if(guard.sleepy){ guard.sleepy = false; vignette.classList.remove("on"); }
+    writeDiary(`夜が明けた。解決${nightResolved}件、見逃し${missed}件。店は何事もなかった顔をしている。`, "全館", "6:00");
+    const best = nightLines.length ? pick(nightLines) : "6:00 全館。異状なし。それが一番むずかしいのだと、誰も褒めてくれない。";
+    rec.nights = night;
+    rec.resolved = (rec.resolved|0) + nightResolved;
+    rec.missed = (rec.missed|0) + missed;
+    if(quietHappened) rec.quiet = (rec.quiet|0) + 1;
+    rec.best = {night, text: best};
+    lsSet(RKEY, rec);
+    const stats = {night, resolved: nightResolved, missed, quiet: quietHappened};
+    summary.innerHTML =
+      `<h3>第${night}夜の記録<small>NIGHT REPORT</small></h3>`+
+      `<div class="row"><span class="sumchip">解決<b>${nightResolved}件</b></span>`+
+      `<span class="sumchip">見逃し<b>${missed}件</b></span></div>`+
+      `<div class="line"><span class="lt">今夜の一行</span>${esc(best)}</div>`+
+      (quietHappened ? `<div class="quiet">4:44 — 一分間だけ、店はただの店だった。</div>` : "")+
+      `<div class="total">通算 ${rec.nights}夜 ／ 解決 ${rec.resolved}件 ／ 静けさに立ち会った夜 ${rec.quiet|0}回</div>`+
+      `<button class="btn nap" id="napBtn">🛏 仮眠して、また今夜</button>`;
+    sumwrap.classList.remove("hidden");
+    requestAnimationFrame(() => sumwrap.classList.add("show"));
+    summary.querySelector("#napBtn").addEventListener("click", nextNight);
+    emit("night-end", {stats});
+  }
+
+  function nextNight(){
+    night++;
+    gameMin = 0; ended = false;
+    sleepyDone = quietDone = quietHappened = false; quietT = 0;
+    nightResolved = 0; nightLines.length = 0;
+    pendingSep = true;
+    walkTarget = null;
+    nextSpawn = performance.now() + 6000 + Math.random()*5000;
+    sumwrap.classList.remove("show");
+    setTimeout(() => sumwrap.classList.add("hidden"), 600);
+    clockChip.innerHTML = `<small>第${night}夜</small>23:00`;
+    toast("23:00。開店はしない。見回りは、する。");
+  }
+
+  // ====================================================================
+  //  input
+  // ====================================================================
+  const input = { l:false, r:false };
+  window.addEventListener("keydown", e => {
+    if(e.repeat && (e.key === "ArrowUp" || e.key === "ArrowDown")) return;
+    if(e.key === "ArrowLeft"){ input.l = true; walkTarget = null; hideHint(); e.preventDefault(); }
+    else if(e.key === "ArrowRight"){ input.r = true; walkTarget = null; hideHint(); e.preventDefault(); }
+    else if(e.key === "ArrowUp"){ gotoFloor(guard.floor - 1); hideHint(); e.preventDefault(); }
+    else if(e.key === "ArrowDown"){ gotoFloor(guard.floor + 1); hideHint(); e.preventDefault(); }
+  });
+  window.addEventListener("keyup", e => {
+    if(e.key === "ArrowLeft") input.l = false;
+    if(e.key === "ArrowRight") input.r = false;
+  });
+  svg.addEventListener("pointerdown", e => {
+    if(ended || guard.riding) return;
+    const i = Math.floor((e.clientY - floorTop) / floorH);
+    if(i < 0 || i > 4) return;
+    hideHint();
+    if(i === guard.floor){
+      walkTarget = Math.max(.03, Math.min(.97, (e.clientX - bx) / bw));
+      const tx = bx + walkTarget*bw, ty = floorY(i) - 3;
+      const m = mk("circle",{cx:tx, cy:ty, r:3, fill:"#ffd27a", opacity:.7});
+      m.style.transformOrigin = `${tx}px ${ty}px`;
+      gFx.append(m);
+      m.animate([{opacity:.7, transform:"scale(1)"},{opacity:0, transform:"scale(2.4)"}],
+        {duration:600, easing:"ease-out"}).onfinish = () => m.remove();
+    }else{
+      gotoFloor(i);
+    }
+  });
+
+  // ====================================================================
+  //  main loop — elapsed wall time, never frame counting
+  // ====================================================================
+  let lastT = 0, lastClock = "";
+  function frame(now){
+    const dt = Math.min(.1, (now - lastT)/1000 || 0);
+    lastT = now;
+
+    if(!ended){
+      // clock (frozen during the 4:44 quiet)
+      if(quietT > 0){
+        quietT -= dt;
+        if(quietT <= 0){
+          gAnoms.style.opacity = gGlowA.style.opacity = "1";
+          writeDiary(pick(QUIET_LINES), "全館", "4:44");
+          toast("……時計が、また動き出した。");
+        }
+      }else{
+        gameMin += dt / 1.5;
+      }
+      // 3:00 — eyelids heavy
+      if(!sleepyDone && gameMin >= 240){
+        sleepyDone = true; guard.sleepy = true;
+        vignette.classList.add("on");
+        toast("3:00。まぶたが、重い。1Fの自販機を思い出す。");
+      }
+      // 4:44 — the quiet minute
+      if(!quietDone && gameMin >= 344){
+        quietDone = true; quietHappened = true; quietT = 20;
+        gAnoms.style.transition = gGlowA.style.transition = "opacity 1.6s";
+        gAnoms.style.opacity = gGlowA.style.opacity = ".12";
+        toast("4:44。売り場が、しんとしている。");
+      }
+      // 6:00 — morning
+      if(gameMin >= 420) endNight();
+      // spawns
+      if(!ended && quietT <= 0 && now >= nextSpawn){
+        nextSpawn = now + 20000 + Math.random()*20000;
+        if(anomalies.length < 3) spawnAnomaly();
+      }
+    }
+
+    // clock chip
+    const ts = ended ? "6:00" : timeStr();
+    if(ts !== lastClock){
+      lastClock = ts;
+      clockChip.innerHTML = `<small>第${night}夜</small>${ts}`;
+    }
+
+    // movement
+    let vx = 0;
+    if(!ended && !guard.riding){
+      if(input.l) vx -= 1;
+      if(input.r) vx += 1;
+      if(!vx && walkTarget != null){
+        const d = walkTarget - guard.xr;
+        if(Math.abs(d)*bw < 4) walkTarget = null;
+        else vx = d > 0 ? 1 : -1;
+      }
+    }
+    guard.moving = vx !== 0;
+    if(vx){
+      guard.dir = vx > 0 ? 1 : -1;
+      const mul = guard.sleepy ? .7 : 1;
+      guard.xr = Math.max(.03, Math.min(.97, guard.xr + vx*170*mul*dt/Math.max(1,bw)));
+      guard.bob += dt*(guard.sleepy ? 6.5 : 9.5);
+    }
+    const gx = bx + guard.xr*bw;
+    const gy = floorY(guard.floor);
+    const bob = guard.moving ? -Math.abs(Math.sin(guard.bob))*2.4 : 0;
+    const tilt = guard.moving ? Math.sin(guard.bob)*2.5 : 0;
+    guardEl.setAttribute("transform",
+      `translate(${gx.toFixed(1)} ${(gy+bob).toFixed(1)}) rotate(${tilt.toFixed(1)}) scale(${guard.dir} 1)`);
+    const lightTf = `translate(${gx.toFixed(1)} ${(gy+bob-18).toFixed(1)}) scale(${guard.dir} 1)`;
+    hole.setAttribute("transform", lightTf);
+    beam.setAttribute("transform", lightTf);
+
+    // flashlight vs anomalies
+    let lit = null, litD = 1e9;
+    if(!ended && !guard.riding && quietT <= 0){
+      for(const a of anomalies){
+        if(a.floor !== guard.floor) continue;
+        const ax = bx + a.xr*bw, dx = ax - gx, ahead = dx*guard.dir;
+        if((ahead > 12 && ahead < 235) || Math.abs(dx) < 52){
+          const d = Math.abs(dx);
+          if(d < litD){ litD = d; lit = a; }
+        }
+      }
+    }
+    const C = 2*Math.PI*15;
+    for(const a of [...anomalies]){
+      if(a === lit) a.prog = Math.min(1.5, a.prog + dt);
+      else a.prog = Math.max(0, a.prog - dt*2);
+      a.ring.setAttribute("opacity", a.prog > 0 ? "1" : "0");
+      a.ring.setAttribute("stroke-dashoffset", (C*(1 - a.prog/1.5)).toFixed(1));
+      if(a.prog >= 1.5) resolveAnomaly(a);
+    }
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(t => { lastT = t; requestAnimationFrame(frame); });
+
+  // occasional shooting star across the rooftop strip
+  setInterval(() => {
+    if(document.hidden || Math.random() < .4) return;
+    const y0 = floorTop + 14 + Math.random()*floorH*.4;
+    const x0 = bx + 30 + Math.random()*bw*.5;
+    const s = mk("line",{x1:x0, y1:y0, x2:x0+46, y2:y0+12, stroke:"#cfe2ff","stroke-width":1.3,
+      opacity:0, "stroke-linecap":"round"});
+    gGlowS.append(s);
+    s.animate([{opacity:0, transform:"translate(0,0)"},{opacity:.8, transform:"translate(24px,6px)"},
+      {opacity:0, transform:"translate(60px,16px)"}],
+      {duration:900, easing:"ease-out"}).onfinish = () => s.remove();
+  }, 23000);
+
+  // ---- dock ----
+  const dock = document.getElementById("dock");
+  const dockToggle = document.createElement("button");
+  dockToggle.className = "btn dock-toggle";
+  dockToggle.textContent = "🧰";
+  dockToggle.title = "おもちゃ箱をひらく／たたむ";
+  dockToggle.addEventListener("click", () => dock.classList.toggle("folded"));
+  dock.append(dockToggle);
+  function addButton(label, onClick){
+    const b = document.createElement("button");
+    b.className = "btn";
+    b.textContent = label;
+    b.addEventListener("click", onClick);
+    dock.append(b);
+    return b;
+  }
+
+  // ---- hint & toast ----
+  const hint = document.getElementById("hint");
+  let hintT = setTimeout(hideHint, 10000);
+  function hideHint(){ clearTimeout(hintT); hint.style.opacity = 0; }
+
+  const toastEl = document.getElementById("toast");
+  let toastT = null;
+  function toast(msg){
+    toastEl.textContent = msg; toastEl.classList.add("show");
+    clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove("show"), 2600);
+  }
+
+  // ---- resize ----
+  function resize(){
+    W = window.innerWidth; H = window.innerHeight;
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    bx = W*.07; bw = W*.86;
+    floorTop = 70; floorH = (H - floorTop - 18)/5;
+    maskEl.setAttribute("x", 0); maskEl.setAttribute("y", 0);
+    maskEl.setAttribute("width", W); maskEl.setAttribute("height", H);
+    maskBg.setAttribute("width", W); maskBg.setAttribute("height", H);
+    darkR.setAttribute("width", W); darkR.setAttribute("height", H);
+    buildBuilding();
+    for(const a of anomalies) positionAnomaly(a);
+  }
+  window.addEventListener("resize", resize);
+
+  // ==================================================================
+  //  plugin API
+  // ==================================================================
+  window.YAKEI = {
+    svg, defs, gBuild, gAnoms, gGlow, gGlowA, gFx, gGuard, gUI,
+    floors: FLOORS, anomalies, guard, diary,            // live (do not reassign)
+    get W(){ return W; }, get H(){ return H; },
+    get night(){ return night; }, get gameMin(){ return gameMin; },
+    get time(){ return ended ? "6:00" : timeStr(); },
+    floorY, mk, toast, pick, esc,
+    spawnAnomaly,                    // spawnAnomaly(typeKey?, floorIdx?) -> a
+    resolveAnomaly, writeDiary,      // writeDiary(text, floorDn?, time?) -> entry
+    gotoFloor, buyCoffee, ding,
+    addButton,
+    lore: {ANOM, FLOOR_POOL, QUIET_LINES, COFFEE_LINES},
+    on, emit,                        // events: anomaly-spawn(a), anomaly-resolved(a),
+                                     //   floor-changed({floor,index}), night-end({stats}),
+                                     //   diary-entry(e), coffee:bought()
+                                     // plugins may emit custom namespaced events
+  };
+
+  // ---- opening ----
+  resize();
+  clockChip.innerHTML = `<small>第${night}夜</small>23:00`;
+  floorChip.textContent = "1F・改装中";
+  nextSpawn = performance.now() + 7000 + Math.random()*4000;
+  setTimeout(() => toast("23:00。見回りを開始する。"), 1400);
+})();
+</script>
+</body>
+</html>

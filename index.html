@@ -1,0 +1,2213 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>天地百貨店 — 宇宙から太古まで、ぜんぶ売り場。</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏬</text></svg>">
+<style>
+:root{
+  --gold:#d9b86a; --gold-dim:#a8854a;
+  --ink:#e8e4d8;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:auto}
+body{
+  font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",-apple-system,system-ui,sans-serif;
+  color:var(--ink); background:#020309; overflow-x:hidden;
+}
+.serif{font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
+#world{position:fixed; inset:0; z-index:0; display:block}
+
+/* ---------- sections (world strata) ---------- */
+section{position:relative; z-index:1; pointer-events:none; display:flex; align-items:center; justify-content:center; padding:8vh 5vw}
+section a, section button, .card, .guide, .reno{pointer-events:auto}
+#hero{min-height:108vh; flex-direction:column; gap:3.2rem}
+#floor-r{min-height:115vh; justify-content:flex-start}
+#floor-2f{min-height:120vh; justify-content:flex-end}
+#floor-1f{min-height:30vh}
+#floor-b1{min-height:120vh; justify-content:flex-start}
+#floor-b5{min-height:125vh; justify-content:flex-end}
+#floor-mantle{min-height:72vh; flex-direction:column; gap:1.4rem}
+
+/* ---------- hero ---------- */
+.logo{
+  writing-mode:vertical-rl; font-size:clamp(3.2rem,9vmin,6rem); letter-spacing:.28em;
+  background:linear-gradient(160deg,#f3e3b0,#d9b86a 45%,#9a7335 70%,#f0dca2);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  text-shadow:0 0 38px rgba(217,184,106,.25); user-select:none;
+}
+.hero-sub{text-align:center; line-height:2}
+.hero-sub .en{letter-spacing:.5em; font-size:.72rem; color:var(--gold-dim)}
+.hero-sub .copy{font-size:1.05rem; color:#cfd6e8; margin-top:.5rem}
+.hero-sub .since{font-size:.78rem; color:#8e96ad; margin-top:.4rem}
+.guide{
+  border:1px solid rgba(217,184,106,.55); background:rgba(8,10,24,.72); backdrop-filter:blur(6px);
+  padding:1.2rem 1.6rem; min-width:min(440px,88vw); box-shadow:0 0 0 4px rgba(8,10,24,.72), 0 0 0 5px rgba(217,184,106,.35);
+}
+.guide h2{font-size:.8rem; letter-spacing:.45em; text-align:center; color:var(--gold); font-weight:600; margin-bottom:.8rem}
+.guide a, .guide .dead{
+  display:flex; gap:1rem; align-items:baseline; padding:.5rem .4rem; text-decoration:none; color:var(--ink);
+  border-bottom:1px dashed rgba(217,184,106,.2); font-size:.95rem;
+}
+.guide a:hover{background:rgba(217,184,106,.12)}
+.guide .fl{font-weight:700; color:var(--gold); min-width:3.2em; text-align:right; font-variant-numeric:tabular-nums}
+.guide .dead{color:#6d7385}
+.guide .dead .fl{color:#6d7385}
+.scrollhint{font-size:.8rem; color:#8e96ad; animation:bob 2.2s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(7px)}}
+
+/* ---------- floor cards ---------- */
+.card{
+  position:relative; display:flex; gap:1.4rem; max-width:760px; width:min(760px,92vw);
+  padding:1.5rem; border-radius:14px; backdrop-filter:blur(8px);
+  box-shadow:0 18px 50px rgba(0,0,0,.45); flex-wrap:wrap;
+  transition:transform .35s cubic-bezier(.2,.9,.3,1.4), box-shadow .35s;
+}
+.card:hover{transform:translateY(-5px) rotate(-.4deg); box-shadow:0 28px 70px rgba(0,0,0,.55)}
+.card .media{flex:0 0 280px; max-width:100%}
+.card .media canvas{width:100%; aspect-ratio:7/4; border-radius:9px; display:block; background:#000}
+.card .media .demo-badge{font-size:.68rem; margin-top:.35rem; opacity:.75; text-align:right}
+.card .body{flex:1 1 280px; min-width:240px}
+.floor-chip{
+  position:absolute; top:-14px; left:18px; font-size:.74rem; font-weight:700; letter-spacing:.18em;
+  padding:.28em .9em; border-radius:99px; box-shadow:0 4px 12px rgba(0,0,0,.4);
+}
+.card h3{font-size:1.5rem; margin:.2rem 0 .15rem; letter-spacing:.04em}
+.card .dept{font-size:.74rem; letter-spacing:.3em; opacity:.7; font-weight:600}
+.card p.desc{font-size:.92rem; line-height:1.85; margin:.7rem 0}
+.card ul.goods{list-style:none; font-size:.78rem; opacity:.85; display:flex; flex-wrap:wrap; gap:.4em .9em; margin:.2rem 0 1rem}
+.card ul.goods li::before{content:"〈取扱〉"; opacity:.6; font-size:.88em; margin-right:.2em}
+.cta{
+  display:inline-block; text-decoration:none; font-weight:700; font-size:.95rem;
+  padding:.65em 1.6em; border-radius:99px; letter-spacing:.1em;
+  transition:transform .15s, filter .15s;
+}
+.cta:hover{transform:scale(1.05); filter:brightness(1.15)}
+.cta:active{transform:scale(.97)}
+.pricetag{
+  display:none; position:absolute; top:-22px; right:-14px; background:#e0312e; color:#fff;
+  font-weight:800; padding:.5em .9em; border-radius:8px; transform:rotate(8deg);
+  box-shadow:0 8px 20px rgba(224,49,46,.45); font-size:.95rem; z-index:3;
+}
+.pricetag small{display:block; font-weight:600; font-size:.62em; opacity:.9}
+body.sale .pricetag{display:block; animation:tagpop .5s cubic-bezier(.2,1.6,.4,1)}
+@keyframes tagpop{from{transform:rotate(8deg) scale(0)}to{transform:rotate(8deg) scale(1)}}
+
+/* floor themes */
+.card.theme-r{background:rgba(10,14,40,.8); border:1px solid rgba(150,168,255,.35); color:#dde4ff}
+.card.theme-r .floor-chip{background:#2a3470; color:#cdd7ff}
+.card.theme-r .cta{background:#5468d4; color:#fff}
+.card.theme-2f{background:rgba(255,255,255,.88); border:1px solid rgba(12,124,140,.3); color:#173842}
+.card.theme-2f .floor-chip{background:#0c7c8c; color:#eafdff}
+.card.theme-2f .cta{background:#0c7c8c; color:#fff}
+.card.theme-b1{background:rgba(3,22,36,.84); border:1px solid rgba(95,232,210,.35); color:#d7f7f0}
+.card.theme-b1 .floor-chip{background:#0a4a45; color:#9ff0e2}
+.card.theme-b1 .cta{background:#19a08c; color:#02141c}
+.card.theme-b5{background:rgba(242,231,202,.93); border:1px solid rgba(122,86,29,.45); color:#41301a}
+.card.theme-b5 .floor-chip{background:#7a561d; color:#f5ead0}
+.card.theme-b5 .cta{background:#7a561d; color:#f7eed6}
+.card.theme-b5 h3, .card.theme-b5 .dept{font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
+
+/* ---------- 1F renovation ---------- */
+.reno{
+  width:min(680px,92vw); text-align:center; padding:1rem 1.4rem; font-size:.88rem; color:#243; font-weight:700;
+  background:repeating-linear-gradient(-45deg,#f7d54a 0 18px,#23211b 18px 36px);
+  border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.35);
+}
+.reno span{display:inline-block; background:rgba(255,255,255,.92); color:#3a3320; border-radius:6px; padding:.45em 1em}
+
+/* ---------- mantle footer ---------- */
+#floor-mantle{text-align:center; color:#e8c9a8}
+#floor-mantle .keepout{
+  font-weight:800; letter-spacing:.4em; font-size:.85rem; color:#ffb46a;
+  border:2px dashed rgba(255,140,60,.6); padding:.6em 1.6em; border-radius:8px; background:rgba(40,10,2,.55);
+}
+#floor-mantle dl{display:grid; grid-template-columns:auto auto; gap:.3em 1.2em; font-size:.84rem; text-align:left; background:rgba(20,6,2,.6); padding:1rem 1.5rem; border-radius:10px}
+#floor-mantle dt{opacity:.7}
+#floor-mantle .fine{font-size:.72rem; opacity:.65; line-height:1.9}
+
+/* ---------- fixed chrome ---------- */
+header{
+  position:fixed; top:0; left:0; right:0; z-index:10; display:flex; align-items:center; gap:1rem;
+  padding:.55rem 1rem; background:linear-gradient(180deg,rgba(4,5,14,.85),rgba(4,5,14,0));
+  pointer-events:none; font-size:.8rem;
+}
+header .brand{font-weight:700; letter-spacing:.3em; color:var(--gold); white-space:nowrap}
+header .open{display:flex; align-items:center; gap:.35em; color:#9fe8b0; white-space:nowrap}
+header .open i{width:.55em; height:.55em; border-radius:50%; background:#43d96b; animation:blink 1.6s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.ticker{flex:1; overflow:hidden; white-space:nowrap; color:#b9c2da; text-overflow:ellipsis; transition:opacity .6s}
+.badge-clear{display:none; color:#ffd76a; font-weight:700; white-space:nowrap}
+body.allclear .badge-clear{display:inline}
+
+/* elevator */
+.elev{
+  position:fixed; right:14px; top:50%; transform:translateY(-50%); z-index:10;
+  background:rgba(8,10,22,.82); border:1px solid rgba(217,184,106,.4); border-radius:12px;
+  padding:.7rem .55rem; display:flex; flex-direction:column; align-items:center; gap:.4rem;
+  backdrop-filter:blur(6px); box-shadow:0 10px 30px rgba(0,0,0,.5);
+}
+.elev .lab{font-size:.56rem; letter-spacing:.32em; color:var(--gold-dim); writing-mode:vertical-rl; margin-bottom:.2rem}
+.elev button{
+  width:42px; height:34px; border-radius:8px; border:1px solid rgba(217,184,106,.35);
+  background:rgba(20,24,48,.9); color:var(--ink); font-weight:700; font-size:.78rem; cursor:pointer;
+  transition:all .15s; font-family:inherit;
+}
+.elev button:hover:not(:disabled){background:rgba(217,184,106,.25)}
+.elev button.now{background:var(--gold); color:#1c1605; box-shadow:0 0 14px rgba(217,184,106,.6)}
+.elev button:disabled{opacity:.35; cursor:not-allowed; text-decoration:line-through}
+.elev .sound{font-size:.95rem; width:42px; height:38px}
+
+/* cross-section minimap */
+.xsec{
+  position:fixed; left:14px; top:50%; transform:translateY(-50%); z-index:10;
+  display:flex; flex-direction:column; align-items:center; gap:.45rem; pointer-events:auto;
+}
+.xsec .lab{font-size:.56rem; letter-spacing:.3em; color:#8e96ad; writing-mode:vertical-rl}
+.xsec .strip{width:14px; height:200px; border-radius:8px; border:1px solid rgba(255,255,255,.25); position:relative; cursor:pointer; overflow:hidden}
+.xsec .you{
+  position:absolute; left:50%; width:20px; height:20px; transform:translate(-50%,-50%); pointer-events:none;
+  font-size:11px; line-height:20px; text-align:center; filter:drop-shadow(0 0 4px #000);
+}
+.alt{
+  font-size:.66rem; color:#cdd4e6; background:rgba(8,10,22,.8); padding:.4em .7em; border-radius:8px;
+  border:1px solid rgba(255,255,255,.15); text-align:center; min-width:108px; font-variant-numeric:tabular-nums;
+}
+
+/* stamp rally */
+.stamps{
+  position:fixed; left:14px; bottom:14px; z-index:10; background:rgba(252,247,235,.95); color:#5a4326;
+  border-radius:10px; padding:.6rem .8rem; box-shadow:0 10px 30px rgba(0,0,0,.5);
+  border:1px solid #c9b285; width:214px;
+}
+.stamps h4{font-size:.66rem; letter-spacing:.22em; text-align:center; border-bottom:1px solid #d9c8a4; padding-bottom:.35em; margin-bottom:.5em}
+.stamps .slots{display:flex; justify-content:center; gap:8px; flex-wrap:wrap}
+.stamps .slot{
+  width:36px; height:36px; border-radius:50%; border:1.5px dashed #c5ae82; position:relative;
+  font-size:.58rem; color:#b3a07a; display:flex; align-items:center; justify-content:center;
+}
+.stamps .slot .hanko{
+  position:absolute; inset:-3px; border-radius:50%; border:2.5px solid #c0392b; color:#c0392b;
+  display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.05rem;
+  transform:rotate(-14deg) scale(0); font-family:"Hiragino Mincho ProN",serif; background:rgba(255,255,255,.4);
+}
+.stamps .slot.got .hanko{animation:stampin .45s cubic-bezier(.2,1.8,.4,1) forwards}
+@keyframes stampin{from{transform:rotate(30deg) scale(2.4); opacity:0}to{transform:rotate(-14deg) scale(1); opacity:.92}}
+.stamps .msg{font-size:.62rem; text-align:center; margin-top:.5em; min-height:1.2em; color:#8a7045}
+
+/* announcement toast */
+.announce{
+  position:fixed; bottom:22px; left:50%; transform:translate(-50%,140%); z-index:11;
+  background:rgba(10,12,26,.92); border:1px solid rgba(217,184,106,.5); color:#f0e8d2;
+  padding:.7em 1.5em; border-radius:99px; font-size:.86rem; transition:transform .45s cubic-bezier(.2,1,.3,1);
+  box-shadow:0 12px 40px rgba(0,0,0,.5); max-width:88vw; text-align:center; pointer-events:none;
+}
+.announce.show{transform:translate(-50%,0)}
+.announce::before{content:"🛎 "; }
+
+/* dig text */
+.dig{
+  position:fixed; z-index:12; pointer-events:none; font-size:.82rem; font-weight:700; color:#ffe9b0;
+  text-shadow:0 2px 8px #000; animation:digup 1.7s ease-out forwards; white-space:nowrap;
+}
+@keyframes digup{0%{opacity:0; transform:translate(-50%,6px)}12%{opacity:1}100%{opacity:0; transform:translate(-50%,-64px)}}
+
+/* ---------- 増築部分(反省なし) ---------- */
+#world{transition:filter 2.5s}
+body.lights-out #world{filter:brightness(.38) saturate(.55)}
+#closeveil{
+  position:fixed; inset:0; z-index:30; pointer-events:none; opacity:0; transition:opacity 3s;
+  background:radial-gradient(ellipse at 50% 45%, transparent 28%, rgba(0,0,5,.9) 100%);
+}
+#closeveil.show{opacity:1}
+#closeveil p{
+  position:absolute; left:50%; top:44%; transform:translate(-50%,-50%); text-align:center;
+  font-size:1rem; color:#e8dfc8; letter-spacing:.3em; line-height:2.4; text-shadow:0 0 18px #000;
+}
+
+/* エレベーター扉 */
+#doors{position:fixed; inset:0; z-index:50; pointer-events:none; visibility:hidden}
+#doors.active{visibility:visible}
+#doors .panel{
+  position:absolute; top:0; bottom:0; width:50.6%; transition:transform 1s cubic-bezier(.7,0,.3,1);
+  background:linear-gradient(90deg,#6b5526,#c9a85c 18%,#8a6f35 42%,#d9bd75 60%,#7a6230 85%,#5a4a22);
+  box-shadow:inset 0 0 70px rgba(0,0,0,.55);
+}
+#doors .panel::after{content:""; position:absolute; top:8%; bottom:8%; width:10px; background:rgba(40,30,8,.55); border-radius:6px}
+#doors .L{left:0; transform:translateX(-102%)}
+#doors .R{right:0; transform:translateX(102%)}
+#doors .L::after{right:14px}
+#doors .R::after{left:14px}
+#doors.closed .L,#doors.closed .R{transform:translateX(0)}
+#doors .lamp{
+  position:absolute; top:18px; left:50%; transform:translateX(-50%); background:#1c1605; color:var(--gold);
+  border:1px solid var(--gold-dim); padding:.45em 1.6em; border-radius:8px; font-size:.85rem;
+  letter-spacing:.3em; opacity:0; transition:opacity .4s; white-space:nowrap;
+}
+#doors.active .lamp{opacity:1}
+
+/* お買い物カゴ & レジ */
+#cartBtn{
+  position:fixed; right:14px; bottom:14px; z-index:11; width:56px; height:56px; border-radius:50%;
+  border:1px solid rgba(217,184,106,.5); background:rgba(8,10,22,.85); font-size:1.5rem; cursor:pointer;
+  box-shadow:0 10px 30px rgba(0,0,0,.5); transition:transform .15s;
+}
+#cartBtn:hover{transform:scale(1.1)}
+#cartBtn .n{
+  position:absolute; top:-4px; right:-4px; background:#e0312e; color:#fff; border-radius:99px;
+  font-size:.66rem; font-weight:800; min-width:20px; height:20px; line-height:20px; display:none;
+}
+#cartBtn.has .n{display:block}
+#cartBtn.bump{animation:bump .3s}
+@keyframes bump{50%{transform:scale(1.28)}}
+.fly{
+  position:fixed; z-index:60; pointer-events:none; font-size:24px;
+  transition:left .8s cubic-bezier(.4,-.3,.6,1),top .8s cubic-bezier(.2,.6,.4,1),opacity .8s,transform .8s;
+}
+.freebie,.takeout{
+  margin-left:.6em; font-size:.76rem; padding:.55em 1em; border-radius:99px; border:1.5px dashed currentColor;
+  background:transparent; color:inherit; cursor:pointer; font-family:inherit; opacity:.8; transition:all .15s;
+}
+.freebie:hover,.takeout:hover{opacity:1; transform:scale(1.05)}
+#register{
+  display:none; position:fixed; inset:0; z-index:40; background:rgba(2,3,9,.65); backdrop-filter:blur(4px);
+  align-items:flex-start; justify-content:center; overflow:auto; padding:6vh 4vw;
+}
+#register.open{display:flex}
+.reg-panel{
+  background:#fcf7eb; color:#42351e; border-radius:12px; padding:1.4rem 1.6rem; width:min(440px,94vw);
+  box-shadow:0 30px 80px rgba(0,0,0,.6); border:1px solid #c9b285;
+}
+.reg-panel h3{font-size:1.05rem; letter-spacing:.15em}
+.reg-panel h3 small{font-size:.62em; opacity:.7; letter-spacing:0; font-weight:600}
+#regList{list-style:none; margin:.8rem 0; border-top:1px dashed #b9a37a; border-bottom:1px dashed #b9a37a; padding:.5rem 0; font-size:.86rem; min-height:2.2em}
+#regList li{display:flex; justify-content:space-between; padding:.2em 0}
+#regList .empty{opacity:.55; text-align:center; width:100%}
+.reg-total{text-align:right; font-size:1rem; margin-bottom:.8rem}
+.reg-actions{display:flex; gap:.5em; flex-wrap:wrap}
+.reg-actions button{
+  flex:1; padding:.6em .4em; border-radius:8px; border:1px solid #8a6f3d; background:#7a561d; color:#f7eed6;
+  font-weight:700; cursor:pointer; font-family:inherit; font-size:.82rem;
+}
+.reg-actions button:hover{filter:brightness(1.15)}
+.reg-actions #closeReg{background:transparent; color:#7a561d}
+.printer{margin-top:1rem}
+.printer-slot{height:10px; background:#42351e; border-radius:6px; box-shadow:inset 0 2px 6px #000}
+#receiptOut{max-height:0; overflow:hidden; transition:max-height 1.6s linear; text-align:center}
+#receiptOut canvas{max-width:100%; transform:rotate(-1.4deg); margin:.6rem 0; filter:drop-shadow(0 8px 18px rgba(0,0,0,.3))}
+#receiptSave{display:none; text-align:center; margin-top:.4rem; color:#7a561d; font-weight:700; font-size:.85rem}
+
+/* 水中ゆらぎ & 陽炎(SVGフィルター) */
+.card.theme-b1{filter:url(#wobble)}
+#floor-mantle .keepout,#floor-mantle dl{filter:url(#shimmer)}
+
+/* 他タブのお客様 */
+.strip .ghost{position:absolute; left:50%; transform:translate(-50%,-50%); font-size:11px; pointer-events:none; filter:drop-shadow(0 0 3px #000)}
+header .guests{color:#ffd76a; white-space:nowrap; display:none; font-weight:700}
+
+/* ---------- 第二期増築(非常口/お客様の声/外商部) ---------- */
+.emer{
+  position:absolute; right:5vw; bottom:9vh; pointer-events:auto; cursor:pointer; text-decoration:none;
+  background:#15923f; color:#fff; font-weight:800; text-align:center; line-height:1.5;
+  padding:.7em 1.3em; border-radius:10px; border:2px solid #bff2cd;
+  box-shadow:0 0 24px rgba(67,217,107,.5); font-size:.95rem; transition:transform .15s;
+}
+.emer:hover{transform:scale(1.07)}
+.emer small{font-weight:600; font-size:.66em; opacity:.9}
+.voices{
+  width:min(560px,92vw); background:rgba(20,6,2,.65); border:1px solid rgba(255,140,60,.35);
+  border-radius:12px; padding:1rem 1.3rem; text-align:left; pointer-events:auto;
+}
+.voices h4{font-size:.78rem; letter-spacing:.35em; color:#ffb46a; text-align:center; margin-bottom:.6rem}
+#voiceCard{min-height:5.2em; transition:opacity .6s; font-size:.85rem; line-height:1.8}
+#voiceCard .vq span{opacity:.6; font-size:.85em}
+#voiceCard .va{color:#ffd9ad; margin-top:.3em}
+#voiceForm{display:flex; gap:.5em; margin-top:.7rem}
+#voiceForm input{
+  flex:1; background:rgba(0,0,0,.4); border:1px solid rgba(255,180,106,.4); border-radius:8px;
+  color:#ffe9d0; padding:.5em .8em; font-family:inherit; font-size:.82rem;
+}
+#voiceForm button{
+  background:#7a3c10; color:#ffe9d0; border:1px solid rgba(255,180,106,.5); border-radius:8px;
+  padding:.5em 1.1em; cursor:pointer; font-family:inherit; font-weight:700;
+}
+#gaishoBtn{
+  background:rgba(8,10,22,.8); color:var(--gold); border:1px solid rgba(217,184,106,.5);
+  border-radius:99px; padding:.7em 1.6em; cursor:pointer; font-family:inherit; font-weight:700; font-size:.88rem;
+}
+#gaishoBtn:hover{background:rgba(217,184,106,.18)}
+#gaisho{
+  display:none; position:fixed; inset:0; z-index:40; background:rgba(2,3,9,.7); backdrop-filter:blur(4px);
+  align-items:flex-start; justify-content:center; overflow:auto; padding:5vh 4vw;
+}
+#gaisho.open{display:flex}
+.g-panel{
+  background:rgba(10,12,26,.97); border:1px solid rgba(217,184,106,.5); border-radius:12px;
+  color:var(--ink); padding:1.3rem 1.5rem; width:min(680px,94vw); box-shadow:0 30px 80px rgba(0,0,0,.7);
+}
+.g-panel h3{color:var(--gold); letter-spacing:.2em; font-size:1rem}
+.g-panel h3 small{font-size:.64em; opacity:.75; letter-spacing:.05em}
+.g-note{font-size:.74rem; opacity:.7; margin:.5em 0}
+.g-state{font-size:.78rem; color:#9fe8b0; background:rgba(0,0,0,.4); border-radius:8px; padding:.4em .8em; margin:.4em 0 .8em}
+.g-cols{display:flex; gap:1rem; flex-wrap:wrap}
+.g-cols section{flex:1 1 260px; display:flex; flex-direction:column; gap:.45em; padding:0}
+.g-cols h4{font-size:.78rem; color:var(--gold-dim); letter-spacing:.15em}
+.g-cols textarea{
+  height:64px; background:rgba(0,0,0,.45); color:#cdd4e6; border:1px solid rgba(217,184,106,.3);
+  border-radius:8px; font-size:.6rem; font-family:monospace; padding:.5em; resize:none;
+}
+.g-cols button,#gClose{
+  background:rgba(217,184,106,.15); color:var(--gold); border:1px solid rgba(217,184,106,.4);
+  border-radius:8px; padding:.5em; cursor:pointer; font-family:inherit; font-size:.78rem; font-weight:700;
+}
+.g-cols button:hover,#gClose:hover{background:rgba(217,184,106,.3)}
+#gClose{margin-top:1rem; width:100%}
+
+@media (max-width:760px){
+  .xsec{display:none}
+  .stamps{width:158px; left:8px; bottom:8px}
+  .elev{right:6px; padding:.5rem .35rem}
+  .elev button{width:36px; height:30px; font-size:.7rem}
+  header .open{display:none}
+  .card .media{flex-basis:100%}
+  #cartBtn{width:48px; height:48px; right:8px; bottom:10px; font-size:1.2rem}
+  .emer{right:4vw; bottom:4vh; font-size:.8rem}
+}
+@media (prefers-reduced-motion: reduce){
+  .scrollhint, header .open i{animation:none}
+}
+</style>
+</head>
+<body>
+
+<canvas id="world" aria-hidden="true"></canvas>
+
+<header>
+  <span class="brand">天地百貨店</span>
+  <span class="open"><i></i>営業中</span>
+  <span class="guests" id="guests"></span>
+  <span class="ticker" id="ticker"></span>
+  <span class="badge-clear">👑 全フロア制覇</span>
+</header>
+
+<!-- ============ 玄関(宇宙) ============ -->
+<section id="hero">
+  <h1 class="logo serif">天地百貨店</h1>
+  <div class="hero-sub">
+    <div class="en">TENCHI DEPARTMENT STORE</div>
+    <div class="copy serif">宇宙から太古まで、ぜんぶ売り場。</div>
+    <div class="since">創業138億年 ｜ 年中無休 ｜ 単一HTML建築</div>
+  </div>
+  <nav class="guide" aria-label="フロアガイド">
+    <h2>フロアのご案内</h2>
+    <a href="#floor-r" data-goto="floor-r"><span class="fl">R</span><span>屋上 星空遊園地 — 星座メーカー</span></a>
+    <a href="#floor-2f" data-goto="floor-2f"><span class="fl">2F</span><span>島づくり用品 — 架空の島メーカー</span></a>
+    <span class="dead"><span class="fl">1F</span><span>海面フロア(波の都合により改装中)</span></span>
+    <a href="#floor-b1" data-goto="floor-b1"><span class="fl">B1F</span><span>深海水族館 — デパ地下のはるか下</span></a>
+    <a href="#floor-b5" data-goto="floor-b5"><span class="fl">B5F</span><span>考古・文明売り場 — 文明の年代記</span></a>
+  </nav>
+  <div class="scrollhint">▼ 下りエスカレーターはこちら ▼</div>
+</section>
+
+<!-- ============ R 星座メーカー ============ -->
+<section id="floor-r" data-floor="r">
+  <div class="card theme-r">
+    <span class="floor-chip">R 屋上 ｜ 星空遊園地</span>
+    <span class="pricetag">¥0<small>(税込・神話付き)</small></span>
+    <div class="media">
+      <canvas id="mini-r" width="560" height="320"></canvas>
+      <div class="demo-badge">※実演販売中(本日の星座は自動命名)</div>
+    </div>
+    <div class="body">
+      <div class="dept">PLANETARIUM &amp; SPACE GOODS</div>
+      <h3>星座メーカー</h3>
+      <p class="desc">夜空に点を打って線で結ぶと、星座に名前と神話が生えてきます。屋上につき天井はございません。流れ星は投げ放題です。</p>
+      <ul class="goods"><li>恒星(量り売り)</li><li>神話(後付け)</li><li>流れ星(投げ放題)</li></ul>
+      <a class="cta" href="constellation-maker/index.html">入店する →</a>
+      <button class="freebie" data-item="恒星のかけら(小袋)" data-emoji="⭐">試供品をカゴへ</button>
+    </div>
+  </div>
+  <a class="emer" id="fallBtn" role="button">🏃 非常口<br><small>(下り専用・物理演算)</small></a>
+</section>
+
+<!-- ============ 2F 島メーカー ============ -->
+<section id="floor-2f" data-floor="2f">
+  <div class="card theme-2f">
+    <span class="floor-chip">2F ｜ 島づくり用品</span>
+    <span class="pricetag">¥0<small>(火山は仕様です)</small></span>
+    <div class="media">
+      <canvas id="mini-2f" width="560" height="320"></canvas>
+      <div class="demo-badge">※実演販売中(島は6秒ごとに湧きます)</div>
+    </div>
+    <div class="body">
+      <div class="dept">ISLAND SUPPLIES</div>
+      <h3>架空の島メーカー</h3>
+      <p class="desc">ボタンひとつで島が湧き、地名が勝手に付きます。観光客はまだいませんが、火山は元気です。返品は地殻変動のためお受けできません。</p>
+      <ul class="goods"><li>島(架空)</li><li>地名(自動生成)</li><li>火山(よく噴火)</li></ul>
+      <a class="cta" href="island-maker/index.html">入店する →</a>
+      <button class="freebie" data-item="架空の島(ポケットサイズ)" data-emoji="🏝">試供品をカゴへ</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 1F 改装中 ============ -->
+<section id="floor-1f">
+  <div class="reno"><span>🚧 1F 海面フロアは改装中です(波の都合) — ご迷惑をおかけしております 🚧</span></div>
+</section>
+
+<!-- ============ B1F 深海水族館 ============ -->
+<section id="floor-b1" data-floor="b1">
+  <div class="card theme-b1">
+    <span class="floor-chip">B1F ｜ デパ深海</span>
+    <span class="pricetag">¥0<small>(水圧サービス中)</small></span>
+    <div class="media">
+      <canvas id="mini-b1" width="560" height="320"></canvas>
+      <div class="demo-badge">※実演販売中(光ります)</div>
+    </div>
+    <div class="body">
+      <div class="dept">DEEP-SEA AQUARIUM</div>
+      <h3>深海水族館</h3>
+      <p class="desc">デパ地下のはるか下。本日も新鮮な深海生物が泳いでおります(鮮魚売り場ではございません。食べないでください)。照明は生物各自の発光に頼っております。</p>
+      <ul class="goods"><li>光る魚(観賞用)</li><li>マリンスノー(降り放題)</li><li>水圧(無料)</li></ul>
+      <a class="cta" href="deep-sea-aquarium/index.html">入店する →</a>
+      <button class="freebie" data-item="深海の水(高圧・開封厳禁)" data-emoji="🫧">試供品をカゴへ</button>
+      <button class="takeout" id="pipBtn">🐟 お持ち帰り(小窓)</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ B5F 文明の年代記 ============ -->
+<section id="floor-b5" data-floor="b5">
+  <div class="card theme-b5">
+    <span class="floor-chip">B5F ｜ 考古・文明売り場</span>
+    <span class="pricetag">¥0<small>(滅亡はおまけ)</small></span>
+    <div class="media">
+      <canvas id="mini-b5" width="560" height="320"></canvas>
+      <div class="demo-badge">※実演販売中(興亡を繰り返します)</div>
+    </div>
+    <div class="body">
+      <div class="dept">ARCHAEOLOGY &amp; CIVILIZATIONS</div>
+      <h3>文明の年代記</h3>
+      <p class="desc">文明が勝手に興り、勝手に栄え、勝手に滅びます。年表は自動で書き上がります。文明の興亡について当店は一切の責任を負いかねます。</p>
+      <ul class="goods"><li>文明(諸行無常)</li><li>歴史(年表付き)</li><li>滅亡(おまけ)</li></ul>
+      <a class="cta" href="chronicle/index.html">入店する →</a>
+      <button class="freebie" data-item="文明(中古・滅亡済)" data-emoji="🏺">試供品をカゴへ</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ マントル階 ============ -->
+<section id="floor-mantle">
+  <div class="keepout">⚠ マントル階 — 関係者以外立入禁止 ⚠</div>
+  <div class="voices">
+    <h4>お客様の声</h4>
+    <div id="voiceCard"></div>
+    <form id="voiceForm">
+      <input id="voiceInput" placeholder="ご意見・ご感想をどうぞ(処理はされません)" maxlength="60">
+      <button>投函</button>
+    </form>
+  </div>
+  <button id="gaishoBtn">☎ 外商部窓口 — お友達を召喚する(WebRTC)</button>
+  <dl>
+    <dt>営業時間</dt><dd>ビッグバン 〜 宇宙の熱的死</dd>
+    <dt>定休日</dt><dd>ございません</dd>
+    <dt>売場面積</dt><dd>約5.1億km²(地表換算)</dd>
+    <dt>営業日数</dt><dd id="bizdays">計算中…</dd>
+    <dt>お問い合わせ</dt><dd>星に願いを</dd>
+  </dl>
+  <div class="fine">
+    あなたは <span id="visits">?</span> 人目のお客様です(当ブラウザ調べ)。<br>
+    このページは1枚のHTMLでできています。増築を重ねましたが、反省はしていません。<br>
+    © 天地百貨店 — TENCHI DEPARTMENT STORE
+  </div>
+</section>
+
+<!-- ============ fixed UI ============ -->
+<nav class="elev" aria-label="エレベーター">
+  <span class="lab">ELEVATOR</span>
+  <button data-goto="floor-r">R</button>
+  <button data-goto="floor-2f">2</button>
+  <button disabled title="波の都合により改装中">1</button>
+  <button data-goto="floor-b1">B1</button>
+  <button data-goto="floor-b5">B5</button>
+  <button class="sound" id="soundBtn" title="音声案内">🔇</button>
+</nav>
+
+<div class="xsec">
+  <span class="lab">館内断面図</span>
+  <div class="strip" id="xstrip" title="クリックで瞬間移動"><span class="you" id="xyou">📍</span></div>
+  <div class="alt" id="alt">高度 計測中…</div>
+</div>
+
+<aside class="stamps" aria-label="スタンプラリー">
+  <h4>全館スタンプラリー</h4>
+  <div class="slots">
+    <div class="slot" data-stamp="r">屋上<span class="hanko">星</span></div>
+    <div class="slot" data-stamp="2f">2F<span class="hanko">島</span></div>
+    <div class="slot" data-stamp="b1">B1<span class="hanko">海</span></div>
+    <div class="slot" data-stamp="b5">B5<span class="hanko">古</span></div>
+  </div>
+  <div class="msg" id="stampMsg">各フロアにご滞在で押印されます</div>
+</aside>
+
+<div class="announce" id="announce"></div>
+
+<div id="closeveil"><p class="serif">— 蛍の光 —<br>本日も誠にありがとうございました</p></div>
+
+<div id="doors" class="active closed" aria-hidden="true">
+  <div class="panel L"></div><div class="panel R"></div>
+  <div class="lamp" id="doorLamp">開 店</div>
+</div>
+
+<button id="cartBtn" aria-label="お買い物カゴ">🧺<span class="n" id="cartN">0</span></button>
+
+<div id="register" role="dialog" aria-label="レジ">
+  <div class="reg-panel">
+    <h3>レジ <small>(全品0円につき現金のお取り扱いはございません)</small></h3>
+    <ul id="regList"></ul>
+    <div class="reg-total">合計 <b>¥0</b> <small>(税込)</small></div>
+    <div class="reg-actions">
+      <button id="printBtn">レシート印刷</button>
+      <button id="clearCart">カゴを空に</button>
+      <button id="closeReg">閉じる</button>
+    </div>
+    <div class="printer"><div class="printer-slot"></div><div id="receiptOut"></div></div>
+    <a id="receiptSave">📄 レシートを保存する(記念品)</a>
+  </div>
+</div>
+
+<div id="gaisho" role="dialog" aria-label="外商部">
+  <div class="g-panel">
+    <h3>外商部 <small>(お友達召喚窓口・WebRTC手動シグナリング)</small></h3>
+    <p class="g-note">当店にサーバーはございません。招待状は LINE・メール・伝書鳩など、お好きな手段でお運びください。同じWi-Fi内ですと足がはやいです。</p>
+    <div class="g-state" id="gState">状態: 未接続</div>
+    <div class="g-cols">
+      <section>
+        <h4>あなたが招く側</h4>
+        <button id="gMakeOffer">1. 招待状を発行</button>
+        <textarea id="gOffer" readonly placeholder="(ここに招待状が出ます)"></textarea>
+        <button class="gCopy" data-copy="#gOffer">招待状をコピー</button>
+        <textarea id="gAnswerIn" placeholder="3. 返ってきた返信状をここに貼る"></textarea>
+        <button id="gTakeAnswer">4. 接続する</button>
+      </section>
+      <section>
+        <h4>あなたが招かれた側</h4>
+        <textarea id="gOfferIn" placeholder="1. 届いた招待状をここに貼る"></textarea>
+        <button id="gMakeAnswer">2. 返信状を発行</button>
+        <textarea id="gAnswerOut" readonly placeholder="(ここに返信状が出ます)"></textarea>
+        <button class="gCopy" data-copy="#gAnswerOut">返信状をコピー</button>
+      </section>
+    </div>
+    <button id="gClose">窓口を閉じる</button>
+  </div>
+</div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="wobble"><feTurbulence id="wobbleT" type="fractalNoise" baseFrequency="0.011 0.017" numOctaves="1" seed="7" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="4"/></filter>
+  <filter id="shimmer"><feTurbulence id="shimmerT" type="turbulence" baseFrequency="0.018 0.06" numOctaves="1" seed="2" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="6"/></filter>
+</svg>
+
+<script>
+(()=>{
+'use strict';
+
+/* ============================================================
+   天地百貨店 — 館内システム一式
+   (背景の世界 / エレベーター / 館内放送 / スタンプラリー / 売り場実演)
+============================================================ */
+
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const lerp=(a,b,t)=>a+(b-a)*t, clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const rnd=(a=1,b)=>b===undefined? Math.random()*a : a+Math.random()*(b-a);
+const TAU=Math.PI*2;
+
+/* ---------- canvas ---------- */
+const cv=$('#world'), cx=cv.getContext('2d');
+let W=0,H=0,scrollY=0,docH=1;
+
+/* ---------- world zones (sections のレイアウトから計測) ---------- */
+const Z={};
+function measure(){
+  const g=id=>{const el=document.getElementById(id); return {top:el.offsetTop, bot:el.offsetTop+el.offsetHeight}};
+  Z.hero=g('hero'); Z.r=g('floor-r'); Z.f2=g('floor-2f'); Z.f1=g('floor-1f');
+  Z.b1=g('floor-b1'); Z.b5=g('floor-b5'); Z.mantle=g('floor-mantle');
+  Z.skyTop=Z.f2.top;                       // 宇宙→空
+  Z.seaLevel=(Z.f1.top+Z.f1.bot)/2;        // 海面
+  Z.strataTop=Z.b5.top;                    // 海→地層
+  Z.magmaTop=Z.mantle.top;                 // 地層→マントル
+  Z.worldBot=Z.mantle.bot;
+  docH=document.documentElement.scrollHeight;
+  buildXsec();
+}
+
+/* ---------- background gradient ---------- */
+function hex(c){const n=parseInt(c.slice(1),16);return [n>>16&255,n>>8&255,n&255]}
+let stops=[];
+function buildStops(){
+  stops=[
+    [0,'#020309'],[Z.skyTop-700,'#070d22'],[Z.skyTop-160,'#23476b'],
+    [Z.skyTop+260,'#5ba6bf'],[Z.seaLevel-140,'#9fd2d8'],[Z.seaLevel+6,'#0f7e8e'],
+    [Z.seaLevel+560,'#075568'],[(Z.b1.top+Z.b1.bot)/2,'#03293f'],
+    [Z.strataTop-180,'#021019'],[Z.strataTop+8,'#1a120a'],
+    [Z.magmaTop,'#23150c'],[Z.worldBot,'#2a0b04']
+  ].map(([y,c])=>[y,hex(c)]);
+}
+function colorAt(wy){
+  if(wy<=stops[0][0]) return stops[0][1];
+  for(let i=1;i<stops.length;i++){
+    if(wy<=stops[i][0]){
+      const [y0,c0]=stops[i-1],[y1,c1]=stops[i], t=(wy-y0)/(y1-y0);
+      return [lerp(c0[0],c1[0],t),lerp(c0[1],c1[1],t),lerp(c0[2],c1[2],t)];
+    }
+  }
+  return stops[stops.length-1][1];
+}
+function drawBG(){
+  const g=cx.createLinearGradient(0,0,0,H);
+  for(let i=0;i<=5;i++){
+    const c=colorAt(scrollY+H*i/5);
+    g.addColorStop(i/5,`rgb(${c[0]|0},${c[1]|0},${c[2]|0})`);
+  }
+  cx.fillStyle=g; cx.fillRect(0,0,W,H);
+}
+
+/* ---------- entities ---------- */
+const E={stars:[],shoots:[],clouds:[],birds:[],fish:[],jellies:[],anglers:[],snow:[],bubbles:[],fossils:[],embers:[],confetti:[]};
+function spawn(){
+  const k=RM?0.4:1;
+  E.stars=Array.from({length:240*k|0},()=>({x:rnd(W),y:rnd(Z.skyTop-160),r:rnd(.5,1.8),tw:rnd(TAU),sp:rnd(.5,2.4)}));
+  E.clouds=Array.from({length:8*k|0},()=>({x:rnd(W),y:rnd(Z.skyTop+H*.18,Z.seaLevel-H*.28),s:rnd(.6,1.5),sp:rnd(4,14)}));
+  E.birds=Array.from({length:5*k|0},()=>mkBird());
+  const seaA=Z.seaLevel+H*.3, seaB=Z.strataTop-H*.22;
+  E.fish=Array.from({length:22*k|0},()=>mkFish(seaA,seaB));
+  E.jellies=Array.from({length:7*k|0},()=>({x:rnd(W),y:rnd(seaA,seaB),s:rnd(.6,1.3),ph:rnd(TAU),sp:rnd(6,14)}));
+  E.anglers=[
+    {x:rnd(W),y:lerp(seaA,seaB,.72),dir:1,sp:rnd(16,24),ph:rnd(TAU),s:1.25},
+    {x:rnd(W),y:lerp(seaA,seaB,.9),dir:-1,sp:rnd(12,20),ph:rnd(TAU),s:.9},
+  ];
+  E.snow=Array.from({length:90*k|0},()=>({x:rnd(W),y:rnd(Z.seaLevel,Z.strataTop),sp:rnd(8,26),ph:rnd(TAU),r:rnd(.6,1.8)}));
+  // 化石(座標固定・スマホの化石含む)
+  const fossilTypes=['ammonite','bone','pot','ammonite','bone','pot','phone','ammonite','bone'];
+  E.fossils=fossilTypes.map((type,i)=>({
+    type, x:W*((i*.37+.08)%0.9+.05), y:lerp(Z.strataTop+90,Z.magmaTop-110,(i*.41+.13)%1),
+    rot:rnd(-.6,.6), s:rnd(.8,1.4)
+  }));
+  E.embers=Array.from({length:26*k|0},()=>({x:rnd(W),y:rnd(Z.magmaTop,Z.worldBot),sp:rnd(10,38),ph:rnd(TAU)}));
+}
+function mkBird(){return {x:rnd(-W,W*2),y:rnd(Z.skyTop+H*.1,Z.seaLevel-H*.3),sp:rnd(28,55)*(Math.random()<.5?1:-1),ph:rnd(TAU)}}
+function mkFish(a,b){
+  const pal=['#3fb8a8','#e8a04c','#cf6f8e','#7fa8d8','#9fd86a'];
+  return {x:rnd(W),y:rnd(a,b),vx:rnd(12,40)*(Math.random()<.5?1:-1),s:rnd(.55,1.3),c:pal[rnd(pal.length)|0],ph:rnd(TAU),glow:Math.random()<.3};
+}
+const vis=(wy,m=120)=>wy>scrollY-m && wy<scrollY+H+m;
+const sy=wy=>wy-scrollY;
+
+/* ---------- drawing: 各層 ---------- */
+function drawStars(t){
+  for(const s of E.stars){ if(!vis(s.y))continue;
+    const a=(.35+.65*Math.abs(Math.sin(t*s.sp+s.tw)))*clamp((Z.skyTop-s.y)/420,0,1);
+    cx.globalAlpha=a; cx.fillStyle='#dfe6ff';
+    cx.beginPath(); cx.arc(s.x,sy(s.y),s.r,0,TAU); cx.fill();
+  }
+  cx.globalAlpha=1;
+  // 流れ星
+  if(!RM && Math.random()<.012 && scrollY<Z.skyTop) spawnShoot(rnd(W*.2,W),rnd(scrollY,Math.min(scrollY+H*.6,Z.skyTop-300)));
+  for(let i=E.shoots.length-1;i>=0;i--){
+    const s=E.shoots[i]; s.x+=s.vx; s.y+=s.vy; s.life-=.02;
+    if(s.life<=0){E.shoots.splice(i,1);continue}
+    const g=cx.createLinearGradient(s.x,sy(s.y),s.x-s.vx*9,sy(s.y)-s.vy*9);
+    g.addColorStop(0,`rgba(255,250,220,${s.life})`); g.addColorStop(1,'rgba(255,250,220,0)');
+    cx.strokeStyle=g; cx.lineWidth=2; cx.beginPath();
+    cx.moveTo(s.x,sy(s.y)); cx.lineTo(s.x-s.vx*9,sy(s.y)-s.vy*9); cx.stroke();
+  }
+}
+function spawnShoot(x,wy){E.shoots.push({x,y:wy,vx:rnd(-9,-5),vy:rnd(2.5,5),life:1})}
+
+function drawSky(t,dt){
+  // 太陽
+  const sunY=Z.skyTop+H*.34;
+  if(vis(sunY,200)){
+    const x=W*.82, y=sy(sunY);
+    const g=cx.createRadialGradient(x,y,0,x,y,90);
+    g.addColorStop(0,'rgba(255,244,200,.95)'); g.addColorStop(.3,'rgba(255,238,170,.5)'); g.addColorStop(1,'rgba(255,238,170,0)');
+    cx.fillStyle=g; cx.beginPath(); cx.arc(x,y,90,0,TAU); cx.fill();
+    cx.fillStyle='#fff7d8'; cx.beginPath(); cx.arc(x,y,26,0,TAU); cx.fill();
+  }
+  for(const c of E.clouds){ if(!vis(c.y,160))continue;
+    c.x+=c.sp*dt; if(c.x>W+220)c.x=-220;
+    cx.fillStyle='rgba(255,255,255,.85)';
+    const y=sy(c.y);
+    for(const [ox,oy,r] of [[-46,6,26],[-12,-8,34],[26,0,30],[58,8,22]]){
+      cx.beginPath(); cx.ellipse(c.x+ox*c.s,y+oy*c.s,r*c.s,r*.62*c.s,0,0,TAU); cx.fill();
+    }
+  }
+  for(const b of E.birds){ if(!vis(b.y,60))continue;
+    b.x+=b.sp*dt; if(b.x>W+80)b.x=-80; if(b.x<-80)b.x=W+80;
+    const w=Math.sin(t*8+b.ph)*7, y=sy(b.y), d=Math.sign(b.sp);
+    cx.strokeStyle='rgba(40,60,70,.85)'; cx.lineWidth=2; cx.beginPath();
+    cx.moveTo(b.x-12*d,y-w); cx.quadraticCurveTo(b.x-4*d,y+4,b.x,y);
+    cx.quadraticCurveTo(b.x+4*d,y+4,b.x+12*d,y-w); cx.stroke();
+  }
+}
+
+function drawSea(t){
+  if(!vis(Z.seaLevel,260))return;
+  const y0=sy(Z.seaLevel);
+  // 波
+  for(let i=0;i<3;i++){
+    cx.strokeStyle=`rgba(255,255,255,${.55-i*.16})`; cx.lineWidth=2.2-i*.5;
+    cx.beginPath();
+    for(let x=0;x<=W;x+=8){
+      const y=y0+i*7+Math.sin(x*.02+t*(1.4+i*.4)+i*2)*4.5;
+      x===0?cx.moveTo(x,y):cx.lineTo(x,y);
+    }
+    cx.stroke();
+  }
+  // 島(2F 売り場の見本)
+  const ix=W*.30, iy=y0+2, sway=Math.sin(t*1.2)*3;
+  cx.fillStyle='rgba(10,40,55,.18)'; cx.beginPath(); cx.ellipse(ix,iy+16,95,14,0,0,TAU); cx.fill();
+  cx.fillStyle='#e7d9a8'; cx.beginPath(); cx.ellipse(ix,iy,88,26,0,0,Math.PI,true); cx.fill();
+  cx.fillStyle='#7fae6b'; cx.beginPath(); cx.ellipse(ix+6,iy-10,52,18,0,0,Math.PI,true); cx.fill();
+  // ヤシの木
+  cx.strokeStyle='#7a5a30'; cx.lineWidth=5; cx.beginPath();
+  cx.moveTo(ix-18,iy-6); cx.quadraticCurveTo(ix-22,iy-40,ix-12+sway*.4,iy-62); cx.stroke();
+  cx.strokeStyle='#3f8a4f'; cx.lineWidth=4;
+  for(let i=0;i<5;i++){
+    const a=-Math.PI*.9+i*.42+sway*.012;
+    cx.beginPath(); cx.moveTo(ix-12+sway*.4,iy-62);
+    cx.quadraticCurveTo(ix-12+Math.cos(a)*26+sway*.4,iy-62+Math.sin(a)*18-8,ix-12+Math.cos(a)*40+sway,iy-62+Math.sin(a)*30); cx.stroke();
+  }
+  // ボート
+  const bx=W*.72, by=y0+Math.sin(t*1.6)*3;
+  cx.save(); cx.translate(bx,by); cx.rotate(Math.sin(t*1.6+1)*.05);
+  cx.fillStyle='#8a5a30'; cx.beginPath(); cx.moveTo(-30,0); cx.quadraticCurveTo(0,16,30,0); cx.lineTo(22,-4); cx.lineTo(-22,-4); cx.fill();
+  cx.strokeStyle='#5a4326'; cx.lineWidth=2.5; cx.beginPath(); cx.moveTo(0,-4); cx.lineTo(0,-34); cx.stroke();
+  cx.fillStyle='#f3ead2'; cx.beginPath(); cx.moveTo(2,-32); cx.lineTo(24,-12); cx.lineTo(2,-10); cx.fill();
+  cx.restore();
+}
+
+function drawDeep(t,dt){
+  for(const s of E.snow){ if(!vis(s.y))continue;
+    s.y+=s.sp*dt; s.x+=Math.sin(t+s.ph)*.3;
+    if(s.y>Z.strataTop)s.y=Z.seaLevel+20;
+    cx.globalAlpha=.5; cx.fillStyle='#cfe8ec';
+    cx.beginPath(); cx.arc(s.x,sy(s.y),s.r,0,TAU); cx.fill();
+  }
+  cx.globalAlpha=1;
+  for(const b of E.bubbles.slice()){
+    b.y-=b.sp*dt*60*.016; b.x+=Math.sin(t*4+b.ph)*.5; b.life-=dt;
+    if(b.life<=0||b.y<Z.seaLevel){E.bubbles.splice(E.bubbles.indexOf(b),1);continue}
+    cx.strokeStyle=`rgba(190,235,240,${clamp(b.life,0,.8)})`; cx.lineWidth=1.2;
+    cx.beginPath(); cx.arc(b.x,sy(b.y),b.r,0,TAU); cx.stroke();
+  }
+  for(const f of E.fish){ if(!vis(f.y,60))continue;
+    f.x+=f.vx*dt; if(f.x>W+60)f.x=-60; if(f.x<-60)f.x=W+60;
+    const d=Math.sign(f.vx), y=sy(f.y), tail=Math.sin(t*7+f.ph)*6*f.s;
+    cx.save(); cx.translate(f.x,y); cx.scale(d,1);
+    if(f.glow){
+      const g=cx.createRadialGradient(0,0,0,0,0,26*f.s);
+      g.addColorStop(0,'rgba(160,255,230,.35)'); g.addColorStop(1,'rgba(160,255,230,0)');
+      cx.fillStyle=g; cx.beginPath(); cx.arc(0,0,26*f.s,0,TAU); cx.fill();
+    }
+    cx.fillStyle=f.c; cx.beginPath(); cx.ellipse(0,0,15*f.s,7*f.s,0,0,TAU); cx.fill();
+    cx.beginPath(); cx.moveTo(-14*f.s,0); cx.lineTo(-23*f.s,-tail*.5-4*f.s); cx.lineTo(-23*f.s,tail*.5+4*f.s); cx.fill();
+    cx.fillStyle='#06222e'; cx.beginPath(); cx.arc(8*f.s,-1.5*f.s,1.8*f.s,0,TAU); cx.fill();
+    cx.restore();
+  }
+  for(const j of E.jellies){ if(!vis(j.y,80))continue;
+    j.y-=j.sp*dt*.4; j.x+=Math.sin(t*.8+j.ph)*.4;
+    if(j.y<Z.seaLevel+H*.3)j.y=Z.strataTop-H*.25;
+    const y=sy(j.y), pul=1+Math.sin(t*2.4+j.ph)*.12, a=.5+.3*Math.sin(t*2.4+j.ph);
+    cx.fillStyle=`rgba(168,190,255,${a*.5})`;
+    cx.beginPath(); cx.arc(j.x,y,16*j.s*pul,Math.PI,0); cx.fill();
+    cx.strokeStyle=`rgba(168,190,255,${a*.4})`; cx.lineWidth=1.4;
+    for(let i=-1;i<=1;i++){
+      cx.beginPath(); cx.moveTo(j.x+i*8*j.s,y);
+      cx.quadraticCurveTo(j.x+i*10*j.s+Math.sin(t*3+i)*4,y+16*j.s,j.x+i*7*j.s,y+30*j.s); cx.stroke();
+    }
+  }
+  for(const a of E.anglers){ if(!vis(a.y,80))continue;
+    a.x+=a.sp*a.dir*dt;
+    if(a.x>W+90)a.dir=-1; if(a.x<-90)a.dir=1;
+    const y=sy(a.y)+Math.sin(t+a.ph)*6, d=a.dir, fl=.7+.3*Math.sin(t*9+a.ph);
+    cx.save(); cx.translate(a.x,y); cx.scale(d,1);
+    const lx=26*a.s, ly=-22*a.s;
+    const g=cx.createRadialGradient(lx,ly,0,lx,ly,42*a.s);
+    g.addColorStop(0,`rgba(190,255,235,${.85*fl})`); g.addColorStop(1,'rgba(190,255,235,0)');
+    cx.fillStyle=g; cx.beginPath(); cx.arc(lx,ly,42*a.s,0,TAU); cx.fill();
+    cx.strokeStyle='rgba(140,190,180,.6)'; cx.lineWidth=2;
+    cx.beginPath(); cx.moveTo(6*a.s,-12*a.s); cx.quadraticCurveTo(20*a.s,-30*a.s,lx,ly); cx.stroke();
+    cx.fillStyle=`rgba(220,255,245,${fl})`; cx.beginPath(); cx.arc(lx,ly,4*a.s,0,TAU); cx.fill();
+    cx.fillStyle='#0c1d2a'; cx.beginPath(); cx.ellipse(0,0,30*a.s,16*a.s,0,0,TAU); cx.fill();
+    cx.beginPath(); cx.moveTo(-28*a.s,0); cx.lineTo(-44*a.s,-10*a.s); cx.lineTo(-44*a.s,10*a.s); cx.fill();
+    cx.fillStyle='#eaf8f4'; cx.beginPath(); cx.arc(14*a.s,-4*a.s,3*a.s,0,TAU); cx.fill();
+    cx.strokeStyle='#eaf8f4'; cx.lineWidth=1.5;
+    cx.beginPath(); cx.moveTo(22*a.s,4*a.s); cx.lineTo(16*a.s,9*a.s); cx.moveTo(16*a.s,4*a.s); cx.lineTo(10*a.s,9*a.s); cx.stroke();
+    cx.restore();
+  }
+}
+
+function drawStrata(t){
+  if(!vis(Z.strataTop,H)&&!vis(Z.magmaTop,H))return;
+  const cols=['#241a10','#2d2013','#1f150c','#332417','#281b0e'];
+  const bandH=92;
+  const from=Math.max(Z.strataTop,scrollY-bandH), to=Math.min(Z.magmaTop,scrollY+H+bandH);
+  for(let by=Z.strataTop;by<Z.magmaTop;by+=bandH){
+    if(by+bandH<from||by>to)continue;
+    const i=(by-Z.strataTop)/bandH|0;
+    cx.fillStyle=cols[i%cols.length];
+    cx.beginPath(); cx.moveTo(0,sy(by));
+    for(let x=0;x<=W;x+=24) cx.lineTo(x,sy(by)+Math.sin(x*.012+i*1.7)*7);
+    cx.lineTo(W,sy(by+bandH+12)); cx.lineTo(0,sy(by+bandH+12)); cx.fill();
+  }
+  // 神殿の遺跡(うっすら光る)
+  const ry=Z.strataTop+(Z.magmaTop-Z.strataTop)*.55, rx=W*.22;
+  if(vis(ry,160)){
+    const y=sy(ry), fl=.6+.4*Math.sin(t*3.2);
+    const g=cx.createRadialGradient(rx,y+10,0,rx,y+10,120);
+    g.addColorStop(0,`rgba(255,170,80,${.18*fl})`); g.addColorStop(1,'rgba(255,170,80,0)');
+    cx.fillStyle=g; cx.beginPath(); cx.arc(rx,y+10,120,0,TAU); cx.fill();
+    cx.fillStyle='#5a4a35';
+    for(let i=-1;i<=1;i++) cx.fillRect(rx+i*30-6,y-26,12,52);
+    cx.beginPath(); cx.moveTo(rx-48,y-26); cx.lineTo(rx,y-50); cx.lineTo(rx+48,y-26); cx.fill();
+    cx.fillStyle=`rgba(255,200,120,${.5*fl})`; cx.fillRect(rx-2,y+2,4,7);
+  }
+  // 化石たち
+  for(const f of E.fossils){ if(!vis(f.y,80))continue;
+    cx.save(); cx.translate(f.x,sy(f.y)); cx.rotate(f.rot); cx.scale(f.s,f.s);
+    cx.strokeStyle='rgba(150,122,86,.9)'; cx.lineWidth=2.4; cx.fillStyle='rgba(150,122,86,.25)';
+    if(f.type==='ammonite'){
+      for(let r=14;r>3;r-=4){cx.beginPath(); cx.arc(r*.3-3,0,r,0,TAU*.85); cx.stroke();}
+    }else if(f.type==='bone'){
+      cx.beginPath(); cx.moveTo(-16,0); cx.lineTo(16,0); cx.stroke();
+      for(const e of [-16,16]){cx.beginPath(); cx.arc(e,-4,4,0,TAU); cx.arc(e,4,4,0,TAU); cx.fill();}
+    }else if(f.type==='pot'){
+      cx.beginPath(); cx.moveTo(-10,-12); cx.quadraticCurveTo(-16,4,-8,14); cx.lineTo(8,14);
+      cx.quadraticCurveTo(16,4,10,-12); cx.stroke();
+      cx.beginPath(); cx.moveTo(-10,-12); cx.lineTo(10,-12); cx.stroke();
+    }else{ // 化石になったスマホ
+      cx.strokeStyle='rgba(170,160,150,.95)';
+      cx.beginPath(); cx.roundRect(-9,-16,18,32,4); cx.stroke();
+      cx.beginPath(); cx.arc(0,11,2,0,TAU); cx.stroke();
+      cx.beginPath(); cx.moveTo(-6,-10); cx.lineTo(4,2); cx.lineTo(-2,8); cx.stroke(); // ヒビ
+    }
+    cx.restore();
+  }
+}
+
+function drawMagma(t,dt){
+  if(!vis(Z.magmaTop,H))return;
+  const g=cx.createLinearGradient(0,sy(Z.worldBot),0,sy(Z.magmaTop));
+  g.addColorStop(0,'rgba(255,96,20,.4)'); g.addColorStop(1,'rgba(255,96,20,0)');
+  cx.fillStyle=g; cx.fillRect(0,sy(Z.magmaTop),W,Z.worldBot-Z.magmaTop);
+  for(const e of E.embers){
+    e.y-=e.sp*dt; e.x+=Math.sin(t*2+e.ph)*.6;
+    if(e.y<Z.magmaTop)e.y=Z.worldBot;
+    if(!vis(e.y))continue;
+    cx.globalAlpha=.5+.5*Math.sin(t*6+e.ph);
+    cx.fillStyle='#ffb46a'; cx.beginPath(); cx.arc(e.x,sy(e.y),1.8,0,TAU); cx.fill();
+  }
+  cx.globalAlpha=1;
+}
+
+function drawConfetti(dt){
+  for(let i=E.confetti.length-1;i>=0;i--){
+    const c=E.confetti[i];
+    c.vy+=240*dt; c.x+=c.vx*dt; c.y+=c.vy*dt; c.rot+=c.vr*dt; c.life-=dt;
+    if(c.life<=0||c.y>H+30){E.confetti.splice(i,1);continue}
+    cx.save(); cx.translate(c.x,c.y); cx.rotate(c.rot);
+    cx.fillStyle=c.col; cx.fillRect(-4,-2.5,8,5); cx.restore();
+  }
+}
+function confetti(n){
+  const cols=['#e0312e','#f7d54a','#43d96b','#5468d4','#d9b86a','#5fe8d2'];
+  for(let i=0;i<n;i++) E.confetti.push({
+    x:rnd(W),y:rnd(-H*.3,0),vx:rnd(-60,60),vy:rnd(20,140),rot:rnd(TAU),vr:rnd(-7,7),
+    col:cols[rnd(cols.length)|0],life:rnd(2.5,5)
+  });
+}
+
+/* ---------- main loop ---------- */
+let lastT=0;
+function frame(ms){
+  const t=ms/1000, dt=Math.min(.05,t-lastT||.016); lastT=t;
+  scrollY=window.scrollY;
+  updateFall(dt);
+  par.x=lerp(par.x,par.target,.06);
+  shakeT=Math.max(0,shakeT-dt*1.3);
+  const shX=shakeT?(Math.random()-.5)*16*shakeT:0, shY=shakeT?(Math.random()-.5)*12*shakeT:0;
+  cx.clearRect(0,0,W,H);
+  drawBG();
+  cx.save(); cx.translate(par.x+shX,shY);
+  drawStars(t);
+  drawFerris(t);
+  drawSky(t,dt);
+  drawSea(t);
+  drawDeep(t,dt);
+  drawStrata(t);
+  drawMagma(t,dt);
+  drawFaller(t);
+  cx.restore();
+  drawConfetti(dt);
+  updateChrome(t);
+  gamepadPoll();
+  filtersTick(t);
+  renderMinis(t,dt);
+  requestAnimationFrame(frame);
+}
+
+/* ============================================================
+   館内設備(エレベーター / 放送 / 高度計 / スタンプ)
+============================================================ */
+const FLOORS={
+  'floor-r' :{code:'R', say:'屋上、星空遊園地でございます。流れ星は投げ放題でございます。'},
+  'floor-2f':{code:'2', say:'2階、島づくり用品売り場でございます。本日も火山がよく噴火しております。'},
+  'floor-b1':{code:'B1',say:'地下1階、深海水族館でございます。本日の水圧も大変良好でございます。'},
+  'floor-b5':{code:'B5',say:'地下5階、考古・文明売り場でございます。文明のお取り扱いには十分ご注意ください。'},
+};
+
+/* ----- sound ----- */
+let AC=null, soundMode=+(localStorage.getItem('tenchi-sound')||0), ambient=null;
+const soundBtn=$('#soundBtn');
+function acx(){ if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==='suspended')AC.resume(); return AC }
+function tone(freq,dur,delay=0,type='triangle',vol=.12){
+  if(soundMode<1)return;
+  const a=acx(), o=a.createOscillator(), g=a.createGain(), t0=a.currentTime+delay;
+  o.type=type; o.frequency.value=freq; o.connect(g); g.connect(a.destination);
+  g.gain.setValueAtTime(0,t0); g.gain.linearRampToValueAtTime(vol,t0+.02);
+  g.gain.exponentialRampToValueAtTime(.0001,t0+dur);
+  o.start(t0); o.stop(t0+dur+.05);
+}
+const ding=()=>{tone(1318,.5,0,'sine',.1); tone(1046,.7,.28,'sine',.1)}; // ピンポン
+const stampSound=()=>{tone(140,.12,0,'square',.16); tone(90,.18,.02,'sine',.18)};
+function ambientStart(){
+  if(soundMode<1||ambient||RM)return;
+  const a=acx(), len=a.sampleRate*2, buf=a.createBuffer(1,len,a.sampleRate), d=buf.getChannelData(0);
+  for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
+  const src=a.createBufferSource(); src.buffer=buf; src.loop=true;
+  const f=a.createBiquadFilter(); f.type='lowpass'; f.frequency.value=600; f.Q.value=.7;
+  const g=a.createGain(); g.gain.value=.022;
+  src.connect(f); f.connect(g); g.connect(a.destination); src.start();
+  ambient={f,g,src};
+}
+function ambientStop(){ if(ambient){try{ambient.src.stop()}catch(e){} ambient=null} }
+function ambientTune(){
+  if(!ambient)return;
+  const mid=scrollY+H/2; let cut=600;
+  if(mid<Z.skyTop)cut=3200; else if(mid<Z.seaLevel)cut=1100; else if(mid<Z.strataTop)cut=420; else if(mid<Z.magmaTop)cut=200; else cut=140;
+  ambient.f.frequency.setTargetAtTime(cut,acx().currentTime,.6);
+}
+setInterval(ambientTune,400);
+function paintSoundBtn(){
+  soundBtn.textContent=['🔇','🔔','🛎️','🎶'][soundMode];
+  soundBtn.title=['音なし(押すと効果音)','効果音のみ(押すと音声案内も)','音声案内つき(押すと館内BGMも)','フル営業(押すと消音)'][soundMode];
+}
+soundBtn.addEventListener('click',()=>{
+  soundMode=(soundMode+1)%4; localStorage.setItem('tenchi-sound',soundMode); paintSoundBtn();
+  if(soundMode>=1){acx(); ambientStart(); ding();}else{ambientStop(); stopBGM(); speechSynthesis?.cancel?.();}
+  if(soundMode===2)say('音声案内をオンにいたしました。本日もご来店ありがとうございます。');
+  if(soundMode===3){startBGM(); announce('館内BGMを開店いたしました(WebAudio自動作曲)',3000);}
+  else stopBGM();
+});
+paintSoundBtn();
+
+function say(text){
+  if(soundMode<2||!('speechSynthesis' in window))return;
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang='ja-JP'; u.pitch=1.18; u.rate=1.04;
+  const v=speechSynthesis.getVoices().find(v=>v.lang&&v.lang.startsWith('ja'));
+  if(v)u.voice=v;
+  speechSynthesis.speak(u);
+}
+
+/* ----- announce toast ----- */
+const annEl=$('#announce'); let annTimer=0;
+function announce(text,ms=4200){
+  annEl.textContent=text; annEl.classList.add('show');
+  clearTimeout(annTimer); annTimer=setTimeout(()=>annEl.classList.remove('show'),ms);
+}
+
+/* ----- elevator ----- */
+let traveling=false;
+function smoothTo(targetY,then){
+  targetY=clamp(targetY,0,docH-H);
+  const from=window.scrollY, dist=targetY-from;
+  if(Math.abs(dist)<4){then&&then();return}
+  const dur=clamp(Math.abs(dist)*.55,650,1900); let t0=null;
+  traveling=true;
+  function step(ms){
+    if(t0===null)t0=ms;
+    const p=clamp((ms-t0)/dur,0,1), e=p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2;
+    window.scrollTo(0,from+dist*e);
+    if(p<1)requestAnimationFrame(step); else {traveling=false; then&&then();}
+  }
+  requestAnimationFrame(step);
+}
+function gotoFloor(id){
+  if(falling){announce('落下中でございます。しばらくお待ちください。',2000); return;}
+  const sec=document.getElementById(id), f=FLOORS[id];
+  const targetY=sec.offsetTop+sec.offsetHeight/2-H/2;
+  const up=targetY<window.scrollY;
+  announce(up?'上へまいります':'下へまいります',1600);
+  say(up?'上へまいります':'下へまいります');
+  smoothTo(targetY,()=>{
+    ding();
+    if(f){announce(f.say); setTimeout(()=>say(f.say),250);}
+  });
+}
+$$('[data-goto]').forEach(el=>el.addEventListener('click',e=>{
+  e.preventDefault(); acx&&soundMode>=1&&acx(); gotoFloor(el.dataset.goto);
+}));
+
+/* ----- cross-section minimap ----- */
+const strip=$('#xstrip'), you=$('#xyou');
+function buildXsec(){
+  const f=y=>clamp(y/Z.worldBot*100,0,100).toFixed(2)+'%';
+  strip.style.background=`linear-gradient(to bottom,
+    #060a1e 0%, #0d1530 ${f(Z.skyTop-400)}, #5ba6bf ${f(Z.skyTop+300)}, #9fd2d8 ${f(Z.seaLevel-10)},
+    #0f7e8e ${f(Z.seaLevel+10)}, #03293f ${f((Z.b1.top+Z.b1.bot)/2)}, #021019 ${f(Z.strataTop-10)},
+    #2d2013 ${f(Z.strataTop+10)}, #3a2415 ${f(Z.magmaTop)}, #c2440e 100%)`;
+}
+strip.addEventListener('click',e=>{
+  const r=strip.getBoundingClientRect(), frac=clamp((e.clientY-r.top)/r.height,0,1);
+  announce('瞬間移動中(エレベーターより速い)',1500);
+  smoothTo(frac*docH-H/2);
+});
+
+/* ----- altitude meter & chrome update ----- */
+const altEl=$('#alt'), elevBtns=$$('.elev button[data-goto]');
+const fmt=n=>Math.round(n).toLocaleString('ja-JP');
+let lastAltUpd=0;
+function updateChrome(t){
+  const frac=clamp(scrollY/(docH-H),0,1);
+  const r=strip.getBoundingClientRect();
+  you.style.top=(frac*r.height)+'px';
+  // 現在フロアのボタン点灯
+  const mid=scrollY+H/2; let cur=null;
+  for(const id in FLOORS){const s=document.getElementById(id); if(mid>=s.offsetTop&&mid<s.offsetTop+s.offsetHeight){cur=id;break}}
+  elevBtns.forEach(b=>b.classList.toggle('now',b.dataset.goto===cur));
+  curFloorId=cur;
+  // 高度計(10Hzで十分)
+  if(t-lastAltUpd<.1)return; lastAltUpd=t;
+  const zi=mid<Z.skyTop?0:mid<Z.seaLevel?1:mid<Z.strataTop?2:mid<Z.magmaTop?3:4;
+  if(zi!==lastZone){lastZone=zi; applyZoneSkin(zi);}
+  let txt;
+  if(mid<Z.skyTop){
+    const p=mid/Z.skyTop, km=380000*Math.pow(1-p,3)+10;
+    txt=km>=10000?`高度 ${fmt(km/10000)}万km`:km>=100?`高度 ${fmt(km)}km`:`高度 ${fmt(km*1000)}m`;
+  }else if(mid<Z.seaLevel-60){
+    txt=`高度 ${fmt(lerp(10000,0,(mid-Z.skyTop)/(Z.seaLevel-60-Z.skyTop)))}m`;
+  }else if(mid<Z.seaLevel+60){
+    txt='海抜0m(波打ち際)';
+  }else if(mid<Z.strataTop){
+    txt=`水深 ${fmt(lerp(0,8000,(mid-Z.seaLevel)/(Z.strataTop-Z.seaLevel)))}m`;
+  }else if(mid<Z.magmaTop){
+    const y=lerp(0,5000,(mid-Z.strataTop)/(Z.magmaTop-Z.strataTop));
+    txt=`地層 約${fmt(y)}年前`;
+  }else{
+    txt='マントル付近(熱い)';
+  }
+  altEl.textContent=txt;
+}
+
+/* ----- stamp rally ----- */
+const stamped=new Set(JSON.parse(localStorage.getItem('tenchi-stamps')||'[]'));
+const stampMsg=$('#stampMsg');
+const FLOOR4=['r','2f','b1','b5'];
+function paintStamps(){
+  // 裏スタンプ枠(非常口ご利用記念)は獲得時のみ出現
+  if(stamped.has('fall') && !document.querySelector('.slot[data-stamp="fall"]')){
+    const d=document.createElement('div');
+    d.className='slot'; d.dataset.stamp='fall';
+    d.innerHTML='非常<span class="hanko">落</span>';
+    $('.stamps .slots').appendChild(d);
+  }
+  $$('.stamps .slot').forEach(s=>s.classList.toggle('got',stamped.has(s.dataset.stamp)));
+  const got=FLOOR4.filter(f=>stamped.has(f)).length;
+  if(got===4){
+    document.body.classList.add('allclear');
+    stampMsg.textContent=stamped.has('fall')?'全制覇+裏スタンプ!お得意様でございます':'全フロア制覇!粗品:称号(現物支給なし)';
+  }
+  else stampMsg.textContent=`あと${4-got}フロアで粗品(称号)`;
+}
+function stamp(f){
+  if(stamped.has(f))return;
+  stamped.add(f); localStorage.setItem('tenchi-stamps',JSON.stringify([...stamped]));
+  stampSound(); paintStamps();
+  if(f==='fall'){
+    confetti(80);
+    announce('裏スタンプ「落」を獲得いたしました(非常口ご利用記念)',5000);
+    return;
+  }
+  if(FLOOR4.every(x=>stamped.has(x))){
+    confetti(180); ding();
+    announce('🎉 全フロア制覇おめでとうございます。称号「全フロア制覇」を進呈いたします(現物はございません)',6000);
+    say('全フロア制覇、おめでとうございます。');
+  }
+}
+paintStamps();
+const dwell={};
+const io=new IntersectionObserver(es=>{
+  for(const e of es){
+    const f=e.target.dataset.floor;
+    if(e.isIntersecting) dwell[f]=setTimeout(()=>stamp(f),900);
+    else clearTimeout(dwell[f]);
+  }
+},{threshold:.45});
+$$('section[data-floor]').forEach(s=>io.observe(s));
+
+/* ----- ticker(館内放送) ----- */
+const NORMAL_ADS=[
+  '本日もご来店ありがとうございます。当店は創業138億年、年中無休でございます。',
+  '迷子のお知らせ:リュウグウノツカイのお子様が、深海フロアにてお母様をお待ちです。',
+  '屋上の流れ星は、本日も投げ放題でございます。クリックでもう一投どうぞ。',
+  '2階、島づくり用品売り場では、火山が大変よく噴火しております。仕様でございます。',
+  'お客様にお願い申し上げます。地下5階の文明にはお手を触れないでください。滅びます。',
+  '1階は波の都合により、当面のあいだ改装中でございます。波にご理解ご協力をお願いいたします。',
+  '本日のタイムセール:深海の水圧が、今だけ800気圧でございます。',
+  'お忘れ物のご案内:縄文時代の土器をお預かりしております。お心当たりの方は5000年ほどお戻りください。',
+  '地層をクリックしますと、発掘体験を無料でお楽しみいただけます。',
+  'お買い忘れはございませんか。ご安心ください、全品0円でございます。',
+  '別のタブからお越しのお客様も、当館内断面図にてご案内しております。',
+  '屋上の宇宙観覧車は、本日も真空の中を元気に回っております。',
+  '非常口は下り専用でございます。お帰りはエレベーターか、気合いをご利用ください。',
+  '外商部では、遠方のお客様のご召喚(WebRTC)を承っております。',
+  '深海水族館では、お魚のお持ち帰り(小窓)を承っております。鮮度保証は無限でございます。',
+];
+const SALE_ADS=[
+  '🎉 ただいま全館大開店セール開催中!全品0円(もともと0円)!',
+  '🎉 屋上の流れ星、本日に限り流れ放題でございます!',
+  '🎉 お得な隠しコマンドをご入力いただき、誠にありがとうございます!',
+];
+let ads=NORMAL_ADS, adIdx=0;
+const tickerEl=$('#ticker');
+function rotateAd(){
+  tickerEl.style.opacity=0;
+  setTimeout(()=>{tickerEl.textContent='📢 '+ads[adIdx++%ads.length]; tickerEl.style.opacity=1;},600);
+}
+rotateAd(); setInterval(rotateAd,8000);
+
+/* ----- click effects(世界に触れる) ----- */
+document.addEventListener('click',e=>{
+  if(e.target.closest('.card,.guide,.elev,.stamps,header,a,button,.xsec,.reno,#register,.reg-panel,#cartBtn,input,.voices,#gaisho,.g-panel,.emer'))return;
+  const wy=e.clientY+window.scrollY, x=e.clientX;
+  if(wy<Z.skyTop){
+    spawnShoot(x,wy); tone(1760,.3,0,'sine',.06);
+  }else if(wy<Z.seaLevel){
+    E.birds.push({x:x,y:wy,sp:rnd(28,55)*(Math.random()<.5?1:-1),ph:rnd(TAU)});
+    if(E.birds.length>14)E.birds.shift();
+  }else if(wy<Z.strataTop){
+    for(let i=0;i<12;i++)E.bubbles.push({x:x+rnd(-14,14),y:wy+rnd(-10,10),sp:rnd(.6,1.6),r:rnd(2,6),ph:rnd(TAU),life:rnd(1.5,3)});
+    tone(420,.15,0,'sine',.05);
+  }else if(wy<Z.magmaTop){
+    const finds=['土器のカケラ','謎の骨(たぶん恐竜)','古代のレシート(経費精算済)','磨かれた石(つるつる)','埴輪のあたま','五千年前の貝(食べかけ)','文明の跡(諸行無常)'];
+    const d=document.createElement('div');
+    d.className='dig'; d.textContent=`⛏ ${finds[rnd(finds.length)|0]} を発掘した!`;
+    d.style.left=e.clientX+'px'; d.style.top=e.clientY+'px';
+    document.body.appendChild(d); d.addEventListener('animationend',()=>d.remove());
+    tone(180,.1,0,'square',.08);
+  }else{
+    for(let i=0;i<8;i++)E.embers.push({x:x+rnd(-20,20),y:wy,sp:rnd(20,60),ph:rnd(TAU)});
+    if(E.embers.length>60)E.embers.splice(0,8);
+  }
+  // 外商部のお客様にもおすそ分け
+  if(dc&&dc.readyState==='open'&&Z.worldBot)dc.send(JSON.stringify({t:'fx',xf:x/W,wyf:wy/Z.worldBot}));
+});
+
+/* ----- konami → 大開店セール ----- */
+const KONAMI=['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+let kIdx=0, saleOn=false;
+document.addEventListener('keydown',e=>{
+  const k=e.key.length===1?e.key.toLowerCase():e.key;
+  kIdx=(k===KONAMI[kIdx])?kIdx+1:(k===KONAMI[0]?1:0);
+  if(kIdx===KONAMI.length){kIdx=0; sale();}
+});
+function sale(){
+  if(saleOn)return; saleOn=true;
+  document.body.classList.add('sale');
+  ads=SALE_ADS; adIdx=0; rotateAd();
+  confetti(240); ding();
+  announce('🎊 ただいまより、全館大開店セールを開催いたします!全品0円!(もともと0円)',6000);
+  say('ただいまより、全館大開店セールを開催いたします。全品、0円でございます。');
+  let n=0; const iv=setInterval(()=>{spawnShoot(rnd(W*.3,W),rnd(200,Z.skyTop*.5)); if(++n>14)clearInterval(iv)},220);
+}
+
+/* ============================================================
+   増築工事(技術力の無駄遣い棟)
+============================================================ */
+const par={x:0,target:0};
+let curFloorId=null, lastZone=-1;
+
+/* ----- マウス&ジャイロ視差 ----- */
+addEventListener('mousemove',e=>{ if(!RM) par.target=(e.clientX/W-.5)*16 });
+addEventListener('deviceorientation',e=>{ if(!RM && e.gamma!=null) par.target=clamp(e.gamma*.8,-18,18) });
+
+/* ----- エレベーター扉(入退店演出) ----- */
+const doors=$('#doors'), doorLamp=$('#doorLamp');
+function openDoors(){
+  requestAnimationFrame(()=>{
+    doors.classList.remove('closed');
+    setTimeout(()=>doors.classList.remove('active'),1100);
+  });
+}
+setTimeout(()=>{ding(); openDoors();},420);
+addEventListener('pageshow',e=>{
+  if(e.persisted){
+    speechSynthesis?.cancel?.();
+    doorLamp.textContent='おかえりなさいませ';
+    doors.classList.add('active','closed');
+    setTimeout(()=>{ding(); openDoors();},350);
+  }
+});
+$$('.cta').forEach(a=>a.addEventListener('click',e=>{
+  e.preventDefault();
+  doorLamp.textContent='いってらっしゃいませ';
+  doors.classList.add('active');
+  void doors.offsetWidth;
+  doors.classList.add('closed');
+  ding(); say('いってらっしゃいませ。');
+  setTimeout(()=>location.href=a.href,1150);
+}));
+
+/* ----- お買い物カゴ & レジ(全品0円) ----- */
+const cart=[];
+const cartBtn=$('#cartBtn'), cartN=$('#cartN'), reg=$('#register');
+function paintCart(){ cartN.textContent=cart.length; cartBtn.classList.toggle('has',cart.length>0); }
+$$('.freebie').forEach(b=>b.addEventListener('click',()=>{
+  cart.push({name:b.dataset.item, e:b.dataset.emoji});
+  const r0=b.getBoundingClientRect(), r1=cartBtn.getBoundingClientRect();
+  const fly=document.createElement('div'); fly.className='fly'; fly.textContent=b.dataset.emoji;
+  fly.style.left=(r0.left+r0.width/2)+'px'; fly.style.top=r0.top+'px';
+  document.body.appendChild(fly);
+  requestAnimationFrame(()=>{
+    fly.style.left=(r1.left+r1.width/2-12)+'px'; fly.style.top=(r1.top+6)+'px';
+    fly.style.transform='scale(.5) rotate(360deg)'; fly.style.opacity=.4;
+  });
+  setTimeout(()=>{
+    fly.remove(); paintCart();
+    cartBtn.classList.add('bump'); setTimeout(()=>cartBtn.classList.remove('bump'),320);
+    tone(880,.12,0,'sine',.07);
+  },820);
+  announce(`「${b.dataset.item}」をカゴに入れました(¥0)`,2400);
+}));
+cartBtn.addEventListener('click',()=>{ paintReg(); reg.classList.add('open'); });
+$('#closeReg').addEventListener('click',()=>reg.classList.remove('open'));
+reg.addEventListener('click',e=>{ if(e.target===reg) reg.classList.remove('open'); });
+$('#clearCart').addEventListener('click',()=>{
+  cart.length=0; paintCart(); paintReg();
+  const out=$('#receiptOut'); out.innerHTML=''; out.style.maxHeight='0';
+  $('#receiptSave').style.display='none';
+});
+function paintReg(){
+  const ul=$('#regList'); ul.innerHTML='';
+  if(!cart.length){ ul.innerHTML='<li class="empty">カゴは空でございます(各売り場に試供品がございます)</li>'; return; }
+  const agg=new Map();
+  for(const it of cart) agg.set(it.name,(agg.get(it.name)||0)+1);
+  for(const [name,n] of agg){
+    const li=document.createElement('li');
+    li.innerHTML=`<span>${name} ×${n}</span><span>¥0</span>`;
+    ul.appendChild(li);
+  }
+}
+const CLERKS=['チョウチンアンコウ(発光部門)','リュウグウノツカイ(長物部門)','アンモナイト(渦巻部門)','縄文 たろう(土器部門)','火星人(研修中)'];
+function buildReceipt(){
+  const agg=new Map();
+  for(const it of cart) agg.set(it.name,(agg.get(it.name)||0)+1);
+  const lines=[...agg.entries()];
+  const lh=21, w=380, h=486+Math.max(1,lines.length)*lh;
+  const c=document.createElement('canvas'); c.width=w; c.height=h;
+  const g=c.getContext('2d');
+  // 感熱紙(ギザギザ縁)
+  g.fillStyle='#fdfbf4'; g.beginPath(); g.moveTo(0,12);
+  for(let x=0;x<=w;x+=14) g.lineTo(x,(x/14)%2?4:12);
+  g.lineTo(w,h-12);
+  for(let x=w;x>=0;x-=14) g.lineTo(x,(x/14)%2?h-4:h-12);
+  g.closePath(); g.fill();
+  g.fillStyle='#2c2418'; let y=52;
+  g.textAlign='center';
+  g.font='bold 24px "Hiragino Mincho ProN","Yu Mincho",serif'; g.fillText('天地百貨店',w/2,y); y+=20;
+  g.font='10px "Courier New",monospace'; g.fillText('TENCHI DEPARTMENT STORE',w/2,y); y+=15;
+  g.fillText('創業138億年 / 年中無休 / TEL: 星に願いを',w/2,y); y+=24;
+  g.font='12px "Courier New",monospace'; g.textAlign='left';
+  const pad=n=>String(n).padStart(2,'0'); const now=new Date();
+  g.fillText(`${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())} レジNo.深-138`,26,y); y+=17;
+  g.fillText('担当: '+CLERKS[rnd(CLERKS.length)|0],26,y);
+  const hr=()=>{y+=15; g.fillText('────────────────────',26,y)};
+  const row=(nm,p,bold)=>{
+    y+=lh;
+    if(bold)g.font='bold 13px "Courier New",monospace';
+    g.fillText(nm,26,y); g.textAlign='right'; g.fillText(p,w-26,y); g.textAlign='left';
+    if(bold)g.font='12px "Courier New",monospace';
+  };
+  hr();
+  if(lines.length) for(const [nm,n] of lines) row(`${nm} ×${n}`,'¥0');
+  else row('(お買い上げなし・冷やかし)','¥0');
+  hr();
+  row('小計','¥0'); row('消費税(10%)','¥0'); row('合計','¥0',true);
+  row('お預かり','お気持ち'); row('お釣り','プライスレス');
+  hr();
+  row('ポイント加算','138,000,000pt');
+  y+=16; g.fillText('(ポイント有効期限: 宇宙の熱的死まで)',26,y);
+  y+=22; let bx=46;
+  while(bx<w-46){ const bw=1+(Math.random()*3|0); g.fillRect(bx,y,bw,36); bx+=bw+1+(Math.random()*3|0); }
+  y+=52; g.textAlign='center';
+  g.fillText('またのご来店を心よりお待ちしております',w/2,y); y+=15;
+  g.fillText('(このレシートは約5000年で化石になります)',w/2,y);
+  // 領収印
+  g.save(); g.translate(w-74,92); g.rotate(.28);
+  g.strokeStyle='rgba(192,57,43,.8)'; g.fillStyle='rgba(192,57,43,.8)'; g.lineWidth=2.5;
+  g.beginPath(); g.arc(0,0,27,0,TAU); g.stroke();
+  g.font='bold 28px "Hiragino Mincho ProN",serif'; g.textAlign='center'; g.textBaseline='middle';
+  g.fillText('天',0,1); g.restore();
+  return c;
+}
+$('#printBtn').addEventListener('click',()=>{
+  const out=$('#receiptOut'); out.innerHTML='';
+  const c=buildReceipt(); out.appendChild(c);
+  out.style.maxHeight='0'; void out.offsetHeight;
+  out.style.maxHeight=(c.height+30)+'px';
+  for(let i=0;i<10;i++) tone(1200+(i%2)*300,.04,i*.14,'square',.04);
+  const save=$('#receiptSave');
+  save.href=c.toDataURL('image/png'); save.download='tenchi-receipt.png'; save.style.display='block';
+  announce('レシートを発行いたしました(感熱紙の香りはご想像ください)',3200);
+  say('レシートでございます。');
+});
+
+/* ----- 館内BGM(WebAudio自動作曲・有線風) ----- */
+let bgm=null, bgmNoiseBuf=null;
+function note(freq,t0,dur,type,vol){
+  const a=acx(), o=a.createOscillator(), g=a.createGain();
+  o.type=type; o.frequency.value=freq; o.connect(g); g.connect(a.destination);
+  g.gain.setValueAtTime(0,t0); g.gain.linearRampToValueAtTime(vol,t0+.03);
+  g.gain.exponentialRampToValueAtTime(.0001,t0+dur);
+  o.start(t0); o.stop(t0+dur+.05);
+}
+function hat(t0,vol){
+  const a=acx();
+  if(!bgmNoiseBuf){
+    const len=a.sampleRate*.1|0; bgmNoiseBuf=a.createBuffer(1,len,a.sampleRate);
+    const d=bgmNoiseBuf.getChannelData(0); for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
+  }
+  const s=a.createBufferSource(); s.buffer=bgmNoiseBuf;
+  const f=a.createBiquadFilter(); f.type='highpass'; f.frequency.value=7000;
+  const g=a.createGain(); g.gain.setValueAtTime(vol,t0); g.gain.exponentialRampToValueAtTime(.0001,t0+.06);
+  s.connect(f); f.connect(g); g.connect(a.destination); s.start(t0);
+}
+const BGM_CHORDS=[ // Fmaj7 → Em7 → Dm7 → Cmaj7 (有線にありがちな進行)
+  {bass:87.31, notes:[174.61,220.00,261.63,329.63]},
+  {bass:82.41, notes:[164.81,196.00,246.94,293.66]},
+  {bass:73.42, notes:[146.83,174.61,220.00,261.63]},
+  {bass:65.41, notes:[130.81,164.81,196.00,246.94]},
+];
+const ARP=[0,1,2,3,2,3,1,2], STEP=.32;
+function startBGM(){
+  if(bgm||RM) return;
+  const a=acx();
+  bgm={step:0, next:a.currentTime+.15, timer:setInterval(()=>{
+    if(!bgm||closingOn) return;
+    const aa=acx();
+    while(bgm.next<aa.currentTime+.3){
+      const ch=BGM_CHORDS[(bgm.step>>3)%4], p=bgm.step%8;
+      if(p===0) note(ch.bass,bgm.next,STEP*3.4,'sine',.05);
+      if(p===4) note(ch.bass*1.5,bgm.next,STEP*1.6,'sine',.035);
+      note(ch.notes[ARP[p]],bgm.next,STEP*.92,'triangle',.026);
+      if(p%2===1) hat(bgm.next,.012);
+      bgm.step++; bgm.next+=STEP;
+    }
+  },60)};
+}
+function stopBGM(){ if(bgm){clearInterval(bgm.timer); bgm=null;} }
+
+/* ----- 閉店ごっこ(3分放置で蛍の光) ----- */
+const HOTARU_FREQ={C4:261.63,D4:293.66,F4:349.23,G4:392.00,A4:440.00,C5:523.25,D5:587.33};
+const HOTARU=[['C4',1],['F4',1.5],['F4',.5],['F4',1],['A4',1],['G4',1.5],['F4',.5],['G4',1],['A4',1],['F4',1.5],['F4',.5],['A4',1],['C5',1],['D5',3],
+['D5',1],['C5',1.5],['A4',.5],['A4',1],['F4',1],['G4',1.5],['F4',.5],['G4',1],['A4',1],['F4',1.5],['D4',.5],['D4',1],['C4',1],['F4',3]];
+function playHotaru(){
+  if(soundMode<1) return;
+  const a=acx(); let t0=a.currentTime+.3; const beat=.6;
+  for(const [n,b] of HOTARU){
+    const f=HOTARU_FREQ[n];
+    note(f,t0,b*beat*.95,'triangle',.06);
+    note(f/2,t0,b*beat*.95,'sine',.03);
+    t0+=b*beat;
+  }
+}
+let closingOn=false, closingStart=0, closingCooldown=0, lastAct=Date.now();
+const veil=$('#closeveil');
+function startClosing(){
+  closingOn=true; closingStart=Date.now();
+  document.body.classList.add('lights-out'); veil.classList.add('show');
+  playHotaru();
+  announce('お客様にご案内申し上げます。まもなく閉店のお時間でございます。本日のご来店、誠にありがとうございました。',9000);
+  say('お客様にご案内申し上げます。まもなく、閉店のお時間でございます。');
+}
+function endClosing(){
+  if(Date.now()-closingStart<2500) return;
+  closingOn=false; closingCooldown=Date.now()+600000;
+  document.body.classList.remove('lights-out'); veil.classList.remove('show');
+  announce('…と見せかけて、当店は年中無休でございます。ごゆっくりおすごしくださいませ。',6000);
+  say('と見せかけて、当店は年中無休でございます。');
+}
+['scroll','pointerdown','keydown','mousemove','touchstart','wheel'].forEach(ev=>
+  addEventListener(ev,()=>{ lastAct=Date.now(); if(closingOn) endClosing(); },{passive:true}));
+setInterval(()=>{
+  if(!closingOn && Date.now()-lastAct>180000 && Date.now()>closingCooldown) startClosing();
+},5000);
+
+/* ----- 他タブのお客様(BroadcastChannel) ----- */
+const guestsEl=$('#guests');
+const GHOSTS=['🦑','🐙','🦕','👽','🧜','🦀','🤖','👻'];
+const myId=Math.random().toString(36).slice(2,9), myGhost=GHOSTS[rnd(GHOSTS.length)|0];
+const others=new Map();
+const bc=('BroadcastChannel' in window)? new BroadcastChannel('tenchi-store') : null;
+function paintGhosts(){
+  $$('.strip .ghost').forEach(el=>el.remove());
+  const r=strip.getBoundingClientRect();
+  for(const o of others.values()){
+    const s=document.createElement('span'); s.className='ghost'; s.textContent=o.e;
+    s.style.top=(o.f*r.height)+'px'; strip.appendChild(s);
+  }
+  const n=others.size+1;
+  guestsEl.textContent=`店内 ${n} 名様`;
+  guestsEl.style.display=n>1?'inline':'none';
+}
+if(bc){
+  bc.onmessage=ev=>{
+    const m=ev.data; if(!m||m.id===myId) return;
+    if(m.bye){
+      if(others.delete(m.id)){ paintGhosts(); announce('お客様がお一人ご退店されました。ありがとうございました。',3000); }
+      return;
+    }
+    const isNew=!others.has(m.id);
+    others.set(m.id,{e:m.e,f:m.f,seen:Date.now()});
+    if(isNew) announce(`お客様がもう一名ご来店でございます ${m.e}(別のタブから)`,3600);
+    paintGhosts();
+  };
+  setInterval(()=>{ bc.postMessage({id:myId,e:myGhost,f:clamp(scrollY/Math.max(1,docH-H),0,1)}); },600);
+  setInterval(()=>{
+    let removed=false;
+    for(const [id,o] of others) if(Date.now()-o.seen>2500){others.delete(id); removed=true;}
+    if(removed) paintGhosts();
+  },2000);
+  addEventListener('pagehide',()=>bc.postMessage({id:myId,bye:1}));
+}
+
+/* ----- ゲームパッド対応エレベーター(なぜ?) ----- */
+let padCool=0;
+addEventListener('gamepadconnected',()=>{
+  announce('ゲームパッドを検出いたしました。エレベーターが十字キー対応になりました(なぜ?)',5000);
+  say('エレベーターが、コントローラー対応になりました。');
+});
+function gamepadPoll(){
+  const gp=navigator.getGamepads ? [...navigator.getGamepads()].find(p=>p&&p.connected) : null;
+  if(!gp) return;
+  const now=performance.now(); if(now-padCool<400) return;
+  const ay=gp.axes[1]||0;
+  const up=(gp.buttons[12]&&gp.buttons[12].pressed)||ay<-.6;
+  const down=(gp.buttons[13]&&gp.buttons[13].pressed)||ay>.6;
+  if(up||down){
+    padCool=now;
+    const order=['floor-r','floor-2f','floor-b1','floor-b5'];
+    let i=order.indexOf(curFloorId);
+    if(i<0) i=down?-1:order.length;
+    gotoFloor(order[clamp(i+(down?1:-1),0,order.length-1)]);
+  }else if(gp.buttons[0]&&gp.buttons[0].pressed){
+    padCool=now; ding(); announce('お呼びでございますか(Aボタン)',1800);
+  }
+}
+
+/* ----- ゾーン別カーソル/ファビコン/タブ電光掲示板 ----- */
+const ZONE_EMOJI=['🌌','🏝','🐟','🏺','🔥'], ZONE_CURSOR=['🔭','🪁','🤿','⛏','🧯'];
+const favLink=document.querySelector('link[rel="icon"]');
+const skinCache={};
+function emojiPng(emoji,size,font){
+  const c=document.createElement('canvas'); c.width=c.height=size;
+  const g=c.getContext('2d');
+  g.font=font+'px serif'; g.textAlign='center'; g.textBaseline='middle';
+  g.fillText(emoji,size/2,size/2+2);
+  return c.toDataURL('image/png');
+}
+function applyZoneSkin(zi){
+  if(!skinCache[zi]) skinCache[zi]={cur:emojiPng(ZONE_CURSOR[zi],32,24), fav:emojiPng(ZONE_EMOJI[zi],64,52)};
+  document.body.style.cursor=`url(${skinCache[zi].cur}) 16 16, auto`;
+  favLink.href=skinCache[zi].fav;
+}
+const TITLE_N=[...'天地百貨店◆本日も元気に営業中◆屋上は宇宙、地下は太古◆'],
+      TITLE_S=[...'🎉大開店セール開催中🎉全品0円🎉実質タダ🎉'];
+let titleIdx=0;
+setInterval(()=>{
+  const s=saleOn?TITLE_S:TITLE_N, i=titleIdx++%s.length;
+  document.title=s.slice(i).join('')+s.slice(0,i).join('');
+},480);
+
+/* ----- SVGフィルター係(水のゆらぎ&マグマ陽炎) ----- */
+const wobbleT=$('#wobbleT'), shimmerT=$('#shimmerT');
+let lastFilt=0;
+function filtersTick(t){
+  if(RM||t-lastFilt<.13) return; lastFilt=t;
+  if(Z.b1.top<scrollY+H+200 && Z.b1.bot>scrollY-200)
+    wobbleT.setAttribute('baseFrequency','0.011 '+(0.015+0.005*Math.sin(t*1.4)).toFixed(4));
+  if(Z.magmaTop<scrollY+H+200)
+    shimmerT.setAttribute('baseFrequency','0.018 '+(0.05+0.02*Math.sin(t*2.2)).toFixed(4));
+}
+
+/* ----- 前回の音設定を最初の操作で復帰(自動再生規制対策) ----- */
+addEventListener('pointerdown',()=>{
+  if(soundMode>=1){acx(); ambientStart();}
+  if(soundMode===3) startBGM();
+},{once:true});
+
+/* ============================================================
+   第二期増築工事(さらに反省なし)
+============================================================ */
+
+/* ----- 宇宙観覧車(真空対応) ----- */
+function drawFerris(t){
+  const fx=W*.84, fy=Z.skyTop-H*.62, R=86;
+  if(!vis(fy,R+170)) return;
+  const y=sy(fy), a0=t*.12;
+  cx.strokeStyle='rgba(180,190,230,.5)'; cx.lineWidth=2;
+  cx.beginPath(); cx.moveTo(fx-46,y+R+58); cx.lineTo(fx,y); cx.lineTo(fx+46,y+R+58); cx.stroke();
+  cx.beginPath(); cx.arc(fx,y,R,0,TAU); cx.stroke();
+  cx.beginPath();
+  for(let i=0;i<8;i++){ const a=a0+i*TAU/8; cx.moveTo(fx,y); cx.lineTo(fx+Math.cos(a)*R,y+Math.sin(a)*R); }
+  cx.stroke();
+  for(let i=0;i<16;i++){ // 電飾
+    const a=i*TAU/16;
+    cx.globalAlpha=.4+.6*Math.abs(Math.sin(t*2+i));
+    cx.fillStyle=i%2?'#ffd76a':'#8ca0ff';
+    cx.beginPath(); cx.arc(fx+Math.cos(a)*R,y+Math.sin(a)*R,2.2,0,TAU); cx.fill();
+  }
+  cx.globalAlpha=1;
+  const cols=['#e0716e','#f7d54a','#43d96b','#5468d4','#d9b86a','#5fe8d2','#cf6f8e','#9fd86a'];
+  for(let i=0;i<8;i++){ // ゴンドラ(吊り下げ式)
+    const a=a0+i*TAU/8, gx=fx+Math.cos(a)*R, gy=y+Math.sin(a)*R+9;
+    cx.fillStyle=cols[i];
+    cx.fillRect(gx-8,gy-7,16,9);
+    cx.beginPath(); cx.arc(gx,gy+2,8,0,Math.PI); cx.fill();
+  }
+  cx.fillStyle='rgba(170,182,232,.75)'; cx.font='10px sans-serif'; cx.textAlign='center';
+  cx.fillText('宇宙観覧車(真空対応)',fx,y+R+76);
+}
+
+/* ----- 非常口(物理演算つき自由落下) ----- */
+let falling=null, shakeT=0, wind=null;
+function windStart(){
+  if(soundMode<1||wind) return;
+  const a=acx(), len=a.sampleRate*1.5|0, buf=a.createBuffer(1,len,a.sampleRate), d=buf.getChannelData(0);
+  for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
+  const src=a.createBufferSource(); src.buffer=buf; src.loop=true;
+  const f=a.createBiquadFilter(); f.type='bandpass'; f.frequency.value=300; f.Q.value=.8;
+  const g=a.createGain(); g.gain.value=0;
+  src.connect(f); f.connect(g); g.connect(a.destination); src.start();
+  wind={src,f,g};
+}
+function windStop(){ if(wind){try{wind.src.stop()}catch(e){} wind=null} }
+$('#fallBtn').addEventListener('click',()=>{
+  if(falling||traveling) return;
+  falling={y:Z.r.top+H*.25, v:0, splashed:false};
+  windStart();
+  announce('非常口をご利用中でございます。着地まで今しばらくお待ちください。',4000);
+  say('非常口でございます。下りのみでございます。');
+});
+function updateFall(dt){
+  if(!falling) return;
+  const inWater=falling.y>Z.seaLevel;
+  if(inWater){
+    falling.v+=(340-falling.v)*Math.min(1,dt*2.2); // 水の抵抗
+    if(!falling.splashed){
+      falling.splashed=true; shakeT=.5;
+      for(let i=0;i<26;i++)E.bubbles.push({x:W*.6+rnd(-30,30),y:Z.seaLevel+rnd(0,40),sp:rnd(.8,2),r:rnd(2,7),ph:rnd(TAU),life:rnd(1,2.5)});
+      tone(90,.4,0,'sine',.18);
+      announce('改装中の1階を通過しました(波に怒られています)',3200);
+    }
+  }else{
+    falling.v=Math.min(falling.v+1500*dt,2400); // 重力と終端速度
+  }
+  if(wind){ wind.f.frequency.value=200+falling.v*.6; wind.g.gain.value=Math.min(.11,falling.v/22000); }
+  falling.y+=falling.v*dt;
+  const floorY=Z.strataTop+90;
+  if(falling.y>=floorY){
+    falling=null; shakeT=1; windStop();
+    tone(60,.5,0,'sine',.25); tone(45,.7,.05,'square',.12);
+    navigator.vibrate&&navigator.vibrate(140);
+    window.scrollTo(0,floorY-H*.45); scrollY=window.scrollY;
+    announce('太古フロアにご着地でございます。お怪我は文明のせいになさってください。',5000);
+    say('ご着地、お疲れさまでございました。');
+    stamp('fall');
+    return;
+  }
+  window.scrollTo(0,falling.y-H*.45); scrollY=window.scrollY;
+}
+function drawFaller(t){
+  if(!falling) return;
+  const x=W*.6, y=sy(falling.y), inWater=falling.y>Z.seaLevel;
+  cx.save(); cx.translate(x,y);
+  cx.rotate(inWater? Math.sin(t*2)*.2 : (t*5)%TAU);
+  cx.font='30px serif'; cx.textAlign='center'; cx.textBaseline='middle';
+  cx.fillText('🧍',0,0);
+  cx.restore();
+  cx.font='13px sans-serif'; cx.fillStyle='rgba(255,255,255,.85)'; cx.textAlign='center';
+  cx.fillText(inWater?'ぶくぶくぶく…':'うわあああああぁ',x,y-34);
+}
+
+/* ----- お客様の声(自動生成クレーム) ----- */
+const VOICES=[
+  ['屋上で流れ星を投げたら、戻ってきませんでした','宇宙・匿名希望さん','流れ星は野生にお返しする方式でございます。'],
+  ['深海売り場が暗くて値札が見えません','地下1階・常連のタコさん','照明は各生物の自己発光に頼っております。明るめの魚にご同行をお願いくださいませ。'],
+  ['文明を購入したら、帰り道で滅亡しました','地下5階・歴史好きさん','仕様でございます。次の文明のご入荷をお待ちくださいませ。'],
+  ['1階がいつまでも改装中です','2階・島民未満さん','波と協議を続けております。進捗は潮目次第でございます。'],
+  ['エレベーターの音声が丁寧すぎて、逆に怖いです','R階・小心者さん','研修の成果でございます。今後も丁寧に怖がらせてまいります。'],
+  ['島を買ったのに、地図に載っていません','架空在住さん','架空でございますので。ご想像の中で末永くお住まいくださいませ。'],
+  ['マントル階に入れてもらえませんでした','圧力に強い方','関係者(マグマ)以外のご入場は固くお断りしております。'],
+  ['スタンプを全部集めたのに、粗品が称号だけでした','歩き疲れたお客様','称号は心の粗品でございます。かさばらず、一生モノでございます。'],
+  ['閉店の音楽が流れたのに、閉店しませんでした','夜更かしさん','閉店ごっこでございます。当店は構造上、閉めることができません。'],
+  ['レシートが化石になると聞いたのですが本当ですか','領収書が必要な方','約5000年ほどお待ちいただければ、確実でございます。'],
+  ['観覧車が真空で回っていて、心配です','高所恐怖症さん','真空のほうが軽快に回ると、観覧車本人が申しております。'],
+  ['全品0円で、逆に申し訳なくなりました','律儀なお客様','お気持ちは全額ポイントに加算させていただいております。'],
+];
+const voiceCard=$('#voiceCard');
+let vIdx=Math.random()*VOICES.length|0;
+function rotateVoice(){
+  const [q,who,a]=VOICES[vIdx++%VOICES.length];
+  voiceCard.style.opacity=0;
+  setTimeout(()=>{
+    voiceCard.innerHTML=`<p class="vq">「${q}」<span>(${who})</span></p><p class="va">店長より:「${a}」</p>`;
+    voiceCard.style.opacity=1;
+  },600);
+}
+rotateVoice(); setInterval(rotateVoice,9000);
+$('#voiceForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const v=$('#voiceInput').value.trim(); $('#voiceInput').value='';
+  const num='宙-'+String(1000+(Math.random()*9000|0));
+  announce(v? `貴重なご意見ありがとうございます。受付番号 ${num} にて担当(アンモナイト)に申し伝えました。`
+            : '白紙のご意見、確かに承りました(行間を読みます)。',5200);
+  say('貴重なご意見、ありがとうございます。');
+  tone(660,.15,0,'sine',.06);
+});
+
+/* ----- 外商部(WebRTC・手動シグナリング) ----- */
+const gaisho=$('#gaisho'), gState=$('#gState');
+let pc=null, dc=null, rtcTimer=null;
+$('#gaishoBtn').addEventListener('click',()=>gaisho.classList.add('open'));
+$('#gClose').addEventListener('click',()=>gaisho.classList.remove('open'));
+gaisho.addEventListener('click',e=>{ if(e.target===gaisho)gaisho.classList.remove('open') });
+const enc=o=>btoa(unescape(encodeURIComponent(JSON.stringify(o))));
+const dec=s=>JSON.parse(decodeURIComponent(escape(atob(s.trim()))));
+function setState(s){ gState.textContent='状態: '+s }
+function newPC(){
+  if(pc){try{pc.close()}catch(e){}}
+  pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+  pc.ondatachannel=e=>bindDC(e.channel);
+  pc.onconnectionstatechange=()=>setState(pc.connectionState);
+  return pc;
+}
+function iceDone(p){
+  return new Promise(res=>{
+    if(p.iceGatheringState==='complete')return res();
+    const to=setTimeout(res,2000);
+    p.addEventListener('icegatheringstatechange',()=>{
+      if(p.iceGatheringState==='complete'){clearTimeout(to); res()}
+    });
+  });
+}
+function bindDC(ch){
+  dc=ch;
+  dc.onopen=()=>{
+    setState('接続済み(ご来客中)');
+    announce('外商部より: 遠方のお客様と回線がつながりました 🎉',4500);
+    say('遠方のお客様が、ご来店でございます。');
+    clearInterval(rtcTimer);
+    rtcTimer=setInterval(()=>{
+      if(dc&&dc.readyState==='open')
+        dc.send(JSON.stringify({t:'p',e:myGhost,f:clamp(scrollY/Math.max(1,docH-H),0,1)}));
+    },700);
+  };
+  dc.onmessage=ev=>{
+    try{
+      const m=JSON.parse(ev.data);
+      if(m.t==='p'){ others.set('rtc',{e:'📞'+m.e,f:m.f,seen:Date.now()}); paintGhosts(); }
+      else if(m.t==='fx'){ applyRemoteFx(m.xf,m.wyf); }
+    }catch(err){}
+  };
+  dc.onclose=()=>{
+    setState('切断されました');
+    others.delete('rtc'); paintGhosts();
+    clearInterval(rtcTimer);
+    announce('遠方のお客様がご退店されました。またのお越しをお待ちしております。',4000);
+  };
+}
+$('#gMakeOffer').addEventListener('click',async()=>{
+  newPC(); bindDC(pc.createDataChannel('tenchi'));
+  await pc.setLocalDescription(await pc.createOffer());
+  setState('招待状を作成中…'); await iceDone(pc);
+  $('#gOffer').value=enc(pc.localDescription);
+  setState('招待状ができました。お相手にお送りください');
+});
+$('#gTakeAnswer').addEventListener('click',async()=>{
+  try{ await pc.setRemoteDescription(dec($('#gAnswerIn').value)); setState('接続中…'); }
+  catch(err){ setState('返信状が読めません(コピー漏れかもしれません)'); }
+});
+$('#gMakeAnswer').addEventListener('click',async()=>{
+  try{
+    newPC();
+    await pc.setRemoteDescription(dec($('#gOfferIn').value));
+    await pc.setLocalDescription(await pc.createAnswer());
+    setState('返信状を作成中…'); await iceDone(pc);
+    $('#gAnswerOut').value=enc(pc.localDescription);
+    setState('返信状ができました。お相手にご返送ください');
+  }catch(err){ setState('招待状が読めません(コピー漏れかもしれません)'); }
+});
+$$('.gCopy').forEach(b=>b.addEventListener('click',()=>{
+  const ta=$(b.dataset.copy);
+  if(!ta.value)return;
+  ta.select();
+  navigator.clipboard&&navigator.clipboard.writeText(ta.value);
+  announce('コピーいたしました。糸電話以外の手段でお送りください。',3000);
+}));
+function applyRemoteFx(xf,wyf){
+  const x=xf*W, wy=wyf*Z.worldBot;
+  if(wy<Z.skyTop) spawnShoot(Math.max(x,60),Math.min(wy,Z.skyTop-260));
+  else if(wy<Z.seaLevel){
+    E.birds.push({x,y:wy,sp:rnd(28,55)*(Math.random()<.5?1:-1),ph:rnd(TAU)});
+    if(E.birds.length>14)E.birds.shift();
+  }
+  else if(wy<Z.strataTop){
+    for(let i=0;i<10;i++)E.bubbles.push({x:x+rnd(-14,14),y:wy+rnd(-10,10),sp:rnd(.6,1.6),r:rnd(2,6),ph:rnd(TAU),life:rnd(1.5,3)});
+  }
+}
+
+/* ----- お魚のお持ち帰り(Document Picture-in-Picture) ----- */
+$('#pipBtn').addEventListener('click',async()=>{
+  if(!('documentPictureInPicture' in window)){
+    announce('お使いのブラウザはお持ち帰り非対応でございます。店内でご覧くださいませ。',4200);
+    return;
+  }
+  try{
+    const win=await documentPictureInPicture.requestWindow({width:340,height:220});
+    win.document.title='お持ち帰り用深海';
+    win.document.body.style.cssText='margin:0;background:#02101c;overflow:hidden;font-family:sans-serif';
+    const c=win.document.createElement('canvas');
+    c.width=340; c.height=220; c.style.cssText='display:block;width:100%;height:100%';
+    win.document.body.appendChild(c);
+    const lab=win.document.createElement('div');
+    lab.textContent='お持ち帰り用深海(返却不要)';
+    lab.style.cssText='position:fixed;left:8px;bottom:6px;color:#9ff0e2;font-size:10px;opacity:.8';
+    win.document.body.appendChild(lab);
+    const g=c.getContext('2d');
+    const fish={x:80,dir:1}, sn=Array.from({length:24},()=>({x:Math.random()*340,y:Math.random()*220,sp:6+Math.random()*14}));
+    let pt=0;
+    (function pip(ms){
+      const t=ms/1000, dt2=Math.min(.05,t-pt||.016); pt=t;
+      const gr=g.createLinearGradient(0,0,0,220); gr.addColorStop(0,'#03283c'); gr.addColorStop(1,'#010a14');
+      g.fillStyle=gr; g.fillRect(0,0,340,220);
+      for(const s of sn){s.y+=s.sp*dt2; if(s.y>220)s.y=-3; g.globalAlpha=.5; g.fillStyle='#cfe8ec'; g.fillRect(s.x,s.y,1.5,1.5)}
+      g.globalAlpha=1;
+      fish.x+=24*fish.dir*dt2; if(fish.x>280)fish.dir=-1; if(fish.x<60)fish.dir=1;
+      const fy=120+Math.sin(t*1.3)*14, fl=.7+.3*Math.sin(t*8);
+      g.save(); g.translate(fish.x,fy); g.scale(fish.dir,1);
+      const gl=g.createRadialGradient(28,-22,0,28,-22,46);
+      gl.addColorStop(0,`rgba(150,255,225,${.8*fl})`); gl.addColorStop(1,'rgba(150,255,225,0)');
+      g.fillStyle=gl; g.beginPath(); g.arc(28,-22,46,0,TAU); g.fill();
+      g.strokeStyle='rgba(140,190,180,.6)'; g.lineWidth=2;
+      g.beginPath(); g.moveTo(6,-11); g.quadraticCurveTo(20,-30,28,-22); g.stroke();
+      g.fillStyle=`rgba(220,255,245,${fl})`; g.beginPath(); g.arc(28,-22,4,0,TAU); g.fill();
+      g.fillStyle='#0c1d2a'; g.beginPath(); g.ellipse(0,0,30,16,0,0,TAU); g.fill();
+      g.beginPath(); g.moveTo(-28,0); g.lineTo(-45,-10); g.lineTo(-45,10); g.fill();
+      g.fillStyle='#eaf8f4'; g.beginPath(); g.arc(14,-4,3,0,TAU); g.fill();
+      g.restore();
+      win.requestAnimationFrame(pip);
+    })(0);
+    win.addEventListener('pagehide',()=>{
+      announce('お魚をご返却いただきました。水槽に戻しておきます。',3600);
+    });
+    announce('お魚を包みました。お持ち帰りくださいませ(鮮度保証: 無限)',4200);
+    say('お魚のお持ち帰りでございます。');
+  }catch(err){
+    announce('お魚が逃げました('+err.name+')',3000);
+  }
+});
+
+/* ----- 余計なお世話(Battery Status API) ----- */
+if(navigator.getBattery){
+  navigator.getBattery().then(b=>{
+    const el=document.createElement('div');
+    const upd=()=>{el.textContent=`お客様の端末の電池残量: ${Math.round(b.level*100)}%(当店は責任を負いかねます)`};
+    upd(); b.addEventListener('levelchange',upd);
+    $('#floor-mantle .fine').appendChild(el);
+  }).catch(()=>{});
+}
+
+/* ----- 営業日数 & 来店者数 ----- */
+function jpUnits(n){
+  const cho=Math.floor(n/1e12), oku=Math.floor(n%1e12/1e8);
+  return (cho?cho+'兆':'')+(oku?oku+'億':'')+'日目';
+}
+$('#bizdays').textContent='約'+jpUnits(13.8e9*365.25+Date.now()/864e5);
+const visits=(+localStorage.getItem('tenchi-visits')||0)+1;
+localStorage.setItem('tenchi-visits',visits);
+$('#visits').textContent=visits.toLocaleString('ja-JP');
+
+/* ============================================================
+   売り場ミニ実演(4つのミニキャンバス)
+============================================================ */
+const minis=[];
+function miniVisible(cnv){const r=cnv.getBoundingClientRect(); return r.bottom>0&&r.top<innerHeight}
+
+/* --- R: 星座メーカー実演 --- */
+(()=>{
+  const c=$('#mini-r').getContext('2d'), Wm=560,Hm=320;
+  const NAMES=['でたらめ座','ねこのしっぽ座','蛇足座','セロハンテープ座','ためいき座','よっぱらい座','じゃんけん座'];
+  let stars=[],name='',born=0,fade=1;
+  function gen(t){
+    const pts=Array.from({length:8},()=>({x:rnd(70,Wm-70),y:rnd(50,Hm-80),r:rnd(1.6,3.4),tw:rnd(TAU)}));
+    const cxm=pts.reduce((s,p)=>s+p.x,0)/8, cym=pts.reduce((s,p)=>s+p.y,0)/8;
+    pts.sort((a,b)=>Math.atan2(a.y-cym,a.x-cxm)-Math.atan2(b.y-cym,b.x-cxm));
+    stars=pts; name=NAMES[rnd(NAMES.length)|0]; born=t;
+  }
+  minis.push({cnv:$('#mini-r'),draw(t){
+    if(!stars.length||t-born>7)gen(t);
+    fade=clamp((t-born)/.8,0,1)*clamp((7-(t-born))/.8,0,1);
+    c.fillStyle='#050918'; c.fillRect(0,0,Wm,Hm);
+    for(let i=0;i<40;i++){const x=(i*97)%Wm,y=(i*61)%Hm; c.globalAlpha=.25+.2*Math.sin(t*2+i); c.fillStyle='#aab6e8'; c.fillRect(x,y,1.5,1.5)}
+    c.globalAlpha=fade*.8; c.strokeStyle='#8ca0ff'; c.lineWidth=1.4; c.beginPath();
+    stars.forEach((p,i)=>i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y)); c.stroke();
+    for(const p of stars){
+      c.globalAlpha=fade*(.6+.4*Math.sin(t*3+p.tw));
+      c.fillStyle='#e8edff'; c.beginPath(); c.arc(p.x,p.y,p.r,0,TAU); c.fill();
+    }
+    c.globalAlpha=fade; c.fillStyle='#cdd7ff'; c.font='16px sans-serif'; c.textAlign='center';
+    c.fillText(`「${name}」(命名済)`,Wm/2,Hm-22);
+    c.globalAlpha=1;
+  }});
+})();
+
+/* --- 2F: 島メーカー実演 --- */
+(()=>{
+  const c=$('#mini-2f').getContext('2d'), Wm=560,Hm=320;
+  const NAMES=['ぽんかん島','ふんわり礁','へそまがり島','たこやき環礁','ひるね岬','まよなか島','うずまき礁'];
+  let h=[],name='',born=-99;
+  function gen(t){
+    h=Array.from({length:3},()=>({a:rnd(6,20),f:2+(rnd(4)|0),p:rnd(TAU)}));
+    name=NAMES[rnd(NAMES.length)|0]; born=t;
+  }
+  minis.push({cnv:$('#mini-2f'),draw(t){
+    if(t-born>6)gen(t);
+    const grow=clamp((t-born)/.9,0,1), e=1-Math.pow(1-grow,3);
+    c.fillStyle='#8fcbd3'; c.fillRect(0,0,Wm,Hm);
+    c.strokeStyle='rgba(255,255,255,.5)'; c.lineWidth=2;
+    for(let i=0;i<2;i++){c.beginPath();
+      for(let x=0;x<=Wm;x+=10)x?c.lineTo(x,40+i*240+Math.sin(x*.04+t*2+i)*4):c.moveTo(x,40+i*240);
+      c.stroke();}
+    const r0=78*e, cxm=Wm/2, cym=Hm/2;
+    const blob=(scale,fill)=>{
+      c.fillStyle=fill; c.beginPath();
+      for(let a=0;a<=TAU+.01;a+=.12){
+        let r=r0*scale;
+        for(const k of h)r+=k.a*e*scale*Math.sin(k.f*a+k.p+Math.sin(t*.6)*.05);
+        const x=cxm+Math.cos(a)*r*1.35, y=cym+Math.sin(a)*r*.8;
+        a?c.lineTo(x,y):c.moveTo(x,y);
+      }
+      c.fill();
+    };
+    blob(1.12,'rgba(255,255,255,.55)'); blob(1,'#e7d9a8'); blob(.72,'#7fae6b');
+    if(e>.95){c.fillStyle='#173842'; c.font='bold 17px sans-serif'; c.textAlign='center';
+      c.fillText(`「${name}」(自動命名)`,Wm/2,Hm-18);}
+  }});
+})();
+
+/* --- B1F: 深海水族館実演 --- */
+(()=>{
+  const c=$('#mini-b1').getContext('2d'), Wm=560,Hm=320;
+  let ang={x:100,dir:1}, fish=Array.from({length:4},()=>({x:rnd(Wm),y:rnd(60,Hm-60),v:rnd(20,50)*(Math.random()<.5?1:-1),ph:rnd(TAU)}));
+  let snow=Array.from({length:36},()=>({x:rnd(Wm),y:rnd(Hm),sp:rnd(6,18)}));
+  minis.push({cnv:$('#mini-b1'),draw(t,dt){
+    const g=c.createLinearGradient(0,0,0,Hm); g.addColorStop(0,'#03283c'); g.addColorStop(1,'#010a14');
+    c.fillStyle=g; c.fillRect(0,0,Wm,Hm);
+    for(const s of snow){s.y+=s.sp*dt; if(s.y>Hm)s.y=-4; c.globalAlpha=.5; c.fillStyle='#cfe8ec'; c.fillRect(s.x,s.y,1.6,1.6)}
+    c.globalAlpha=1;
+    for(const f of fish){
+      f.x+=f.v*dt; if(f.x>Wm+30)f.x=-30; if(f.x<-30)f.x=Wm+30;
+      const d=Math.sign(f.v);
+      c.save(); c.translate(f.x,f.y+Math.sin(t*3+f.ph)*4); c.scale(d,1);
+      c.fillStyle='#2e8a92'; c.beginPath(); c.ellipse(0,0,11,5,0,0,TAU); c.fill();
+      c.beginPath(); c.moveTo(-10,0); c.lineTo(-16,-4); c.lineTo(-16,4); c.fill(); c.restore();
+    }
+    ang.x+=26*ang.dir*dt; if(ang.x>Wm-70)ang.dir=-1; if(ang.x<70)ang.dir=1;
+    const y=Hm*.58+Math.sin(t*1.4)*10, fl=.7+.3*Math.sin(t*8);
+    c.save(); c.translate(ang.x,y); c.scale(ang.dir,1);
+    const gl=c.createRadialGradient(34,-26,0,34,-26,60);
+    gl.addColorStop(0,`rgba(150,255,225,${.8*fl})`); gl.addColorStop(1,'rgba(150,255,225,0)');
+    c.fillStyle=gl; c.beginPath(); c.arc(34,-26,60,0,TAU); c.fill();
+    c.strokeStyle='rgba(140,190,180,.6)'; c.lineWidth=2.4;
+    c.beginPath(); c.moveTo(8,-14); c.quadraticCurveTo(26,-36,34,-26); c.stroke();
+    c.fillStyle=`rgba(220,255,245,${fl})`; c.beginPath(); c.arc(34,-26,5,0,TAU); c.fill();
+    c.fillStyle='#0c1d2a'; c.beginPath(); c.ellipse(0,0,38,20,0,0,TAU); c.fill();
+    c.beginPath(); c.moveTo(-36,0); c.lineTo(-56,-13); c.lineTo(-56,13); c.fill();
+    c.fillStyle='#eaf8f4'; c.beginPath(); c.arc(18,-5,3.6,0,TAU); c.fill();
+    c.restore();
+  }});
+})();
+
+/* --- B5F: 文明の年代記実演 --- */
+(()=>{
+  const c=$('#mini-b5').getContext('2d'), Wm=560,Hm=320, GY=262;
+  const ERAS=['石器時代','青銅器時代','鉄器時代','蒸気時代','電気時代','電脳時代','滅亡'];
+  let slots=[],era=0,eraT=0,dust=[];
+  function reset(){slots=Array.from({length:10},(_, i)=>({x:46+i*48,w:rnd(22,34),h:0,v:rnd(.6,1.15)})); era=0; eraT=0; dust=[]}
+  reset();
+  minis.push({cnv:$('#mini-b5'),draw(t,dt){
+    eraT+=dt;
+    if(eraT>1.5){eraT=0; era++; if(era>=ERAS.length){reset()} }
+    c.fillStyle='#efe3c2'; c.fillRect(0,0,Wm,Hm);
+    c.strokeStyle='#8a6f3d'; c.lineWidth=3; c.strokeRect(8,8,Wm-16,Hm-16);
+    c.strokeStyle='rgba(138,111,61,.4)'; c.lineWidth=1; c.strokeRect(14,14,Wm-28,Hm-28);
+    c.fillStyle='#9a7e4a'; c.fillRect(0,GY,Wm,Hm-GY);
+    const fall=ERAS[era]==='滅亡';
+    for(const s of slots){
+      const target=fall?0:(era+1)/6*170*s.v;
+      s.h=lerp(s.h,target,fall?dt*6:dt*2.4);
+      if(fall&&s.h>4&&Math.random()<.3)dust.push({x:s.x+rnd(-10,10),y:GY-s.h*rnd(1),vy:rnd(-30,-5),life:rnd(.5,1.2)});
+      if(s.h<2)continue;
+      c.fillStyle='#6b5230'; c.fillRect(s.x-s.w/2,GY-s.h,s.w,s.h);
+      c.fillStyle='rgba(255,238,170,.8)';
+      for(let wy=GY-s.h+8;wy<GY-6;wy+=14)
+        for(let wx=s.x-s.w/2+5;wx<s.x+s.w/2-4;wx+=10)
+          if((wx*7+wy*13|0)%3)c.fillRect(wx,wy,4,5);
+    }
+    for(let i=dust.length-1;i>=0;i--){
+      const d=dust[i]; d.y+=d.vy*dt; d.vy+=60*dt; d.life-=dt;
+      if(d.life<=0){dust.splice(i,1);continue}
+      c.globalAlpha=d.life; c.fillStyle='#8a6f3d'; c.fillRect(d.x,d.y,3,3);
+    }
+    c.globalAlpha=1;
+    c.fillStyle=fall?'#a02818':'#4a3517';
+    c.font='bold 19px "Hiragino Mincho ProN",serif'; c.textAlign='center';
+    c.fillText(`— ${ERAS[era]} —`,Wm/2,44);
+    if(fall){c.font='13px "Hiragino Mincho ProN",serif'; c.fillText('(諸行無常)',Wm/2,66)}
+  }});
+})();
+
+function renderMinis(t,dt){
+  for(const m of minis) if(miniVisible(m.cnv)) m.draw(t,dt);
+}
+
+/* ---------- boot ---------- */
+function resize(){
+  const dpr=Math.min(2,devicePixelRatio||1);
+  W=innerWidth; H=innerHeight;
+  cv.width=W*dpr; cv.height=H*dpr;
+  cv.style.width=W+'px'; cv.style.height=H+'px';
+  cx.setTransform(dpr,0,0,dpr,0,0);
+  measure(); buildStops(); spawn();
+}
+addEventListener('resize',resize);
+resize();
+requestAnimationFrame(frame);
+
+// 開店のごあいさつ
+setTimeout(()=>announce('ようこそ天地百貨店へ。屋上は宇宙、地下5階は太古でございます。',5000),900);
+
+})();
+</script>
+
+<style>
+/* ════ 増築: お得意さまカード & 売り場記録 (旧ロビー機能の統合 — 反省は引き続きなし) ════ */
+.tenchi-members{
+  border:1px solid rgba(217,184,106,.55); background:rgba(8,10,24,.72); backdrop-filter:blur(6px);
+  padding:1rem 1.4rem; min-width:min(440px,88vw);
+  box-shadow:0 0 0 4px rgba(8,10,24,.72), 0 0 0 5px rgba(217,184,106,.35);
+}
+.tenchi-members h2{font-size:.8rem; letter-spacing:.45em; text-align:center; color:var(--gold); font-weight:600; margin-bottom:.7rem}
+.tenchi-members .rank{
+  display:flex; justify-content:space-between; align-items:baseline; gap:1rem;
+  border-bottom:1px dashed rgba(217,184,106,.25); padding-bottom:.5rem; margin-bottom:.55rem;
+}
+.tenchi-members .rank b{font-size:1.05rem; letter-spacing:.14em; color:#f0e3bb;
+  font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
+.tenchi-members .rank .ach{font-size:.82rem; color:var(--gold); font-variant-numeric:tabular-nums; letter-spacing:.08em}
+.tenchi-members .purses{display:flex; flex-wrap:wrap; gap:.4em .55em; font-size:.74rem; color:#cfd6e8}
+.tenchi-members .purses span{
+  border:1px solid rgba(217,184,106,.25); border-radius:99px; padding:.25em .8em;
+  font-variant-numeric:tabular-nums; background:rgba(217,184,106,.06); white-space:nowrap;
+}
+.tenchi-members .note{font-size:.62rem; color:#8e96ad; text-align:center; margin-top:.55rem; letter-spacing:.12em}
+.guide .tenchi-mini{margin-left:auto; font-size:.72rem; color:var(--gold-dim);
+  font-variant-numeric:tabular-nums; white-space:nowrap}
+.tenchi-stats{
+  display:flex; flex-wrap:wrap; gap:.4em .8em; align-items:center; margin:0 0 1rem;
+  font-size:.74rem; opacity:.85; border:1px dashed currentColor; border-radius:8px;
+  padding:.4em .8em; font-variant-numeric:tabular-nums;
+}
+.tenchi-stats .lab{font-weight:700; letter-spacing:.18em; font-size:.66rem; opacity:.8}
+.tenchi-announce{
+  position:fixed; bottom:74px; left:50%; transform:translate(-50%,140%); z-index:11;
+  background:rgba(10,12,26,.92); border:1px solid rgba(217,184,106,.5); color:#f0e8d2;
+  padding:.7em 1.5em; border-radius:99px; font-size:.86rem; transition:transform .45s cubic-bezier(.2,1,.3,1);
+  box-shadow:0 12px 40px rgba(0,0,0,.5); max-width:88vw; text-align:center; pointer-events:none;
+}
+.tenchi-announce.show{transform:translate(-50%,0)}
+.tenchi-announce::before{content:"🛎 "}
+</style>
+<script>
+(()=>{
+'use strict';
+/* ════ 増築: 旧ロビー機能(実績・通貨・BGMのライブ集計)の館内統合 ════ */
+const TOYS = [
+  {key:'hoshizora', floor:'floor-r',  unit:'✨', label:'星空'},
+  {key:'shima',     floor:'floor-2f', unit:'🐚', label:'島々'},
+  {key:'shinkai',   floor:'floor-b1', unit:'🫧', label:'深海'},
+  {key:'rekishi',   floor:'floor-b5', unit:'🕯', label:'年代記'},
+];
+const RANKS = [
+  [0,  '一見さん'], [5, '常連さん'], [15, 'お得意さま'],
+  [35, '上得意さま'], [60, '大旦那様'], [87, '名誉顧客'],
+];
+const esc = s => String(s).replace(/[&<>"']/g,
+  m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+function read(key, fb){
+  try{ const v = JSON.parse(localStorage.getItem(key)); return v == null ? fb : v; }
+  catch(_){ return fb; }
+}
+function raw(key){ try{ return localStorage.getItem(key); }catch(_){ return null; } }
+
+/* ---------- DOM(全部追記・既存ノードは触らない) ---------- */
+const card = document.createElement('div');
+card.className = 'tenchi-members';
+card.innerHTML =
+  '<h2>お得意さまカード</h2>' +
+  '<div class="rank"><b id="tenchiRank">—</b><span class="ach" id="tenchiAch">🏆 —</span></div>' +
+  '<div class="purses" id="tenchiPurses"></div>' +
+  '<div class="note">実績とお買い物ポイントは各売り場と自動で同期しております</div>';
+const guide = document.querySelector('#hero .guide');
+if(guide) guide.after(card);
+
+const minis = {};
+for(const t of TOYS){
+  const row = document.querySelector(`.guide a[href="#${t.floor}"]`);
+  if(row){
+    const m = document.createElement('span');
+    m.className = 'tenchi-mini';
+    row.append(m);
+    minis[t.key] = m;
+  }
+  const body = document.querySelector(`#${t.floor} .card .body`);
+  if(body){
+    const st = document.createElement('div');
+    st.className = 'tenchi-stats';
+    st.id = `tenchiStats-${t.key}`;
+    const cta = body.querySelector('.cta');
+    if(cta) body.insertBefore(st, cta); else body.append(st);
+  }
+}
+
+const bell = document.createElement('div');
+bell.className = 'tenchi-announce';
+document.body.append(bell);
+let bellT = null;
+function ring(msg){
+  bell.textContent = msg;
+  bell.classList.add('show');
+  clearTimeout(bellT);
+  bellT = setTimeout(()=>bell.classList.remove('show'), 5200);
+}
+
+/* ---------- 集計 ---------- */
+function refresh(){
+  try{
+    const defs  = read('yozora-ach-defs-v1', {});
+    const state = read('yozora-ach-state-v1', {});
+    const ids = Object.keys(state);
+    let total = 0;
+    for(const k of Object.keys(defs)) total += (defs[k] || []).length;
+
+    let rank = RANKS[0][1];
+    for(const [n, name] of RANKS) if(ids.length >= n) rank = name;
+    const rankEl = document.getElementById('tenchiRank');
+    const achEl = document.getElementById('tenchiAch');
+    if(rankEl) rankEl.textContent = rank;
+    if(achEl) achEl.textContent = total > 0 ? `🏆 実績 ${ids.length} / ${total}` : '🏆 各売り場にて記帳開始';
+
+    const purses = document.getElementById('tenchiPurses');
+    if(purses){
+      purses.innerHTML = TOYS.map(t => {
+        const bal = parseInt(raw('currency-' + t.key) || '0', 10) || 0;
+        const bgm = raw(t.key + '-bgm') === 'on' ? '🎶' : '';
+        return `<span>${t.unit} ${bal} <small>${esc(t.label)}</small>${bgm}</span>`;
+      }).join('');
+    }
+
+    for(const t of TOYS){
+      const n = ids.filter(id => id.startsWith(t.key + ':')).length;
+      const d = (defs[t.key] || []).length;
+      if(minis[t.key]) minis[t.key].textContent = d ? `🏆 ${n}/${d}` : '🏆 未記帳';
+      const st = document.getElementById(`tenchiStats-${t.key}`);
+      if(st){
+        const bal = parseInt(raw('currency-' + t.key) || '0', 10) || 0;
+        const bgm = raw(t.key + '-bgm') === 'on' ? '・🎶 BGM営業中' : '';
+        st.innerHTML = `<span class="lab">お客さまの記録</span>` +
+          `<span>🏆 ${d ? `${n} / ${d}` : 'まだ記帳がありません'}</span>` +
+          `<span>${t.unit} ${bal}</span><span>${esc(bgm)}</span>`;
+      }
+    }
+  }catch(err){ console.error('[tenchi-members]', err); }
+}
+
+/* ---------- 別タブの実績解除を館内放送する ---------- */
+let known = new Set(Object.keys(read('yozora-ach-state-v1', {})));
+function titleOf(id){
+  const defs = read('yozora-ach-defs-v1', {});
+  for(const k of Object.keys(defs)){
+    const hit = (defs[k] || []).find(d => d && d.id === id);
+    if(hit) return hit.title;
+  }
+  return id;
+}
+window.addEventListener('storage', e => {
+  try{
+    if(e.key === 'yozora-ach-state-v1'){
+      const now = Object.keys(read('yozora-ach-state-v1', {}));
+      const fresh = now.filter(id => !known.has(id));
+      known = new Set(now);
+      if(fresh.length){
+        ring(`お客さまの実績「${titleOf(fresh[0])}」が解除されました。おめでとうございます`);
+      }
+    }
+    refresh();
+  }catch(err){ console.error('[tenchi-members]', err); }
+});
+window.addEventListener('focus', refresh);
+setInterval(refresh, 5000);
+refresh();
+})();
+</script>
+
+<script>
+(()=>{
+'use strict';
+/* ════ 増築: 新館のご案内 (5つの新ゲームへの連絡通路) ════ */
+try{
+  const annex = document.createElement('nav');
+  annex.className = 'guide tenchi-annex';
+  annex.setAttribute('aria-label','新館のご案内');
+  annex.innerHTML =
+    '<h2>新館のご案内 — ANNEX</h2>' +
+    '<a href="ikai-shokudo/index.html"><span class="fl">夜1F</span><span>異界食堂 — 夜にだけ開く食堂(常連様優先)</span></a>' +
+    '<a href="eki/index.html"><span class="fl">駅</span><span>終電後の駅 — 地下連絡通路の先・終電は出ました</span></a>' +
+    '<a href="nagaya/index.html"><span class="fl">別2F</span><span>おばけ長屋 — 店子募集中(妖怪可)</span></a>' +
+    '<a href="yakei/index.html"><span class="fl">夜勤</span><span>百貨店の夜警 — 当館の夜のすがた(求人)</span></a>' +
+    '<a href="koke-niwa/index.html"><span class="fl">庭</span><span>苔庭と砂紋 — 屋上庭園別亭・心の静けさ完備</span></a>';
+  // お得意さまカードの下、なければフロアガイドの下、それもなければ玄関の末尾
+  const after = document.querySelector('.tenchi-members') || document.querySelector('#hero .guide');
+  if(after) after.after(annex);
+  else { const hero = document.getElementById('hero'); if(hero) hero.append(annex); }
+}catch(err){ console.error('[tenchi-annex]', err); }
+})();
+</script>
+</body>
+</html>

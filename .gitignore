@@ -1,0 +1,5 @@
+# macOS Finderのメタデータ
+.DS_Store
+
+# ローカル開発ツールの設定(プレビューサーバー等)
+.claude/

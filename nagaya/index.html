@@ -1,0 +1,1437 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>おばけ長屋の大家さん · Obake Nagaya</title>
+<style>
+  :root{
+    --ink:#3a2e26;
+    --paper:#f4ecd9;
+    --dim:#8a7a68;
+    --wood:#6e4f38;
+    --indigo:#2b3a55;
+    --acc:#b5563c;
+    --panel:rgba(247,240,224,.95);
+    --panel-edge:rgba(95,72,50,.3);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:#e9ddc2;
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",-apple-system,system-ui,sans-serif;
+    color:var(--ink);-webkit-font-smoothing:antialiased;}
+  #scene{position:fixed;inset:0;display:block;width:100vw;height:100vh;}
+
+  .topbar{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;gap:14px;
+    padding:14px 18px;pointer-events:none;z-index:5;}
+  .brand{pointer-events:none;font-weight:700;letter-spacing:.05em;font-size:15px;color:#3a2818;
+    text-shadow:0 1px 0 rgba(255,255,255,.5)}
+  .brand small{display:block;font-weight:500;font-size:10.5px;color:#7a5a3a;letter-spacing:.2em;margin-top:2px}
+  .spacer{flex:1}
+  .btn{pointer-events:auto;cursor:pointer;border:1.5px solid var(--panel-edge);
+    background:var(--panel);color:var(--ink);border-radius:999px;padding:8px 15px;font-size:13px;
+    transition:.18s;white-space:nowrap;font-family:inherit;font-weight:600;
+    box-shadow:0 2px 8px rgba(60,40,20,.18)}
+  .btn:hover{border-color:rgba(181,86,60,.6);transform:translateY(-1px)}
+  .btn:active{transform:translateY(0)}
+
+  .dock{position:fixed;left:14px;bottom:14px;display:flex;flex-wrap:wrap;gap:8px;z-index:5;max-width:70vw}
+  .dock .btn{pointer-events:auto}
+  .dock.folded .btn:not(.dock-toggle){display:none}
+  .dock .dock-toggle{font-size:15px;padding:8px 12px}
+
+  .hint{position:fixed;left:50%;top:44%;transform:translate(-50%,-50%);text-align:center;
+    color:#5a4632;font-size:15px;line-height:2;pointer-events:none;z-index:2;transition:opacity .8s}
+  .hint .big{font-size:19px;color:#3a2818;letter-spacing:.08em;font-weight:700}
+
+  .panel{position:fixed;top:64px;right:14px;width:330px;max-height:calc(100vh - 84px);
+    overflow-y:auto;background:var(--panel);border:1.5px solid var(--panel-edge);border-radius:16px;
+    padding:14px;z-index:4;box-shadow:0 14px 40px rgba(60,40,20,.25);
+    transition:transform .3s, opacity .3s;scrollbar-width:thin;}
+  .panel.hidden{transform:translateX(120%);opacity:0;pointer-events:none}
+  .panel h2{margin:2px 4px 10px;font-size:13px;letter-spacing:.14em;color:#7a5a3a;font-weight:700}
+  .panel .empty{color:var(--dim);font-size:13px;padding:8px 6px;line-height:1.8}
+  .tcard{border:1.5px solid transparent;border-radius:12px;padding:10px 12px;margin-bottom:9px;
+    background:rgba(255,255,255,.5);cursor:pointer;transition:.18s}
+  .tcard:hover{background:rgba(181,86,60,.07);border-color:rgba(181,86,60,.4)}
+  .tcard .nm{font-size:14.5px;font-weight:700;letter-spacing:.03em}
+  .tcard .nm small{font-weight:500;color:#7a6a52;margin-left:7px;font-size:11px}
+  .tcard .meta{font-size:11.5px;color:#6e5a44;margin-top:5px;line-height:1.8}
+  .mood{height:7px;border-radius:99px;background:rgba(0,0,0,.12);margin-top:7px;overflow:hidden}
+  .mood i{display:block;height:100%;border-radius:99px;transition:width .5s}
+
+  .appcard{position:fixed;left:50%;bottom:74px;transform:translateX(-50%) translateY(16px);
+    width:min(470px,94vw);background:var(--panel);border:1.5px solid var(--panel-edge);
+    border-radius:16px;padding:15px 17px;z-index:6;display:flex;gap:14px;
+    box-shadow:0 14px 40px rgba(60,40,20,.3);opacity:0;pointer-events:none;transition:.25s}
+  .appcard.show{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+  .appcard .pbox{flex:none;width:96px;height:108px;border-radius:12px;background:#efe2c2;
+    border:1.5px solid rgba(95,72,50,.25);display:flex;align-items:center;justify-content:center}
+  .appcard .pbox svg{width:84px;height:96px}
+  .appcard .nm{font-size:16px;font-weight:700;letter-spacing:.03em}
+  .appcard .nm small{font-weight:600;color:#8a5a3a;margin-left:8px;font-size:11.5px}
+  .appcard .row{font-size:12px;color:#5f4e3a;margin-top:5px;line-height:1.75}
+  .appcard .row b{color:#3a2818}
+  .appcard .hintline{font-size:11.5px;color:#7a5a3a;margin-top:6px;
+    border-left:2.5px solid rgba(181,86,60,.45);padding-left:8px;line-height:1.7}
+  .appcard .btns{display:flex;gap:8px;margin-top:10px}
+  .appcard .btns .btn{font-size:12.5px;padding:7px 13px}
+
+  .veil{position:fixed;inset:0;background:rgba(40,28,16,.35);z-index:8;opacity:0;
+    pointer-events:none;transition:.25s;display:flex;align-items:center;justify-content:center}
+  .veil.show{opacity:1;pointer-events:auto}
+  .modal{width:min(440px,92vw);max-height:80vh;overflow-y:auto;background:var(--panel);
+    border:1.5px solid var(--panel-edge);border-radius:16px;padding:18px 20px;
+    box-shadow:0 18px 50px rgba(40,25,10,.4);transform:translateY(10px);transition:.25s}
+  .veil.show .modal{transform:translateY(0)}
+  .modal h3{margin:0 0 10px;font-size:14px;letter-spacing:.12em;color:#7a5a3a}
+  .modal .body{font-size:13.5px;line-height:2;color:#4a3a28}
+  .modal .body .sig{display:block;text-align:right;color:#8a7a5a;font-size:12px;margin-top:8px}
+  .modal .choice{display:block;width:100%;text-align:left;margin-top:9px;cursor:pointer;
+    border:1.5px solid var(--panel-edge);background:rgba(255,255,255,.55);color:var(--ink);
+    border-radius:11px;padding:10px 13px;font-size:13px;font-family:inherit;font-weight:600;transition:.15s}
+  .modal .choice:hover{border-color:rgba(181,86,60,.6);background:rgba(181,86,60,.07)}
+  .modal .out{margin-top:12px;font-size:13px;line-height:2;color:#5a4632;
+    border-left:2.5px solid rgba(181,86,60,.45);padding-left:10px}
+  .modal .x{float:right;color:var(--dim);cursor:pointer;font-size:14px;padding:2px 6px}
+  .modal .x:hover{color:var(--ink)}
+  .stars{font-size:19px;color:#c98a2e;letter-spacing:.18em;margin:4px 0 8px}
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);
+    background:rgba(50,36,22,.93);color:#f6eedd;border-radius:999px;
+    padding:9px 18px;font-size:13px;opacity:0;transition:.3s;z-index:9;pointer-events:none;
+    max-width:88vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  .bubbleg{cursor:pointer}
+  .pickline{pointer-events:none}
+</style>
+</head>
+<body>
+<svg id="scene" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid meet"></svg>
+
+<div class="topbar">
+  <div class="brand">おばけ長屋の大家さん<small>OBAKE NAGAYA</small></div>
+  <div class="spacer"></div>
+  <button class="btn" id="repBtn">📜 長屋の評判</button>
+  <button class="btn" id="panelBtn">👥 店子台帳</button>
+  <button class="btn" id="resetBtn">🏚 建て直す</button>
+</div>
+
+<div class="hint" id="hint">
+  <div class="big">あなたは、おばけ長屋の大家さんです</div>
+  まもなく、店子志望の妖怪が戸を叩きます<br>
+  相性を見きわめて、空き部屋に入れてあげましょう<br>
+  <span style="font-size:13px">家賃日は三日にいちど。苦情の仲裁も、雨漏りの修理も、お仕事です</span>
+</div>
+
+<div class="panel hidden" id="panel">
+  <h2>店子台帳</h2>
+  <div id="cards"></div>
+</div>
+
+<div class="appcard" id="appcard"></div>
+<div class="veil" id="veil"><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast"></div>
+<div class="dock" id="dock"></div>
+
+<script>
+(() => {
+  "use strict";
+  const SVGNS = "http://www.w3.org/2000/svg";
+  const svg = document.getElementById("scene");
+
+  // ---- tiny helpers ----
+  function mk(tag, attrs){
+    const el = document.createElementNS(SVGNS, tag);
+    if(attrs) for(const k in attrs) el.setAttribute(k, attrs[k]);
+    return el;
+  }
+  function tx(x, y, str, attrs){
+    const t = mk("text", Object.assign({x, y}, attrs || {}));
+    t.textContent = str;
+    return t;
+  }
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g,
+    c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+  const pick = a => a[(Math.random()*a.length)|0];
+  const rnd  = (a,b) => a + Math.random()*(b-a);
+  const clamp = (v,a,b) => v < a ? a : v > b ? b : v;
+  const fmt = (s, m) => s.replace(/\{(\w+)\}/g, (_,k) => (m && k in m) ? m[k] : "");
+
+  // ---- event bus (same tiny bus as the other yozora toys) ----
+  const listeners = new Map();
+  function on(name, fn){
+    if(!listeners.has(name)) listeners.set(name, []);
+    listeners.get(name).push(fn);
+  }
+  function emit(name, arg){
+    for(const f of listeners.get(name) || []){
+      try{ f(arg); }catch(err){ console.error(`[plugin handler for "${name}"]`, err); }
+    }
+  }
+
+  // ---- shared toybox currencies ----
+  const CUR = {
+    hoshizora:{ key:"currency-hoshizora", name:"星屑",   unit:"粒" },
+    shinkai:  { key:"currency-shinkai",   name:"真珠",   unit:"粒" },
+    shima:    { key:"currency-shima",     name:"貝がら", unit:"枚" },
+    rekishi:  { key:"currency-rekishi",   name:"信仰",   unit:"口" },
+  };
+  function awardCurrency(cur, amount){
+    try{
+      const k = CUR[cur].key;
+      const v = parseInt(localStorage.getItem(k) || "0", 10) || 0;
+      localStorage.setItem(k, String(v + amount));
+    }catch(err){ /* 帳簿は濡れても心は濡れない */ }
+  }
+
+  // ====================================================================
+  //  lore — species, names, complaints, town gossip
+  // ====================================================================
+  const SPECIES = {
+    kasa:{ name:"唐傘お化け", flav:"唐傘", cur:"shima", tags:["paper"], rar:1, anim:"hop",
+      names:["カラ吉","しずく","ホネ丸","カサ江","ヤブレ"],
+      quirks:["雨の日に歌う","片足跳びで廊下を磨く","骨の本数を数えて安心する"],
+      hint:"火の気のそばは苦手。雨の日は上機嫌",
+      gripe:"雨の日の歌が、ふしぎと長い" },
+    andon:{ name:"行灯お化け", flav:"行灯", cur:"hoshizora", tags:["paper"], rar:1, anim:"sway",
+      names:["ともえ","ボヤ吉","ホノ香","アカリ","ユラ平"],
+      quirks:["夜は照明係を自称する","油の銘柄にうるさい","消える前に一言ことわる"],
+      hint:"紙でできているので火の気は苦手（自分の火は別腹）",
+      gripe:"夜中まで明かりがまぶしい" },
+    hidama:{ name:"火の玉", flav:"火の玉", cur:"hoshizora", tags:["fire"], rar:1, anim:"flicker",
+      names:["ヒノ丸","ボウ太","トモシ","ポッ太","アブリ"],
+      quirks:["うれしいと青くなる","湿気ると小さくなる","線香の火付けを請け負う"],
+      hint:"紙の妖怪のとなりは火の用心",
+      gripe:"壁が焦げそうで眠れない" },
+    zashiki:{ name:"座敷童", flav:"座敷", cur:"rekishi", tags:[], rar:3, aura:true, anim:"bob",
+      names:["おかっぱ","チヨ","マメ吉","コハル","タタミ"],
+      quirks:["いると家が栄える","畳の目を数えて遊ぶ","足音だけ先に帰ってくる"],
+      hint:"いるだけで長屋の福。両隣がなごみます",
+      gripe:"福が多すぎて戸棚が閉まらない" },
+    nurikabe:{ name:"塗壁", flav:"塗壁", cur:"rekishi", tags:["wall"], rar:2, damp:true, anim:"still",
+      names:["ヌリ蔵","カベ子","シックイ","ドテ吉","ツチ衛門"],
+      quirks:["壁になりがち","もたれると意外とやわらかい","角を曲がるのが少し苦手"],
+      hint:"隣のもめごとを物理的にさえぎってくれます",
+      gripe:"気づくと出口がふさがっている" },
+    azuki:{ name:"小豆洗い", flav:"小豆", cur:"shinkai", tags:["water"], rar:1, anim:"wash",
+      pref:{col:0, why:"井戸のそばの部屋を好む"},
+      names:["アズ吉","ショキ蔵","マメ造","アライ","コシ餡"],
+      quirks:["夜中に小豆を洗う","小豆の銘柄の話が長い","研ぎ汁は植木にあげる"],
+      hint:"井戸のそば（左端の部屋）を好みます",
+      gripe:"夜中のしょきしょきが止まらない" },
+    kappa:{ name:"河童", flav:"川", cur:"shinkai", tags:["water"], rar:2, anim:"bob",
+      pref:{col:0, why:"井戸のそばの部屋を好む"}, likes:["azuki"],
+      names:["キュウ平","サラ吉","コガメ","ヌマ夫","オカワ"],
+      quirks:["皿の水位を一日三回はかる","きゅうりの漬かり具合に厳しい","相撲の誘いを断れない"],
+      hint:"井戸のそばを好みます。小豆洗いと馬が合う",
+      gripe:"廊下が点々と濡れている" },
+    rokuro:{ name:"ろくろ首", flav:"ろくろ", cur:"shima", tags:[], rar:2, anim:"still",
+      pref:{floor:1, why:"二階の窓から首を出したい"},
+      names:["ノビ江","クビ子","ツル代","ナガ乃","ミオ"],
+      quirks:["夜になると首が散歩に出る","高い棚の整理が得意","肩こりとは無縁"],
+      hint:"二階の部屋を好みます。夜の見回りは無償",
+      gripe:"夜、窓から首がこんにちはしてくる" },
+    nekomata:{ name:"猫又", flav:"猫", cur:"shima", tags:[], rar:2, anim:"bob",
+      pref:{floor:1, why:"高いところで寝たい"}, likes:["zashiki"],
+      names:["ニャ蔵","タマ","フタマタ","ミケ八","ヨル"],
+      quirks:["しっぽ二本が別々の意見を持つ","夜中に天井で運動会をする","返事はするが来ない"],
+      hint:"二階を好みます。一反木綿の布で爪をとぎたがる",
+      gripe:"夜中の運動会がすごい" },
+    ittan:{ name:"一反木綿", flav:"木綿", cur:"hoshizora", tags:["paper"], rar:1, anim:"float",
+      pref:{floor:1, why:"二階のほうが飛び立ちやすい"},
+      names:["モメ吉","ヒラ里","ヌノ平","サラシ","タナ引"],
+      quirks:["風の強い日はそわそわする","たたまれると三日ふてくされる","物干し竿に擬態して休む"],
+      hint:"二階を好みます。火の気と猫は大の苦手",
+      gripe:"洗濯物と間違えてしまい気まずい" },
+    noppera:{ name:"のっぺらぼう", flav:"のっぺら", cur:"rekishi", tags:[], rar:2, calm:true, anim:"sway",
+      names:["ノッ平","ツル子","マッサラ","シロ江","ノペ蔵"],
+      quirks:["顔がない。以上","無表情が標準装備","福笑いの審判を頼まれがち"],
+      hint:"苦情をいっさい言わない静かな店子です",
+      gripe:"挨拶しても表情がまったく読めない" },
+    sunakake:{ name:"砂かけ婆", flav:"砂", cur:"shima", tags:["sandy"], rar:1, anim:"sway",
+      names:["スナ江","ザラ女","サラ婆","ジャリ","スナ代"],
+      quirks:["良い砂を見ると黙っていられない","砂の在庫を枕元に置く","挨拶がわりに少量まく"],
+      hint:"真下の部屋に砂が降りがち。一階向き…かも",
+      gripe:"天井から砂が降ってくる" },
+  };
+  const COLK = ["一","二","三","四"];
+
+  const GREET = [
+    "雨風しのげれば文句はありません",
+    "前の住まいは取り壊しに…いえ、こちらの話です",
+    "夜は静かにします。たぶん",
+    "紹介状はありませんが、誠意ならあります",
+    "百年ほど住むつもりです。短い間ですがよろしく",
+    "押し入れは広いほうだと助かります",
+  ];
+  const REJECTS = [
+    "{name}さんは少しの間、戸の前に立っていた。それから、いなくなった",
+    "「ご縁がなかったということで」と{name}さんは意外とあっさり帰った",
+    "{name}さんは振り向きざまに一礼した。礼儀は満点だった",
+    "{name}さんは「次は手土産を持ってくる」と言い残した",
+  ];
+  const FAREWELL = [
+    "「世話になった。塩は返す」 — {name}",
+    "「ここの壁とは合わなかった。達者で」 — {name}",
+    "「家賃は風に聞いてくれ」 — {name}",
+    "「悪いのは間取りだ」 — {name}",
+    "「月夜に呼ばれた。そういうこともある」 — {name}",
+  ];
+  const MEDI_A = [
+    "「それも妖怪の個性ですから」と言ったら、{a}さんは長いため息をついた",
+    "{b}さんは満足げにうなずいた。{a}さんは壁のしみを数えはじめた",
+    "丸くおさめたつもりだが、{a}さんの目が据わっていた",
+  ];
+  const MEDI_B = [
+    "{b}さんは「以後、気をつけるでやんす」と神妙だった。その語尾は初耳である",
+    "{a}さんの胸のつかえは下りたようだ。{b}さんは三歩で忘れた顔をしている",
+    "{b}さんに一言いっておいた。一言で済まなかったのは大家の落ち度である",
+  ];
+  const MORNING = [
+    "{n}日目の朝。雀が屋根で会議をしています",
+    "{n}日目の朝。井戸の水がよく冷えています",
+    "{n}日目の朝。今日もどこかで誰かが壁になっています",
+    "{n}日目の朝。長屋は今日も、おおむね無事です",
+  ];
+  const MORNING_RAIN = [
+    "{n}日目の朝。雨です。唐傘衆の本領です",
+    "{n}日目の朝。雨。屋根がそろそろ言い訳を始めそうです",
+  ];
+  const KAIRAN = [
+    "今月の井戸さらい当番は大家さんです。先月もでした",
+    "夜九つ以降の壁すり抜けはご遠慮ください（塗壁さん談）",
+    "裏の竹やぶでタヌキが集会をしています。議題は不明",
+    "天気のことわざ: 朝焼けは雨、夕焼けも雨、雨は雨",
+    "落とし物: 火の玉の芯（一本）。心当たりは世話役まで",
+    "長屋対抗・夜の静けさ選手権、当長屋は今年も準優勝でした",
+    "回覧板を回すのが早すぎると苦情がありました。遅すぎるとも",
+  ];
+  const REP_COMMENT = [
+    [20,"「あそこはやめとけ」と妖怪界の口コミに書かれています"],
+    [40,"悪くはないが良くもない、と銭湯で言われています"],
+    [60,"「まあまあ住める」。妖怪向け住まい情報誌より"],
+    [80,"評判は上々。行列はできないが、噂はできています"],
+    [101,"妖怪界の優良物件。座敷童が友達を連れてくる勢いです"],
+  ];
+
+  // ====================================================================
+  //  portraits — each draws into g, feet at (0,0), about 46 tall
+  // ====================================================================
+  function P(g, tag, attrs, text){
+    const el = mk(tag, attrs);
+    if(text != null) el.textContent = text;
+    g.append(el);
+    return el;
+  }
+  const SKIN = "#f2d9b0";
+  const PORTRAIT = {
+    kasa(g){
+      P(g,"line",{x1:0,y1:-13,x2:0,y2:-2,stroke:"#5d4636","stroke-width":2.6});
+      P(g,"rect",{x:-7,y:-3,width:14,height:3.2,rx:1,fill:"#7a5a40"});
+      P(g,"path",{d:"M0,-46 C-14,-40 -16,-22 -13,-14 Q0,-7 13,-14 C16,-22 14,-40 0,-46 Z",
+        fill:"#cf8d5a",stroke:"#8a5a36","stroke-width":1.4});
+      P(g,"line",{x1:0,y1:-45,x2:-8,y2:-15,stroke:"#8a5a36","stroke-width":.8,opacity:.7});
+      P(g,"line",{x1:0,y1:-45,x2:8,y2:-15,stroke:"#8a5a36","stroke-width":.8,opacity:.7});
+      P(g,"circle",{cx:0,cy:-27,r:5.6,fill:"#fff",stroke:"#6a4a30","stroke-width":1});
+      P(g,"circle",{cx:.6,cy:-27,r:2.5,fill:"#33271d"});
+      P(g,"path",{d:"M-2,-12.5 q2,8 6,8.5 q2,-4 -1,-8.5 z",fill:"#c2503e"});
+    },
+    andon(g){
+      P(g,"line",{x1:-5,y1:-10,x2:-5,y2:-1,stroke:"#5d4636","stroke-width":2.2});
+      P(g,"line",{x1:5,y1:-10,x2:5,y2:-1,stroke:"#5d4636","stroke-width":2.2});
+      P(g,"rect",{x:-13,y:-42,width:26,height:33,rx:2.5,fill:"#f2e0b8",stroke:"#6b4a32","stroke-width":1.4});
+      P(g,"rect",{x:-15,y:-45,width:30,height:4,rx:1.5,fill:"#5d4636"});
+      P(g,"line",{x1:0,y1:-42,x2:0,y2:-9,stroke:"#b59a6e","stroke-width":.8});
+      P(g,"circle",{cx:0,cy:-28,r:7,fill:"#ffc864",opacity:.55,class:"hglow"});
+      P(g,"path",{d:"M-7,-30 q2,-2.5 4,0",stroke:"#33271d","stroke-width":1.4,fill:"none"});
+      P(g,"path",{d:"M3,-30 q2,-2.5 4,0",stroke:"#33271d","stroke-width":1.4,fill:"none"});
+      P(g,"path",{d:"M-3,-21 q3,3.5 6,0",stroke:"#33271d","stroke-width":1.3,fill:"none"});
+    },
+    hidama(g){
+      P(g,"circle",{cx:0,cy:-26,r:16,fill:"#ffae3c",opacity:.2,class:"hglow"});
+      P(g,"path",{d:"M0,-46 C10,-33 13,-22 9,-14 Q0,-7 -9,-14 C-13,-22 -10,-33 0,-46 Z",fill:"#ff9d3b"});
+      P(g,"path",{d:"M0,-38 C6,-30 7,-23 5,-17 Q0,-13 -5,-17 C-7,-23 -6,-30 0,-38 Z",fill:"#ffd34d"});
+      P(g,"circle",{cx:-3,cy:-23,r:1.4,fill:"#7a3b10"});
+      P(g,"circle",{cx:3,cy:-23,r:1.4,fill:"#7a3b10"});
+      P(g,"path",{d:"M-2,-18 q2,1.8 4,0",stroke:"#7a3b10","stroke-width":1.1,fill:"none"});
+    },
+    zashiki(g){
+      P(g,"path",{d:"M-11,-1 L-9,-25 Q0,-29 9,-25 L11,-1 Z",fill:"#c2503e",stroke:"#8a3328","stroke-width":1});
+      P(g,"rect",{x:-9.5,y:-16,width:19,height:4,fill:"#e8b04a"});
+      P(g,"circle",{cx:0,cy:-35,r:8.6,fill:"#33271d"});
+      P(g,"circle",{cx:0,cy:-32.5,r:6.6,fill:SKIN});
+      P(g,"path",{d:"M-6.6,-36 Q0,-41 6.6,-36 L6.6,-34 Q0,-37.5 -6.6,-34 Z",fill:"#33271d"});
+      P(g,"circle",{cx:-2.6,cy:-32,r:1.1,fill:"#33271d"});
+      P(g,"circle",{cx:2.6,cy:-32,r:1.1,fill:"#33271d"});
+      P(g,"circle",{cx:-4.6,cy:-29.6,r:1.5,fill:"#e8a07a",opacity:.7});
+      P(g,"circle",{cx:4.6,cy:-29.6,r:1.5,fill:"#e8a07a",opacity:.7});
+    },
+    nurikabe(g){
+      P(g,"rect",{x:-8,y:-4,width:5,height:4,fill:"#6e604e"});
+      P(g,"rect",{x:3,y:-4,width:5,height:4,fill:"#6e604e"});
+      P(g,"rect",{x:-17,y:-40,width:34,height:37,rx:6,fill:"#b3a28c",stroke:"#6e604e","stroke-width":1.4});
+      P(g,"rect",{x:-20,y:-26,width:4,height:8,rx:2,fill:"#a3927c"});
+      P(g,"rect",{x:16,y:-26,width:4,height:8,rx:2,fill:"#a3927c"});
+      P(g,"line",{x1:-6,y1:-26,x2:-2,y2:-26,stroke:"#4a4036","stroke-width":1.5});
+      P(g,"line",{x1:2,y1:-26,x2:6,y2:-26,stroke:"#4a4036","stroke-width":1.5});
+      P(g,"circle",{cx:-9,cy:-13,r:1,fill:"#8d7e6a"});
+      P(g,"circle",{cx:8,cy:-31,r:1,fill:"#8d7e6a"});
+    },
+    azuki(g){
+      P(g,"path",{d:"M-12,-1 Q-14,-23 0,-28 Q10,-25 11,-1 Z",fill:"#7a6a50",stroke:"#54483a","stroke-width":1});
+      P(g,"circle",{cx:3,cy:-31,r:7,fill:SKIN});
+      P(g,"path",{d:"M-4,-34 Q3,-40 10,-34",stroke:"#8d8678","stroke-width":3,fill:"none"});
+      P(g,"circle",{cx:1.5,cy:-31,r:1.1,fill:"#33271d"});
+      P(g,"circle",{cx:6.5,cy:-31,r:1.1,fill:"#33271d"});
+      P(g,"ellipse",{cx:12,cy:-13,rx:8,ry:3.6,fill:"#c9a86a",stroke:"#8a7244","stroke-width":1});
+      P(g,"circle",{cx:9,cy:-14,r:1.3,fill:"#8a3b2e"});
+      P(g,"circle",{cx:13,cy:-13.4,r:1.3,fill:"#8a3b2e"});
+      P(g,"circle",{cx:15.5,cy:-14.2,r:1.3,fill:"#8a3b2e"});
+    },
+    kappa(g){
+      P(g,"ellipse",{cx:0,cy:-13,rx:11,ry:12,fill:"#6f9e5a",stroke:"#4a6e3c","stroke-width":1.2});
+      P(g,"ellipse",{cx:0,cy:-13,rx:7,ry:8.5,fill:"#d9cf9e"});
+      P(g,"circle",{cx:0,cy:-31,r:8.6,fill:"#7fae66",stroke:"#4a6e3c","stroke-width":1.2});
+      P(g,"ellipse",{cx:0,cy:-39,rx:5.6,ry:2.2,fill:"#e8e2c8",stroke:"#4a6e3c","stroke-width":1});
+      P(g,"circle",{cx:-3,cy:-32,r:1.3,fill:"#2d3a22"});
+      P(g,"circle",{cx:3,cy:-32,r:1.3,fill:"#2d3a22"});
+      P(g,"path",{d:"M-2.5,-28.5 L0,-26 L2.5,-28.5 Z",fill:"#e0b13e"});
+    },
+    rokuro(g){
+      P(g,"path",{d:"M-11,-1 L-8,-27 Q0,-30 8,-27 L11,-1 Z",fill:"#3a4a6b",stroke:"#27334a","stroke-width":1});
+      P(g,"path",{d:"M-4,-27 L0,-21 L4,-27",stroke:"#f4ecd9","stroke-width":2,fill:"none"});
+      P(g,"line",{class:"neck",x1:0,y1:-26,x2:0,y2:-32,stroke:SKIN,"stroke-width":4.6,"stroke-linecap":"round"});
+      const h = P(g,"g",{class:"rhead",transform:"translate(0,-36)"});
+      P(h,"circle",{cx:0,cy:0,r:7.2,fill:SKIN});
+      P(h,"path",{d:"M-7,-2 Q0,-9.5 7,-2 L7,-4 Q0,-11 -7,-4 Z",fill:"#33271d"});
+      P(h,"circle",{cx:0,cy:-8,r:3.2,fill:"#33271d"});
+      P(h,"circle",{cx:-2.6,cy:.5,r:1.1,fill:"#33271d"});
+      P(h,"circle",{cx:2.6,cy:.5,r:1.1,fill:"#33271d"});
+      P(h,"path",{d:"M-1.5,4 q1.5,1.2 3,0",stroke:"#a04a3a","stroke-width":1,fill:"none"});
+    },
+    nekomata(g){
+      P(g,"path",{d:"M9,-5 C18,-8 20,-20 13,-24",stroke:"#c9a062","stroke-width":3,fill:"none","stroke-linecap":"round"});
+      P(g,"path",{d:"M10,-3 C22,-2 26,-14 21,-20",stroke:"#c9a062","stroke-width":3,fill:"none","stroke-linecap":"round"});
+      P(g,"path",{d:"M-10,-1 Q-12,-19 0,-21 Q12,-19 10,-1 Z",fill:"#e0c08a",stroke:"#a8854e","stroke-width":1});
+      P(g,"circle",{cx:0,cy:-27,r:8,fill:"#e0c08a",stroke:"#a8854e","stroke-width":1});
+      P(g,"path",{d:"M-7,-32 L-6,-39 L-1.5,-34 Z",fill:"#e0c08a",stroke:"#a8854e","stroke-width":1});
+      P(g,"path",{d:"M7,-32 L6,-39 L1.5,-34 Z",fill:"#e0c08a",stroke:"#a8854e","stroke-width":1});
+      P(g,"path",{d:"M-4.5,-28 q1.5,-1.8 3,0",stroke:"#33271d","stroke-width":1.2,fill:"none"});
+      P(g,"path",{d:"M1.5,-28 q1.5,-1.8 3,0",stroke:"#33271d","stroke-width":1.2,fill:"none"});
+      P(g,"path",{d:"M-2,-24.5 q2,2 4,0",stroke:"#33271d","stroke-width":1,fill:"none"});
+    },
+    ittan(g){
+      P(g,"path",{d:"M0,-3 C-14,-7 -13,-22 0,-26 C13,-30 13,-42 2,-47",
+        stroke:"#f6f1e2","stroke-width":9,fill:"none","stroke-linecap":"round"});
+      P(g,"path",{d:"M0,-3 C-14,-7 -13,-22 0,-26 C13,-30 13,-42 2,-47",
+        stroke:"#d8cfb8","stroke-width":1,fill:"none",opacity:.6,"stroke-dasharray":"3 4"});
+      P(g,"circle",{cx:3.5,cy:-42,r:1.3,fill:"#33271d"});
+      P(g,"circle",{cx:8.5,cy:-40,r:1.3,fill:"#33271d"});
+    },
+    noppera(g){
+      P(g,"path",{d:"M-11,-1 L-8,-26 Q0,-29 8,-26 L11,-1 Z",fill:"#8a8f98",stroke:"#5d626b","stroke-width":1});
+      P(g,"path",{d:"M-4,-26 L0,-20 L4,-26",stroke:"#e8e4d8","stroke-width":2,fill:"none"});
+      P(g,"circle",{cx:0,cy:-33,r:7.6,fill:SKIN});
+      P(g,"path",{d:"M-7.4,-35 Q0,-42 7.4,-35 L7.4,-37 Q0,-44 -7.4,-37 Z",fill:"#33271d"});
+    },
+    sunakake(g){
+      P(g,"path",{d:"M-11,-1 L-9,-24 Q0,-27 9,-24 L11,-1 Z",fill:"#6e5a3e",stroke:"#4c3e2a","stroke-width":1});
+      P(g,"circle",{cx:0,cy:-30,r:7,fill:SKIN});
+      P(g,"path",{d:"M-7.5,-30 Q-8,-40 0,-38.5 Q8,-40 7.5,-30 L7.5,-33 Q0,-36 -7.5,-33 Z",fill:"#b08a4a"});
+      P(g,"circle",{cx:-2.6,cy:-30,r:1.1,fill:"#33271d"});
+      P(g,"circle",{cx:2.6,cy:-30,r:1.1,fill:"#33271d"});
+      P(g,"line",{x1:8,y1:-20,x2:17,y2:-24,stroke:SKIN,"stroke-width":2.6,"stroke-linecap":"round"});
+      P(g,"circle",{cx:20,cy:-21,r:1,fill:"#c9b285"});
+      P(g,"circle",{cx:23,cy:-17,r:1,fill:"#c9b285"});
+      P(g,"circle",{cx:19,cy:-14,r:1,fill:"#c9b285"});
+    },
+  };
+
+  // ====================================================================
+  //  scene — cutaway nagaya, 2 floors x 4 rooms, hut, well, yard
+  // ====================================================================
+  const gSky   = mk("g");
+  const gStars = mk("g", {opacity:0, "pointer-events":"none"});
+  const gYard  = mk("g");
+  const gBuild = mk("g");
+  const gOcc   = mk("g");
+  const gFront = mk("g");
+  const gHit   = mk("g");
+  const gRain  = mk("g", {style:"display:none", "pointer-events":"none"});
+  const nightVeil = mk("rect", {x:0,y:0,width:1200,height:700,fill:"#1b2440",opacity:0,"pointer-events":"none"});
+  const gGlow  = mk("g", {"pointer-events":"none"});
+  const gMark  = mk("g");
+  const gFx    = mk("g", {"pointer-events":"none"});
+  const gUi    = mk("g");
+  svg.append(gSky, gStars, gYard, gBuild, gOcc, gFront, gHit, gRain, nightVeil, gGlow, gMark, gFx, gUi);
+
+  const ROOM_W = 166, ROOM_H = 150;
+  const rooms = [];
+  for(let f=0; f<2; f++){
+    for(let c=0; c<4; c++){
+      rooms.push({
+        idx: f*4+c, floor: f, col: c,
+        x: 292 + c*178, y: f === 1 ? 200 : 364,
+        tenant: null, leak: null, coinEl: null, noteEl: null, occ: null,
+        glow: null, outline: null, due: false,
+      });
+    }
+  }
+  const roomName = r => (r.floor ? "二階" : "一階") + COLK[r.col] + "号室";
+  function neighborsOf(r){
+    const out = [];
+    for(const o of rooms){
+      if(o === r) continue;
+      if(o.floor === r.floor && Math.abs(o.col - r.col) === 1) out.push(o);
+      else if(o.col === r.col && o.floor !== r.floor) out.push(o);
+    }
+    return out;
+  }
+
+  function buildScene(){
+    // sky
+    const defs = mk("defs");
+    defs.innerHTML = `<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#cfe0e4"/><stop offset="70%" stop-color="#ecdfc0"/>
+        <stop offset="100%" stop-color="#e9d8b4"/></linearGradient>`;
+    gSky.append(defs, mk("rect",{x:0,y:0,width:1200,height:700,fill:"url(#sky)"}));
+    // stars + moon (fade in at night via group opacity)
+    for(let i=0;i<46;i++){
+      const s = mk("circle",{cx:Math.random()*1200, cy:Math.random()*180, r:.8+Math.random()*1.3, fill:"#fdf6dc"});
+      s.animate([{opacity:.25},{opacity:1},{opacity:.25}],
+        {duration:2400+Math.random()*3200, iterations:Infinity, delay:-Math.random()*4000, easing:"ease-in-out"});
+      gStars.append(s);
+    }
+    gStars.append(mk("circle",{cx:1062,cy:86,r:26,fill:"#f4e8bd"}),
+      mk("circle",{cx:1054,cy:80,r:5,fill:"#e3d4a2"}), mk("circle",{cx:1070,cy:94,r:3.4,fill:"#e3d4a2"}));
+    // yard
+    gYard.append(mk("rect",{x:0,y:520,width:1200,height:180,fill:"#c9b285"}),
+      mk("rect",{x:0,y:520,width:1200,height:7,fill:"#b8a173"}),
+      mk("ellipse",{cx:642,cy:524,rx:430,ry:14,fill:"#a89162",opacity:.4}));
+    for(let i=0;i<7;i++)
+      gYard.append(mk("ellipse",{cx:380+i*78,cy:586+(i%2)*26,rx:16,ry:6,fill:"#b3a081",stroke:"#9a8868","stroke-width":1}));
+    for(let i=0;i<10;i++){
+      const x = 40+Math.random()*1120, y = 545+Math.random()*130;
+      gYard.append(mk("path",{d:`M${x},${y} q2,-9 4,0 M${x+4},${y} q2,-7 4,0`,stroke:"#9aa86a","stroke-width":1.4,fill:"none"}));
+    }
+    // landlord hut
+    gYard.append(
+      mk("rect",{x:72,y:442,width:158,height:78,fill:"#efe3c4",stroke:"#6e4f38","stroke-width":2}),
+      mk("rect",{x:178,y:466,width:36,height:54,fill:"#6e4f38"}),
+      mk("circle",{cx:184,cy:494,r:1.8,fill:"#d8c89e"}),
+      mk("rect",{x:92,y:482,width:30,height:24,fill:"#f7efdb",stroke:"#9a8468","stroke-width":1.2}),
+      mk("line",{x1:107,y1:482,x2:107,y2:506,stroke:"#9a8468","stroke-width":1}),
+      mk("path",{d:"M58,446 L151,394 L244,446 Z",fill:"#4a3a2e",stroke:"#33271d","stroke-width":1.5}),
+      mk("rect",{x:96,y:452,width:58,height:22,rx:3,fill:"#f4ecd9",stroke:"#6e4f38","stroke-width":1.5}));
+    gYard.append(tx(125,468,"大家",{ "text-anchor":"middle","font-size":14,"font-weight":"700",fill:"#3a2818","letter-spacing":".2em"}));
+    // well (left of the building — col one rooms are "well-side")
+    gYard.append(
+      mk("line",{x1:274,y1:572,x2:274,y2:534,stroke:"#6e4f38","stroke-width":3.4}),
+      mk("line",{x1:316,y1:572,x2:316,y2:534,stroke:"#6e4f38","stroke-width":3.4}),
+      mk("path",{d:"M262,538 L295,520 L328,538 Z",fill:"#4a3a2e"}),
+      mk("rect",{x:258,y:570,width:74,height:28,rx:8,fill:"#8d8678",stroke:"#6a645a","stroke-width":2}),
+      mk("ellipse",{cx:295,cy:572,rx:26,ry:6,fill:"#33402e"}),
+      mk("line",{x1:295,y1:530,x2:295,y2:556,stroke:"#54483a","stroke-width":1.4}),
+      mk("rect",{x:288,y:556,width:14,height:11,rx:2,fill:"#7a5a40",stroke:"#54483a","stroke-width":1.2}));
+    gYard.append(tx(295,618,"井戸",{"text-anchor":"middle","font-size":10,fill:"#7a6a52","letter-spacing":".18em"}));
+    // rooms (back walls, shoji, tatami)
+    for(const r of rooms){
+      const g = mk("g");
+      g.append(mk("rect",{x:r.x,y:r.y,width:ROOM_W,height:ROOM_H,fill:(r.col+r.floor)%2 ? "#efe3c4" : "#ebdebb"}));
+      for(const sx of [r.x+26, r.x+88]){
+        g.append(mk("rect",{x:sx,y:r.y+22,width:52,height:84,fill:"#f7efdb",stroke:"#9a8468","stroke-width":1.4}));
+        g.append(mk("line",{x1:sx+26,y1:r.y+22,x2:sx+26,y2:r.y+106,stroke:"#9a8468","stroke-width":1}));
+        g.append(mk("line",{x1:sx,y1:r.y+50,x2:sx+52,y2:r.y+50,stroke:"#9a8468","stroke-width":1}));
+        g.append(mk("line",{x1:sx,y1:r.y+78,x2:sx+52,y2:r.y+78,stroke:"#9a8468","stroke-width":1}));
+      }
+      g.append(mk("rect",{x:r.x,y:r.y+ROOM_H-14,width:ROOM_W,height:14,fill:"#b59a5e"}),
+        mk("line",{x1:r.x+55,y1:r.y+ROOM_H-14,x2:r.x+55,y2:r.y+ROOM_H,stroke:"#9a8048","stroke-width":1}),
+        mk("line",{x1:r.x+111,y1:r.y+ROOM_H-14,x2:r.x+111,y2:r.y+ROOM_H,stroke:"#9a8048","stroke-width":1}));
+      g.append(tx(r.x+10, r.y+16, (r.floor?"二":"一")+COLK[r.col], {"font-size":10, fill:"#9a8468"}));
+      gBuild.append(g);
+      // window glow (above the night veil so it reads at night)
+      r.glow = mk("rect",{x:r.x+22,y:r.y+18,width:122,height:92,rx:4,fill:"#ffd98a",opacity:0});
+      gGlow.append(r.glow);
+      // pick outline + hit area
+      r.outline = mk("rect",{class:"pickline",x:r.x+3,y:r.y+3,width:ROOM_W-6,height:ROOM_H-6,rx:5,
+        fill:"none",stroke:"#b5563c","stroke-width":3,"stroke-dasharray":"8 6",opacity:0});
+      gMark.append(r.outline);
+      const hit = mk("rect",{x:r.x,y:r.y,width:ROOM_W,height:ROOM_H,fill:"#000",opacity:0,"pointer-events":"all"});
+      hit.style.cursor = "pointer";
+      hit.addEventListener("click", () => roomClicked(r));
+      gHit.append(hit);
+    }
+    // structure: posts, beams, foundation, roof
+    for(const px of [280,458,636,814,992])
+      gFront.append(mk("rect",{x:px,y:200,width:12,height:314,fill:"#6e4f38"}));
+    gFront.append(
+      mk("rect",{x:280,y:350,width:724,height:14,fill:"#6e4f38"}),
+      mk("rect",{x:272,y:514,width:740,height:10,fill:"#8d8678"}),
+      mk("rect",{x:276,y:192,width:732,height:10,fill:"#5d4636"}),
+      mk("path",{d:"M246,196 Q642,108 1038,196 L1006,196 Q642,136 278,196 Z",fill:"#4a3a2e",stroke:"#33271d","stroke-width":1.5}),
+      mk("path",{d:"M278,196 Q642,136 1006,196",fill:"none",stroke:"#33271d","stroke-width":1.2,opacity:.5}));
+    for(let i=0;i<9;i++){
+      const t = i/8, x = 278 + t*728, y = 196 - Math.sin(Math.PI*t)*0; // eave ticks
+      gFront.append(mk("line",{x1:x,y1:y,x2:x,y2:y-6,stroke:"#33271d","stroke-width":1,opacity:.35}));
+    }
+    // rain
+    for(let i=0;i<70;i++){
+      const x = Math.random()*1200, len = 13+Math.random()*9;
+      const l = mk("line",{x1:x,y1:-30,x2:x-3,y2:-30+len,stroke:"#7fa0c0","stroke-width":1.2,opacity:.55});
+      l.animate([{transform:"translateY(0)"},{transform:"translateY(760px)"}],
+        {duration:850+Math.random()*500, iterations:Infinity, delay:-Math.random()*1300, easing:"linear"});
+      gRain.append(l);
+    }
+    // day plate
+    gUi.append(mk("rect",{x:22,y:88,width:170,height:32,rx:9,fill:"rgba(247,240,224,.85)",
+      stroke:"rgba(95,72,50,.3)","stroke-width":1.5}));
+    dayPlate = tx(38,109,"",{"font-size":13,"font-weight":"700",fill:"#4a3a28","letter-spacing":".06em"});
+    gUi.append(dayPlate);
+  }
+  let dayPlate = null;
+
+  // ====================================================================
+  //  state
+  // ====================================================================
+  const tenants = [];           // live array {id, sp, given, name, quirk, rate, cur, mood, room, since}
+  const bubbles = [];           // active complaint bubbles {comp, cause, el, born}
+  let tid = 0;
+  let dayN = 1, rep = 50, raining = false;
+  let records = { rent:0, moves:0, flee:0, fixed:0, medi:0 };
+  let applicant = null, picking = false, pickAnims = [];
+  let nextKnock = 0, kairanLines = null, kairanEl = null;
+  let nf = 0;                   // night factor 0..1
+  let dirty = false;
+
+  // ---- toast / hint / dock (toybox chrome) ----
+  const toastEl = document.getElementById("toast");
+  let toastT = null;
+  function toast(msg){
+    toastEl.textContent = msg; toastEl.classList.add("show");
+    clearTimeout(toastT); toastT = setTimeout(()=>toastEl.classList.remove("show"), 2600);
+  }
+  const hint = document.getElementById("hint");
+  let hintGone = false;
+  function hideHint(){ if(!hintGone){ hintGone = true; hint.style.opacity = 0; } }
+  window.addEventListener("pointerdown", hideHint, {once:true});
+
+  const dock = document.getElementById("dock");
+  const dockToggle = document.createElement("button");
+  dockToggle.className = "btn dock-toggle";
+  dockToggle.textContent = "🧰";
+  dockToggle.title = "おもちゃ箱をひらく／たたむ";
+  dockToggle.addEventListener("click", () => dock.classList.toggle("folded"));
+  dock.append(dockToggle);
+  function addButton(label, onClick){
+    const b = document.createElement("button");
+    b.className = "btn";
+    b.textContent = label;
+    b.addEventListener("click", onClick);
+    dock.append(b);
+    return b;
+  }
+
+  // ---- modal ----
+  const veil = document.getElementById("veil");
+  const modalEl = document.getElementById("modal");
+  function openModal(html){
+    modalEl.innerHTML = html;
+    const x = modalEl.querySelector(".x");
+    if(x) x.addEventListener("click", closeModal);
+    veil.classList.add("show");
+    return modalEl;
+  }
+  function closeModal(){ veil.classList.remove("show"); }
+  veil.addEventListener("click", e => { if(e.target === veil) closeModal(); });
+
+  // ---- floating fx ----
+  function fx(x, y, str, size, dur){
+    const t = tx(x, y, str, {"text-anchor":"middle", "font-size":size||15, fill:"#5a4632",
+      "font-weight":"700", "paint-order":"stroke", stroke:"rgba(247,240,224,.8)", "stroke-width":3});
+    gFx.append(t);
+    t.animate([
+      {transform:"translateY(0)", opacity:0},
+      {transform:"translateY(-10px)", opacity:1, offset:.25},
+      {transform:"translateY(-30px)", opacity:0}
+    ], {duration:dur||1700, easing:"ease-out"}).onfinish = () => t.remove();
+  }
+  function sparkleRoom(r){
+    for(let i=0;i<4;i++)
+      setTimeout(() => fx(r.x+30+Math.random()*106, r.y+40+Math.random()*70, "✨", 13), i*260);
+  }
+
+  // ====================================================================
+  //  tenants in their rooms
+  // ====================================================================
+  function idle(el, kind){
+    el.style.transformBox = "fill-box";
+    el.style.transformOrigin = "50% 100%";
+    const dl = -rnd(0,900);
+    const A = (kf, dur, opts) => el.animate(kf,
+      Object.assign({duration:dur, iterations:Infinity, delay:dl, easing:"ease-in-out"}, opts||{}));
+    if(kind === "hop") A([{transform:"translateY(0)"},{transform:"translateY(-9px)",offset:.18},
+      {transform:"translateY(0)",offset:.36},{transform:"translateY(0)"}], 1500+rnd(0,500));
+    else if(kind === "sway") A([{transform:"rotate(-2.5deg)"},{transform:"rotate(2.5deg)"}],
+      2200+rnd(0,600), {direction:"alternate"});
+    else if(kind === "float") A([{transform:"translateY(0)"},{transform:"translateY(-7px)"},{transform:"translateY(0)"}], 3400+rnd(0,800));
+    else if(kind === "bob") A([{transform:"translateY(0)"},{transform:"translateY(-3.5px)"},{transform:"translateY(0)"}], 1900+rnd(0,500));
+    else if(kind === "flicker") A([{transform:"scale(1)"},{transform:"scale(1.07,.95)"},
+      {transform:"scale(.97,1.04)"},{transform:"scale(1)"}], 760+rnd(0,240));
+    else if(kind === "wash") A([{transform:"rotate(0deg)"},{transform:"rotate(4deg)"},
+      {transform:"rotate(0deg)"},{transform:"rotate(-2deg)"},{transform:"rotate(0deg)"}], 950);
+    else A([{transform:"scaleY(1)"},{transform:"scaleY(1.02)"},{transform:"scaleY(1)"}], 4200);
+  }
+
+  function renderTenant(t, pop){
+    const r = rooms[t.room];
+    const outer = mk("g", {transform:`translate(${r.x+83} ${r.y+ROOM_H-12}) scale(1.55)`});
+    const popg = mk("g");
+    const inner = mk("g");
+    PORTRAIT[t.sp](inner);
+    idle(inner, SPECIES[t.sp].anim);
+    popg.append(inner); outer.append(popg); gOcc.append(outer);
+    t.occ = outer;
+    t.neck = inner.querySelector(".neck");
+    t.rhead = inner.querySelector(".rhead");
+    t.hglow = inner.querySelector(".hglow");
+    if(pop){
+      popg.style.transformBox = "fill-box";
+      popg.style.transformOrigin = "50% 100%";
+      popg.animate([{transform:"scale(0)"},{transform:"scale(1.12)",offset:.7},{transform:"scale(1)"}],
+        {duration:650, easing:"cubic-bezier(.2,1.2,.4,1)"});
+    }
+  }
+
+  // ====================================================================
+  //  compatibility
+  // ====================================================================
+  function pairIssue(ta, tb){
+    const ra = rooms[ta.room], rb = rooms[tb.room];
+    const A = SPECIES[ta.sp], B = SPECIES[tb.sp];
+    if(A.tags.includes("fire") && B.tags.includes("paper")) return {comp:tb, cause:ta};
+    if(B.tags.includes("fire") && A.tags.includes("paper")) return {comp:ta, cause:tb};
+    if(ta.sp === "nekomata" && tb.sp === "ittan") return {comp:tb, cause:ta};
+    if(tb.sp === "nekomata" && ta.sp === "ittan") return {comp:ta, cause:tb};
+    if(ta.sp === "sunakake" && ra.floor === 1 && rb.floor === 0 && ra.col === rb.col) return {comp:tb, cause:ta};
+    if(tb.sp === "sunakake" && rb.floor === 1 && ra.floor === 0 && ra.col === rb.col) return {comp:ta, cause:tb};
+    return null;
+  }
+  function pairGood(ta, tb){
+    const A = SPECIES[ta.sp], B = SPECIES[tb.sp];
+    return !!(A.aura || B.aura ||
+      (A.likes && A.likes.includes(tb.sp)) || (B.likes && B.likes.includes(ta.sp)));
+  }
+  function prefOK(t){
+    const p = SPECIES[t.sp].pref;
+    if(!p) return true;
+    const r = rooms[t.room];
+    if("col" in p && r.col !== p.col) return false;
+    if("floor" in p && r.floor !== p.floor) return false;
+    return true;
+  }
+  function adjacentTenants(t){
+    return neighborsOf(rooms[t.room]).map(r => r.tenant).filter(Boolean);
+  }
+  function nearNurikabe(t){
+    return adjacentTenants(t).some(o => SPECIES[o.sp].damp);
+  }
+
+  // ====================================================================
+  //  applicants
+  // ====================================================================
+  const appcard = document.getElementById("appcard");
+  function genApplicant(){
+    const pool = [];
+    for(const k in SPECIES){
+      const s = SPECIES[k];
+      let w = s.rar === 1 ? 6 : s.rar === 2 ? (rep >= 45 ? 4 : 1) : (rep >= 65 ? 3 : rep >= 50 ? 1 : 0);
+      while(w-- > 0) pool.push(k);
+    }
+    const sp = pick(pool);
+    const S = SPECIES[sp];
+    let given = pick(S.names), tries = 0;
+    while(tenants.some(t => t.given === given) && ++tries < 12) given = pick(S.names);
+    return { sp, given, name: S.flav + "の" + given, quirk: pick(S.quirks),
+      rate: Math.min(7, 3 + (Math.random()*3|0) + (rep >= 70 ? 1 : 0)),
+      cur: S.cur, greet: pick(GREET) };
+  }
+
+  function freeRooms(){ return rooms.filter(r => !r.tenant); }
+
+  function showApplicant(a){
+    applicant = a; picking = false;
+    hideHint();
+    const S = SPECIES[a.sp], C = CUR[a.cur];
+    appcard.innerHTML =
+      `<div class="pbox"><svg viewBox="-34 -58 68 70" xmlns="http://www.w3.org/2000/svg"></svg></div>`+
+      `<div style="flex:1;min-width:0">`+
+      `<div class="nm">${esc(a.name)}<small>${esc(S.name)}</small></div>`+
+      `<div class="row">性癖: <b>${esc(a.quirk)}</b><br>家賃: <b>${esc(C.name)} ${a.rate}${esc(C.unit)}</b>（三日にいちど）</div>`+
+      `<div class="hintline">${esc(S.hint)}</div>`+
+      `<div class="row" style="color:#8a7a5a">「${esc(a.greet)}」</div>`+
+      `<div class="btns"><button class="btn" id="accBtn">部屋に案内する</button>`+
+      `<button class="btn" id="rejBtn">お断りする</button></div>`+
+      `<div class="row" id="pickNote" style="display:none;color:#b5563c;font-weight:700">`+
+      `どの部屋にご案内します？（空き部屋をクリック / 1〜8キー / Escで戻る）</div></div>`;
+    const pg = mk("g", {transform:"translate(0 4)"});
+    PORTRAIT[a.sp](pg);
+    idle(pg, S.anim);
+    appcard.querySelector("svg").append(pg);
+    appcard.querySelector("#accBtn").addEventListener("click", startPicking);
+    appcard.querySelector("#rejBtn").addEventListener("click", rejectApplicant);
+    appcard.classList.add("show");
+    fx(620, 545, "とんとん…", 16);
+    emit("applicant", a);
+  }
+
+  function startPicking(){
+    if(!applicant) return;
+    picking = true;
+    appcard.querySelector(".btns").style.display = "none";
+    appcard.querySelector("#pickNote").style.display = "block";
+    for(const r of freeRooms()){
+      r.outline.setAttribute("opacity", 1);
+      pickAnims.push(r.outline.animate([{opacity:.25},{opacity:1}],
+        {duration:800, iterations:Infinity, direction:"alternate", easing:"ease-in-out"}));
+    }
+  }
+  function endPicking(){
+    picking = false;
+    for(const a of pickAnims) a.cancel();
+    pickAnims = [];
+    for(const r of rooms) r.outline.setAttribute("opacity", 0);
+    if(applicant){
+      appcard.querySelector(".btns").style.display = "flex";
+      appcard.querySelector("#pickNote").style.display = "none";
+    }
+  }
+  function rejectApplicant(){
+    if(!applicant) return;
+    toast(fmt(pick(REJECTS), {name: applicant.given}));
+    endPicking();
+    applicant = null;
+    appcard.classList.remove("show");
+    scheduleKnock(15000, 40000);
+  }
+  function scheduleKnock(min, max){
+    nextKnock = performance.now() + rnd(min || 30000, max || 60000);
+  }
+  function spawnApplicant(){
+    if(applicant || !freeRooms().length) return null;
+    const a = genApplicant();
+    showApplicant(a);
+    return a;
+  }
+
+  function moveIn(a, roomIdx){
+    const r = rooms[roomIdx];
+    if(!a || !SPECIES[a.sp] || !r || r.tenant) return null;
+    if(r.noteEl){ r.noteEl.remove(); r.noteEl = null; }
+    const t = { id:++tid, sp:a.sp, given:a.given, name:a.name, quirk:a.quirk,
+      rate:a.rate, cur:a.cur, mood:70, room:roomIdx, since:dayN, cheered:-1 };
+    r.tenant = t;
+    tenants.push(t);
+    renderTenant(t, true);
+    if(applicant === a){
+      endPicking(); applicant = null;
+      appcard.classList.remove("show");
+      scheduleKnock();
+    }
+    const adj = adjacentTenants(t);
+    const bad = adj.some(o => pairIssue(t, o));
+    const good = adj.some(o => pairGood(t, o));
+    const pok = prefOK(t);
+    if(bad){ toast(`${t.given}さん、入居。となりの気配に早くも目が泳いでいます`); rep += 1; }
+    else if(good){ toast(`${t.given}さん、入居。両どなりがなんだか、なごやかです`); sparkleRoom(r); rep += 2; }
+    else if(!pok) toast(`${t.given}さんは何も言わずに入居した（本当は${SPECIES[t.sp].pref.why}）`);
+    else { toast(`${t.given}さんが${roomName(r)}に入居しました`); rep += 1; }
+    rep = clamp(rep, 0, 100);
+    records.moves++;
+    dirty = true;
+    refreshPanel();
+    emit("tenant-moved-in", {tenant:t, room:r});
+    return t;
+  }
+
+  function tenantLeaves(t, reason){
+    const r = rooms[t.room];
+    if(t.occ) t.occ.remove();
+    r.tenant = null;
+    tenants.splice(tenants.indexOf(t), 1);
+    for(let i = bubbles.length-1; i >= 0; i--)
+      if(bubbles[i].comp === t || bubbles[i].cause === t) expireBubble(bubbles[i], false);
+    if(reason === "flee"){
+      records.flee++;
+      rep = clamp(rep - 2, 0, 100);
+      leaveNote(r, fmt(pick(FAREWELL), {name: t.name}));
+    }
+    if(r.due){ r.due = false; if(r.coinEl){ r.coinEl.remove(); r.coinEl = null; } }
+    dirty = true;
+    refreshPanel();
+    emit("tenant-left", t);
+  }
+
+  // ====================================================================
+  //  room clicks, rent, notes, leaks
+  // ====================================================================
+  function roomClicked(r){
+    if(picking){
+      if(r.tenant) toast("そこはもう、ふさがっています");
+      else moveIn(applicant, r.idx);
+      return;
+    }
+    if(r.tenant && r.due){ collectRent(r.tenant); return; }
+    if(r.tenant){ openTenantModal(r.tenant); return; }
+    if(r.noteEl){ readNote(r); return; }
+    toast(pick(["空き部屋です。いまは風が住んでいます","空き部屋です。畳が日に焼けるばかりです"]));
+  }
+
+  function showCoin(r){
+    if(r.coinEl) return;
+    const c = tx(r.x+ROOM_W-24, r.y+30, "💰", {"font-size":21});
+    c.style.cursor = "pointer";
+    c.addEventListener("click", e => { e.stopPropagation(); if(r.tenant) collectRent(r.tenant); });
+    c.animate([{transform:"translateY(0)"},{transform:"translateY(-4px)"},{transform:"translateY(0)"}],
+      {duration:900, iterations:Infinity, easing:"ease-in-out"});
+    c.style.transformBox = "fill-box";
+    gMark.append(c);
+    r.coinEl = c;
+  }
+  function collectRent(t){
+    const r = rooms[t.room];
+    if(!r.due) return;
+    const amount = clamp(t.rate + (t.mood >= 80 ? 1 : t.mood < 35 ? -1 : 0), 1, 8);
+    awardCurrency(t.cur, amount);
+    r.due = false;
+    if(r.coinEl){ r.coinEl.remove(); r.coinEl = null; }
+    const C = CUR[t.cur];
+    const mot = t.mood >= 80 ? "気持ちのいい払いっぷりです" : t.mood < 35 ? "目は合わせてくれませんでした" : "たしかに";
+    toast(`${t.given}さんから${C.name}${amount}${C.unit}。${mot}`);
+    fx(r.x+83, r.y+50, `+${amount}`, 17);
+    if(t.mood >= 50) rep = clamp(rep + .5, 0, 100);
+    records.rent += amount;
+    dirty = true;
+    emit("rent-paid", {tenant:t, currency:C.key, amount});
+    if(!rooms.some(o => o.due)) setTimeout(() => toast("今日の集金はおしまい。湯にでも行きますか"), 1200);
+  }
+
+  function leaveNote(r, text){
+    if(r.noteEl) r.noteEl.remove();
+    const n = tx(r.x+83, r.y+ROOM_H-24, "📜", {"text-anchor":"middle","font-size":20});
+    n.style.cursor = "pointer";
+    n.dataset.note = text;
+    n.addEventListener("click", e => { e.stopPropagation(); readNote(r); });
+    gMark.append(n);
+    r.noteEl = n;
+  }
+  function readNote(r){
+    const text = r.noteEl ? r.noteEl.dataset.note : "";
+    openModal(`<span class="x">✕</span><h3>書き置き</h3>`+
+      `<div class="body">${esc(text)}<span class="sig">畳の上に、塩がひとつまみ残されていた</span></div>`);
+    r.noteEl.remove(); r.noteEl = null;
+  }
+
+  function addLeak(r){
+    if(r.leak) return;
+    const g = mk("g");
+    g.append(mk("ellipse",{cx:r.x+40+Math.random()*86, cy:r.y+8, rx:13, ry:5, fill:"#54483a", opacity:.5}));
+    const d = tx(+g.firstChild.getAttribute("cx"), r.y+22, "💧", {"text-anchor":"middle","font-size":15});
+    d.animate([{transform:"translateY(0)",opacity:1},{transform:"translateY(96px)",opacity:.2}],
+      {duration:1500, iterations:Infinity, easing:"ease-in"});
+    d.style.transformBox = "fill-box";
+    g.append(d);
+    g.style.cursor = "pointer";
+    g.addEventListener("click", e => { e.stopPropagation(); fixLeak(r); });
+    gMark.append(g);
+    r.leak = {el:g, fixing:false};
+    toast(`${roomName(r)}で雨漏りです。大家の出番です`);
+    emit("leak", {room:r});
+  }
+  function fixLeak(r){
+    if(!r.leak || r.leak.fixing) return;
+    r.leak.fixing = true;
+    const cx = +r.leak.el.firstChild.getAttribute("cx");
+    r.leak.el.replaceChildren();
+    const h = tx(cx, r.y+26, "🔨", {"text-anchor":"middle","font-size":19});
+    h.style.transformBox = "fill-box";
+    h.style.transformOrigin = "20% 80%";
+    h.animate([{transform:"rotate(-38deg)"},{transform:"rotate(14deg)"}],
+      {duration:240, iterations:Infinity, direction:"alternate", easing:"ease-in"});
+    r.leak.el.append(h);
+    const knock = setInterval(() => fx(cx+rnd(-8,8), r.y+18, "カン", 11, 800), 480);
+    setTimeout(() => {
+      clearInterval(knock);
+      if(!r.leak) return;
+      r.leak.el.remove(); r.leak = null;
+      records.fixed++;
+      rep = clamp(rep + .5, 0, 100);
+      if(r.tenant) r.tenant.mood = clamp(r.tenant.mood + 5, 0, 100);
+      toast(pick(["直しました。大家の鑑です","直しました。金槌が少し得意になりました"]));
+      dirty = true;
+      emit("leak-fixed", {room:r});
+    }, 5000);
+  }
+
+  // ====================================================================
+  //  complaints & mediation
+  // ====================================================================
+  function spawnComplaint(comp, cause){
+    if(bubbles.length >= 2) return;
+    if(bubbles.some(b => b.comp === comp)) return;
+    if(SPECIES[comp.sp].calm) return;
+    const r = rooms[comp.room];
+    const text = `${roomName(rooms[cause.room])}の${cause.given}さん、${SPECIES[cause.sp].gripe}`;
+    const w = clamp(text.length*12.2 + 26, 120, 480);
+    const bx = clamp(r.x + 83, 60 + w/2, 1140 - w/2), by = r.y - 4;
+    const g = mk("g", {class:"bubbleg"});
+    g.append(
+      mk("rect",{x:bx-w/2, y:by-34, width:w, height:30, rx:9, fill:"rgba(252,248,238,.96)",
+        stroke:"#6e5a44","stroke-width":1.4}),
+      mk("path",{d:`M${r.x+76},${by-5} l8,12 l6,-12 z`, fill:"rgba(252,248,238,.96)",
+        stroke:"#6e5a44","stroke-width":1.4}),
+      tx(bx, by-14, text, {"text-anchor":"middle","font-size":12.2, fill:"#4a3a28","font-weight":"600"}));
+    g.style.transformBox = "fill-box";
+    g.animate([{transform:"translateY(8px)",opacity:0},{transform:"translateY(0)",opacity:1}],
+      {duration:400, easing:"ease-out"});
+    gFx.style.pointerEvents = "none";        // gFx stays decorative; bubbles live in gMark
+    gMark.append(g);
+    const b = {comp, cause, el:g, born:performance.now()};
+    g.addEventListener("click", e => { e.stopPropagation(); openMediation(b); });
+    bubbles.push(b);
+    emit("complaint", {a:comp, b:cause});
+  }
+  function expireBubble(b, ignored){
+    const i = bubbles.indexOf(b);
+    if(i < 0) return;
+    bubbles.splice(i, 1);
+    b.el.remove();
+    if(ignored){
+      b.comp.mood = clamp(b.comp.mood - 5, 0, 100);
+      b.cause.mood = clamp(b.cause.mood - 2, 0, 100);
+      rep = clamp(rep - 1, 0, 100);
+      toast("苦情は風にまぎれて消えました。両者、根には持っています");
+      dirty = true;
+    }
+  }
+  function openMediation(b){
+    const m = openModal(`<span class="x">✕</span><h3>苦情の仲裁</h3>`+
+      `<div class="body">${esc(b.comp.given)}さん（${esc(roomName(rooms[b.comp.room]))}）の訴え：<br>`+
+      `「${esc(roomName(rooms[b.cause.room]))}の${esc(b.cause.given)}さん、${esc(SPECIES[b.cause.sp].gripe)}」</div>`+
+      `<button class="choice" id="mA">「それも妖怪の個性ですから」（${esc(b.cause.given)}さんの肩を持つ）</button>`+
+      `<button class="choice" id="mB">「一言いっておきます」（${esc(b.comp.given)}さんの肩を持つ）</button>`);
+    const done = (line) => {
+      records.medi++;
+      expireBubble(b, false);
+      dirty = true;
+      m.querySelectorAll(".choice").forEach(c => c.remove());
+      const out = document.createElement("div");
+      out.className = "out";
+      out.textContent = line;
+      m.append(out);
+      const ok = document.createElement("button");
+      ok.className = "choice";
+      ok.textContent = "店子台帳に記す（閉じる）";
+      ok.addEventListener("click", closeModal);
+      m.append(ok);
+      refreshPanel();
+    };
+    m.querySelector("#mA").addEventListener("click", () => {
+      b.cause.mood = clamp(b.cause.mood + 7, 0, 100);
+      b.comp.mood = clamp(b.comp.mood - 4, 0, 100);
+      done(fmt(pick(MEDI_A), {a:b.comp.given, b:b.cause.given}));
+    });
+    m.querySelector("#mB").addEventListener("click", () => {
+      b.comp.mood = clamp(b.comp.mood + 8, 0, 100);
+      b.cause.mood = clamp(b.cause.mood - 6, 0, 100);
+      done(fmt(pick(MEDI_B), {a:b.comp.given, b:b.cause.given}));
+    });
+  }
+
+  // ====================================================================
+  //  tenant modal & panel
+  // ====================================================================
+  const CHEER = [
+    "「がんばってますね」と言ったら、{name}さんの背筋が少し伸びた",
+    "世間話をした。天気の話だけで一刻が過ぎた",
+    "{name}さんは「家賃は出世払いで」と言った。家賃は家賃である",
+    "{name}さんは何も言わなかったが、悪い沈黙ではなかった",
+  ];
+  const moodWord = m => m >= 80 ? "上機嫌" : m >= 55 ? "ふつう" : m >= 30 ? "不満気味" : "限界寸前";
+  const moodColor = m => m >= 65 ? "#6da25e" : m >= 40 ? "#c9a83c" : m >= 20 ? "#c97b3a" : "#b5503c";
+
+  function tenantNotes(t){
+    const notes = [];
+    if(!prefOK(t)) notes.push(`本当は${SPECIES[t.sp].pref.why}`);
+    for(const o of adjacentTenants(t)){
+      const iss = pairIssue(t, o);
+      if(iss) notes.push(`⚡ ${o.given}さんと折り合いが悪い`);
+      else if(pairGood(t, o)) notes.push(`✨ ${o.given}さんとは好相性`);
+    }
+    if(rooms[t.room].leak) notes.push("☔ 部屋が雨漏り中");
+    return notes;
+  }
+
+  function openTenantModal(t){
+    const S = SPECIES[t.sp], C = CUR[t.cur];
+    const notes = tenantNotes(t);
+    const m = openModal(`<span class="x">✕</span><h3>店子の様子</h3>`+
+      `<div class="body"><b>${esc(t.name)}</b>（${esc(S.name)}・${esc(roomName(rooms[t.room]))}）<br>`+
+      `機嫌: ${esc(moodWord(t.mood))}</div>`+
+      `<div class="mood"><i style="width:${Math.round(t.mood)}%;background:${moodColor(t.mood)}"></i></div>`+
+      `<div class="body" style="margin-top:10px">性癖: ${esc(t.quirk)}<br>`+
+      `家賃: ${esc(C.name)} ${t.rate}${esc(C.unit)}　／　${t.since}日目から入居`+
+      (notes.length ? `<br>${notes.map(esc).join("<br>")}` : "")+`</div>`+
+      `<button class="choice" id="cheerBtn"${t.cheered === dayN ? " disabled" : ""}>`+
+      `${t.cheered === dayN ? "今日はもう声をかけた" : "声をかける"}</button>`);
+    m.querySelector("#cheerBtn").addEventListener("click", () => {
+      if(t.cheered === dayN) return;
+      t.cheered = dayN;
+      t.mood = clamp(t.mood + 3, 0, 100);
+      dirty = true;
+      closeModal();
+      toast(fmt(pick(CHEER), {name: t.given}));
+      refreshPanel();
+    });
+  }
+
+  const cardsEl = document.getElementById("cards");
+  const panelEl = document.getElementById("panel");
+  function refreshPanel(){
+    cardsEl.replaceChildren();
+    if(!tenants.length){
+      const e = document.createElement("div");
+      e.className = "empty";
+      e.textContent = "まだ誰も住んでいません。畳が新しいうちにどうぞ。";
+      cardsEl.append(e);
+      emit("panel-rendered", {container: cardsEl});
+      return;
+    }
+    for(const t of [...tenants].sort((a,b) => a.room - b.room)){
+      const S = SPECIES[t.sp], C = CUR[t.cur];
+      const card = document.createElement("div");
+      card.className = "tcard";
+      const notes = tenantNotes(t);
+      card.innerHTML =
+        `<div class="nm">${esc(t.name)}<small>${esc(S.name)}・${esc(roomName(rooms[t.room]))}</small></div>`+
+        `<div class="meta">性癖: ${esc(t.quirk)}<br>家賃: ${esc(C.name)}${t.rate}${esc(C.unit)}`+
+        (notes.length ? `　${notes.map(esc).join("　")}` : "")+`</div>`+
+        `<div class="mood"><i style="width:${Math.round(t.mood)}%;background:${moodColor(t.mood)}"></i></div>`;
+      card.addEventListener("click", () => { flashRoom(rooms[t.room]); openTenantModal(t); });
+      cardsEl.append(card);
+    }
+    emit("panel-rendered", {container: cardsEl});
+  }
+  function flashRoom(r){
+    r.outline.setAttribute("opacity", 1);
+    r.outline.animate([{opacity:1},{opacity:0}], {duration:1500, easing:"ease-out"})
+      .onfinish = () => { if(!picking) r.outline.setAttribute("opacity", 0); };
+  }
+
+  // ====================================================================
+  //  reputation card
+  // ====================================================================
+  function openRep(){
+    const n = clamp(Math.round(rep/20), 1, 5);
+    const comment = REP_COMMENT.find(c => rep < c[0])[1];
+    openModal(`<span class="x">✕</span><h3>長屋の評判</h3>`+
+      `<div class="stars">${"★".repeat(n)}${"☆".repeat(5-n)}</div>`+
+      `<div class="body">評判 ${Math.round(rep)} ／ 100<br>${esc(comment)}</div>`+
+      `<div class="body" style="margin-top:10px">店子 ${tenants.length}／8部屋　・　${dayN}日目<br>`+
+      `集めた家賃: のべ${records.rent}　／　入居: ${records.moves}件<br>`+
+      `夜逃げ: ${records.flee}件　／　修理: ${records.fixed}件　／　仲裁: ${records.medi}件</div>`);
+  }
+
+  // ====================================================================
+  //  回覧板
+  // ====================================================================
+  function genKairan(){
+    const lines = [];
+    const pool = [...KAIRAN];
+    while(lines.length < 2 && pool.length) lines.push(pool.splice((Math.random()*pool.length)|0, 1)[0]);
+    if(tenants.length && Math.random() < .8){
+      const t = pick(tenants);
+      lines.push(`${t.name}さんの「${t.quirk}」が今月の長屋風物詩に選ばれました`);
+    }
+    try{
+      const zukan = JSON.parse(localStorage.getItem("sea-zukan-v1") || "null");
+      if(Array.isArray(zukan) && zukan.length && Math.random() < .5){
+        const c = pick(zukan);
+        if(c && c.name) lines.push(`井戸の底で「${c.name}」らしき影を見たとの報告。井戸です`);
+      }
+    }catch(err){ /* 図鑑は濡れ物注意 */ }
+    return lines;
+  }
+  function startKairan(){
+    if(kairanLines) return;
+    kairanLines = genKairan();
+    kairanEl = tx(158, 510, "📋", {"text-anchor":"middle","font-size":22});
+    kairanEl.style.cursor = "pointer";
+    kairanEl.style.transformBox = "fill-box";
+    kairanEl.animate([{transform:"rotate(-6deg)"},{transform:"rotate(6deg)"}],
+      {duration:700, iterations:Infinity, direction:"alternate", easing:"ease-in-out"});
+    gMark.append(kairanEl);
+    kairanEl.addEventListener("click", e => { e.stopPropagation(); openKairan(); });
+    toast("回覧板が回ってきました。大家の小屋の前です");
+    emit("kairan", kairanLines);
+  }
+  function openKairan(){
+    if(!kairanLines) return;
+    const m = openModal(`<span class="x">✕</span><h3>回覧板</h3>`+
+      `<div class="body">${kairanLines.map(l => "・" + esc(l)).join("<br>")}`+
+      `<span class="sig">読んだら隣へ回すこと — 長屋世話役</span></div>`+
+      `<button class="choice" id="hanBtn">判を押して、隣へ回す</button>`);
+    m.querySelector("#hanBtn").addEventListener("click", () => {
+      closeModal();
+      toast(tenants.length ? `判を押しました。${pick(tenants).given}さんへ回します` : "判を押しました。隣はまだ空き部屋でした");
+      if(kairanEl){ kairanEl.remove(); kairanEl = null; }
+      kairanLines = null;
+    });
+  }
+
+  // ====================================================================
+  //  persistence  (key prefix: nagaya-)
+  // ====================================================================
+  const LSK = "nagaya-save-v1";
+  function save(){
+    try{
+      localStorage.setItem(LSK, JSON.stringify({
+        v:1, day:dayN, rep:Math.round(rep*10)/10, rec:records,
+        due: rooms.filter(r => r.due).map(r => r.idx),
+        tenants: tenants.map(t => ({sp:t.sp, given:t.given, quirk:t.quirk, rate:t.rate,
+          mood:Math.round(t.mood), room:t.room, since:t.since})),
+      }));
+      dirty = false;
+    }catch(err){ /* 帳簿が書けない夜もある */ }
+  }
+  function load(){
+    try{
+      const d = JSON.parse(localStorage.getItem(LSK) || "null");
+      if(!d || d.v !== 1) return false;
+      dayN = Math.max(1, d.day|0);
+      rep = clamp(+d.rep || 50, 0, 100);
+      Object.assign(records, d.rec || {});
+      for(const td of d.tenants || []){
+        if(!SPECIES[td.sp]) continue;
+        const ri = td.room|0;
+        if(ri < 0 || ri > 7 || rooms[ri].tenant) continue;
+        const t = { id:++tid, sp:td.sp, given:String(td.given || "名無し").slice(0,12),
+          name:SPECIES[td.sp].flav + "の" + String(td.given || "名無し").slice(0,12),
+          quirk:String(td.quirk || pick(SPECIES[td.sp].quirks)).slice(0,30),
+          rate:clamp(td.rate|0 || 4, 1, 8), cur:SPECIES[td.sp].cur,
+          mood:clamp(+td.mood || 70, 0, 100), room:ri, since:Math.max(1, td.since|0), cheered:-1 };
+        rooms[ri].tenant = t;
+        tenants.push(t);
+        renderTenant(t, false);
+      }
+      for(const i of d.due || []) if(rooms[i] && rooms[i].tenant){ rooms[i].due = true; showCoin(rooms[i]); }
+      return tenants.length > 0 || dayN > 1;
+    }catch(err){ return false; }
+  }
+
+  // ====================================================================
+  //  day cycle — 90s per day, all wall-time driven
+  // ====================================================================
+  const DAY_MS = 90000;
+  const t0 = performance.now();
+  let lastCyc = 0, lastSave = 0, panelTick = 0;
+  const phaseOf = now => ((now - t0)/DAY_MS + .3) % 1;
+
+  function updatePlate(){
+    dayPlate.textContent = `${dayN}日目・${raining ? "雨" : "晴れ"}${dayN % 3 === 0 ? "・家賃日" : ""}`;
+  }
+
+  function newDay(){
+    dayN++;
+    // 夜逃げ — low mood tenants slip away at dawn
+    const fled = [];
+    for(const t of tenants.slice())
+      if(t.mood <= 5 || (t.mood < 22 && Math.random() < .55)){ fled.push(t.given); tenantLeaves(t, "flee"); }
+    raining = Math.random() < .28;
+    gRain.style.display = raining ? "" : "none";
+    const rentDay = dayN % 3 === 0;
+    if(rentDay) for(const r of rooms) if(r.tenant){ r.due = true; showCoin(r); }
+    if(fled.length) toast(`${fled.join("さん、")}さんが夜逃げしました。書き置きがあります`);
+    else toast(fmt(pick(raining ? MORNING_RAIN : MORNING), {n:dayN}) + (rentDay ? "　今日は家賃日です" : ""));
+    if(!kairanLines && Math.random() < .3) setTimeout(startKairan, 12000);
+    updatePlate();
+    dirty = true;
+    emit("day", {n:dayN});
+  }
+
+  // ---- logic tick (1s) ----
+  function tick(){
+    const now = performance.now();
+    const cyc = Math.floor((now - t0)/DAY_MS + .3);
+    let guard = 0;
+    while(lastCyc < cyc && guard++ < 12){ lastCyc++; newDay(); }
+    // knocking applicants
+    if(now >= nextKnock){
+      if(!applicant && freeRooms().length && !document.hidden){ spawnApplicant(); scheduleKnock(); }
+      else scheduleKnock(15000, 35000);
+    }
+    // complaint bubbles expire if ignored
+    for(const b of bubbles.slice())
+      if(now - b.born > 25000) expireBubble(b, true);
+    // gather complaint candidates
+    const night = nf > .5;
+    for(const r of rooms){
+      if(!r.tenant) continue;
+      for(const nb of neighborsOf(r)){
+        if(nb.idx < r.idx || !nb.tenant) continue;
+        const iss = pairIssue(r.tenant, nb.tenant);
+        if(iss) maybeComplain(iss.comp, iss.cause, .013);
+        else {
+          const cause = night && SPECIES[r.tenant.sp].anim === "wash" ? r.tenant
+            : night && SPECIES[nb.tenant.sp].anim === "wash" ? nb.tenant
+            : raining && r.tenant.sp === "kasa" ? r.tenant
+            : raining && nb.tenant.sp === "kasa" ? nb.tenant : null;
+          if(cause){
+            const comp = cause === r.tenant ? nb.tenant : r.tenant;
+            maybeComplain(comp, cause, .004);
+          }
+        }
+      }
+    }
+    // mood drift
+    for(const t of tenants){
+      let d = (70 - t.mood) * .0008;
+      for(const o of adjacentTenants(t)){
+        const iss = pairIssue(t, o);
+        if(iss) d -= iss.comp === t ? .05 : .02;
+        else if(pairGood(t, o)) d += .025;
+      }
+      if(!prefOK(t)) d -= .05;
+      if(rooms[t.room].leak) d -= .08;
+      if(raining && t.sp === "kasa") d += .05;
+      if(SPECIES[t.sp].calm) d *= .4;
+      t.mood = clamp(t.mood + d, 0, 100);
+    }
+    // ambience: quirks made visible
+    for(const t of tenants){
+      const r = rooms[t.room];
+      if(raining && t.sp === "kasa" && Math.random() < .05) fx(r.x+105, r.y+70, "♪", 15);
+      if(night && t.sp === "azuki" && Math.random() < .04) fx(r.x+110, r.y+90, "しょきしょき", 11);
+      if(night && t.sp === "nekomata" && Math.random() < .02) fx(r.x+60, r.y+24, "どたどた", 11);
+      if(Math.random() < .006 && adjacentTenants(t).some(o => pairGood(t, o)))
+        fx(r.x+83, r.y+34, "✨", 13);
+    }
+    // rain leaks
+    if(raining && Math.random() < .03){
+      const candidates = rooms.filter(r => r.floor === 1 && !r.leak);
+      if(candidates.length && rooms.filter(r => r.leak).length < 2) addLeak(pick(candidates));
+    }
+    // throttled saves & panel refresh
+    if(dirty && now - lastSave > 6000){ save(); lastSave = now; }
+    if(++panelTick % 5 === 0 && !panelEl.classList.contains("hidden")) refreshPanel();
+  }
+  function maybeComplain(comp, cause, p){
+    if(nearNurikabe(comp)) p *= .45;
+    if(Math.random() < p) spawnComplaint(comp, cause);
+  }
+
+  // ---- visual loop (wall-time, decorative only) ----
+  function vloop(){
+    const now = performance.now();
+    const p = phaseOf(now);
+    let f = p < .5 ? 0 : p < .62 ? (p - .5)/.12 : p < .92 ? 1 : 1 - (p - .92)/.08;
+    nf = f*f*(3 - 2*f);
+    nightVeil.setAttribute("opacity", (.42*nf).toFixed(3));
+    gStars.setAttribute("opacity", nf.toFixed(3));
+    for(const r of rooms) r.glow.setAttribute("opacity", (nf * (r.tenant ? .5 : .07)).toFixed(3));
+    for(const t of tenants){
+      if(t.hglow) t.hglow.setAttribute("opacity", (.22 + .45*nf).toFixed(3));
+      if(t.sp === "rokuro" && t.neck && t.rhead){
+        const e = nf * (.5 + .5*Math.sin(now/7000*Math.PI*2 + t.id*1.7));
+        const ny = -32 - 80*e;
+        t.neck.setAttribute("y2", ny + 5);
+        t.rhead.setAttribute("transform", `translate(${(Math.sin(now/2600 + t.id)*7*e).toFixed(1)} ${ny.toFixed(1)})`);
+      }
+    }
+    // letterbox background follows the sky
+    const k = nf;
+    document.body.style.background =
+      `rgb(${Math.round(233 - 198*k)},${Math.round(221 - 178*k)},${Math.round(194 - 128*k)})`;
+    requestAnimationFrame(vloop);
+  }
+
+  // ====================================================================
+  //  input & topbar
+  // ====================================================================
+  window.addEventListener("keydown", e => {
+    if(e.key === "Escape"){
+      if(veil.classList.contains("show")) closeModal();
+      else if(picking) endPicking();
+      return;
+    }
+    if(picking && /^[1-8]$/.test(e.key)){
+      const r = rooms[+e.key - 1];
+      if(r.tenant) toast("そこはもう、ふさがっています");
+      else moveIn(applicant, r.idx);
+    }
+  });
+  document.getElementById("repBtn").addEventListener("click", openRep);
+  document.getElementById("panelBtn").addEventListener("click", () => {
+    refreshPanel();
+    panelEl.classList.toggle("hidden");
+  });
+  let resetArm = 0;
+  document.getElementById("resetBtn").addEventListener("click", () => {
+    if(performance.now() < resetArm){
+      try{ localStorage.removeItem(LSK); }catch(err){}
+      location.reload();
+    }else{
+      resetArm = performance.now() + 3500;
+      toast("もう一度押すと長屋を建て直します（店子は全員引っ越します）");
+    }
+  });
+  window.addEventListener("beforeunload", save);
+  document.addEventListener("visibilitychange", () => { if(document.hidden) save(); });
+
+  // ==================================================================
+  //  plugin API
+  // ==================================================================
+  window.NAGAYA = {
+    svg, nightVeil,
+    layers: {gSky, gStars, gYard, gBuild, gOcc, gFront, gRain, gGlow, gMark, gFx, gUi},
+    rooms, tenants, bubbles,            // live arrays/objects (do not reassign)
+    SPECIES, CUR, PORTRAIT, records,
+    get day(){ return dayN; }, get rep(){ return rep; },
+    get raining(){ return raining; }, get night(){ return nf > .5; },
+    get nightFactor(){ return nf; },
+    mk, tx, esc, pick, toast, fx, addButton, openModal, closeModal,
+    roomName, neighborsOf, freeRooms, prefOK, pairGood, pairIssue,
+    spawnApplicant,                     // () -> applicant | null (knocks now if possible)
+    moveIn,                             // (applicantLike, roomIdx) -> tenant | null
+    tenantLeaves,                       // (tenant, "flee"?) — removes, optionally leaves a note
+    collectRent, addLeak, fixLeak, spawnComplaint, startKairan,
+    refreshPanel, openRep, openTenantModal,
+    lore: {GREET, REJECTS, FAREWELL, MEDI_A, MEDI_B, MORNING, MORNING_RAIN, KAIRAN, REP_COMMENT, CHEER},
+    on, emit,                           // events: applicant(a), tenant-moved-in({tenant, room}),
+                                        //   complaint({a, b})  (a=訴えた側, b=原因側),
+                                        //   rent-paid({tenant, currency, amount}), tenant-left(t),
+                                        //   day({n}), leak({room}), leak-fixed({room}),
+                                        //   kairan(lines), panel-rendered({container})
+                                        // plugins may emit custom namespaced events (e.g. "matsuri:held")
+  };
+
+  // ==================================================================
+  //  init
+  // ==================================================================
+  buildScene();
+  const resumed = load();
+  updatePlate();
+  refreshPanel();
+  if(resumed && tenants.length){
+    hideHint();
+    toast(`おかえりなさい、大家さん。${tenants.length}名が暮らしています`);
+    scheduleKnock(18000, 40000);
+  }else{
+    scheduleKnock(6000, 9500);
+  }
+  setInterval(tick, 1000);
+  vloop();
+})();
+</script>
+</body>
+</html>

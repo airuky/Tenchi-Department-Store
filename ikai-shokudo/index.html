@@ -1,0 +1,1032 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>異界食堂 · Ikai Shokudo</title>
+<style>
+  :root{
+    --ink:#f2e8d5;
+    --dim:#9d92a8;
+    --acc:#ffb45e;
+    --warm:#ffd27a;
+    --panel:rgba(22,15,32,.82);
+    --panel-edge:rgba(255,180,94,.18);
+    --kh:228px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;
+    background:linear-gradient(#11102e 0%, #0b0a22 55%, #060514 100%);
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",-apple-system,system-ui,sans-serif;
+    color:var(--ink);-webkit-font-smoothing:antialiased;}
+  #stage{position:fixed;left:0;right:0;top:0;bottom:var(--kh);width:100%;height:calc(100vh - var(--kh));display:block}
+
+  /* ---- toolbar ---- */
+  .topbar{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;gap:14px;
+    padding:14px 18px;pointer-events:none;z-index:5;}
+  .brand{pointer-events:none;font-weight:600;letter-spacing:.04em;font-size:15px;
+    text-shadow:0 0 18px rgba(255,180,94,.45);}
+  .brand small{display:block;font-weight:400;font-size:11px;color:var(--dim);letter-spacing:.18em;margin-top:2px}
+  .spacer{flex:1}
+  .btn{pointer-events:auto;cursor:pointer;border:1px solid var(--panel-edge);
+    background:var(--panel);color:var(--ink);border-radius:999px;padding:8px 15px;font-size:13px;
+    backdrop-filter:blur(10px);transition:.18s;white-space:nowrap;font-family:inherit}
+  .btn:hover{border-color:rgba(255,180,94,.5);background:rgba(42,28,40,.88);transform:translateY(-1px)}
+  .btn:active{transform:translateY(0)}
+  .btn.pill{cursor:default}
+  .btn.pill:hover{border-color:var(--panel-edge);background:var(--panel);transform:none}
+
+  /* ---- plugin dock (toy box) ---- */
+  .dock{position:fixed;left:14px;bottom:calc(var(--kh) + 14px);display:flex;flex-wrap:wrap;gap:8px;z-index:6;max-width:70vw}
+  .dock .btn{pointer-events:auto}
+  .dock.folded .btn:not(.dock-toggle){display:none}
+  .dock .dock-toggle{font-size:15px;padding:8px 12px}
+
+  /* ---- hint ---- */
+  .hint{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);text-align:center;
+    color:var(--dim);font-size:15px;line-height:2;pointer-events:none;z-index:2;
+    transition:opacity 1.2s;text-shadow:0 0 20px rgba(0,0,0,.8)}
+  .hint .big{font-size:19px;color:var(--ink);letter-spacing:.08em}
+
+  /* ---- side panel (常連帳) ---- */
+  .panel{position:fixed;top:64px;right:14px;width:300px;max-height:calc(100vh - var(--kh) - 84px);
+    overflow-y:auto;background:var(--panel);border:1px solid var(--panel-edge);border-radius:16px;
+    padding:14px;backdrop-filter:blur(14px);z-index:4;
+    box-shadow:0 18px 50px rgba(0,0,0,.5);transition:transform .3s, opacity .3s;scrollbar-width:thin;}
+  .panel.hidden{transform:translateX(120%);opacity:0;pointer-events:none}
+  .panel::-webkit-scrollbar{width:7px}
+  .panel::-webkit-scrollbar-thumb{background:rgba(255,180,94,.25);border-radius:4px}
+  .panel h2{margin:2px 4px 10px;font-size:13px;letter-spacing:.14em;color:var(--dim);font-weight:600}
+  .panel .empty{color:var(--dim);font-size:13px;padding:8px 6px;line-height:1.8}
+  .rcard{border:1px solid transparent;border-radius:12px;padding:10px 12px;margin-bottom:8px;
+    background:rgba(255,255,255,.03)}
+  .rcard .nm{font-size:14px;font-weight:600}
+  .rcard .nm em{font-style:normal;font-size:11px;color:var(--acc);margin-left:7px}
+  .rcard .meta{font-size:11.5px;color:var(--dim);margin-top:5px;line-height:1.7}
+
+  /* ---- kitchen workspace ---- */
+  .kitchen{position:fixed;left:0;right:0;bottom:0;z-index:5;
+    background:rgba(16,11,24,.92);border-top:1px solid var(--panel-edge);
+    backdrop-filter:blur(12px);padding:10px 14px 12px;max-height:46vh;overflow-y:auto;scrollbar-width:thin}
+  .khead{display:flex;align-items:center;gap:12px;margin-bottom:9px;flex-wrap:wrap}
+  .klabel{font-size:12px;letter-spacing:.18em;color:var(--dim);font-weight:600}
+  .board{font-size:12px;color:#cfe3c8;background:#16241c;border:1px solid #34483a;
+    border-radius:7px;padding:5px 11px;letter-spacing:.04em}
+  .board b{color:#ffe9ad;font-weight:600}
+  .dishname{font-size:13px;color:var(--warm);letter-spacing:.03em;min-height:1em}
+  .btn.serve{background:rgba(255,180,94,.16);border-color:rgba(255,180,94,.45);font-weight:600}
+  .btn.serve:hover:not(:disabled){background:rgba(255,180,94,.3)}
+  .btn.serve:disabled{opacity:.35;cursor:default;transform:none}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:7px}
+  .ing{border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:7px 10px;cursor:pointer;
+    background:rgba(255,255,255,.035);transition:.15s;user-select:none}
+  .ing:hover{background:rgba(255,180,94,.08);border-color:rgba(255,180,94,.3)}
+  .ing.sel{background:rgba(255,180,94,.14);border-color:var(--acc);transform:translateY(-2px);
+    box-shadow:0 6px 16px rgba(0,0,0,.35)}
+  .ing .nm{font-size:13px;font-weight:600;letter-spacing:.02em}
+  .ing .tg{margin-top:4px;display:flex;gap:4px;flex-wrap:wrap}
+  .ing .tg span{font-size:10.5px;color:var(--dim);border:1px solid rgba(255,255,255,.1);
+    border-radius:999px;padding:1px 7px}
+  .ing.sel .tg span{color:var(--warm);border-color:rgba(255,180,94,.4)}
+
+  /* ---- night-end card ---- */
+  .nightcard{position:fixed;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;
+    background:rgba(5,4,12,.6);backdrop-filter:blur(4px);opacity:0;pointer-events:none;transition:opacity .35s}
+  .nightcard.show{opacity:1;pointer-events:auto}
+  .nc{width:min(380px,90vw);background:var(--panel);border:1px solid var(--panel-edge);border-radius:16px;
+    padding:22px 24px;box-shadow:0 22px 60px rgba(0,0,0,.6);
+    transform:translateY(12px);transition:transform .35s}
+  .nightcard.show .nc{transform:translateY(0)}
+  .nc h3{margin:0 0 14px;font-size:15px;letter-spacing:.1em;color:var(--warm);font-weight:600}
+  .nc .row{display:flex;justify-content:space-between;font-size:13.5px;padding:6px 2px;
+    border-bottom:1px dashed rgba(255,255,255,.08)}
+  .nc .row b{color:var(--ink);font-weight:600}
+  .nc .row span{color:var(--dim)}
+  .nc .foot{font-size:12px;color:var(--dim);font-style:italic;margin:14px 0 16px;line-height:1.9}
+  .nc .btn{display:block;margin:0 auto;font-size:14px;padding:9px 22px}
+
+  .toast{position:fixed;left:50%;bottom:calc(var(--kh) + 14px);transform:translateX(-50%) translateY(20px);
+    background:var(--panel);border:1px solid var(--panel-edge);border-radius:999px;
+    padding:9px 18px;font-size:13px;backdrop-filter:blur(10px);opacity:0;transition:.3s;z-index:7;pointer-events:none}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<svg id="stage" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 620" preserveAspectRatio="xMidYMax meet"></svg>
+
+<div class="topbar">
+  <div class="brand">異界食堂<small>IKAI SHOKUDO</small></div>
+  <div class="spacer"></div>
+  <div class="btn pill" id="repPill">⭐ 評判 0</div>
+  <button class="btn" id="toggleRegulars">📓 常連帳</button>
+</div>
+
+<div class="hint" id="hint">
+  <div class="big">ようこそ。ここは夜にだけ開く食堂です</div>
+  お客の注文をきいて、下の調理場から食材を3つえらんで「お出しする」<br>
+  <span style="font-size:13px">ことばのてざわり（温・ぬるぬる・なつかしい…）を合わせるのがコツです</span>
+</div>
+
+<div class="panel hidden" id="panel">
+  <h2>常連帳 — REGULARS</h2>
+  <div id="regularsList"></div>
+</div>
+
+<div class="kitchen" id="kitchen">
+  <div class="khead">
+    <span class="klabel">調理場</span>
+    <span class="board" id="board"></span>
+    <span class="spacer"></span>
+    <span class="dishname" id="dishName"></span>
+    <button class="btn serve" id="serveBtn" disabled>お出しする</button>
+  </div>
+  <div class="grid" id="pantry"></div>
+</div>
+
+<div class="nightcard" id="nightcard"><div class="nc" id="ncInner"></div></div>
+<div class="toast" id="toast"></div>
+<div class="dock" id="dock"></div>
+<script>
+(() => {
+  "use strict";
+  const SVGNS = "http://www.w3.org/2000/svg";
+  const stage = document.getElementById("stage");
+
+  // ---- tiny helpers ----
+  function mk(tag, attrs){
+    const el = document.createElementNS(SVGNS, tag);
+    if(attrs) for(const k in attrs) el.setAttribute(k, attrs[k]);
+    return el;
+  }
+  const pick = a => a[(Math.random()*a.length)|0];
+  const esc = s => String(s).replace(/[&<>"']/g, m =>
+    ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+  function shuffle(a){
+    const b = a.slice();
+    for(let i=b.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [b[i],b[j]]=[b[j],b[i]]; }
+    return b;
+  }
+  function mulberry32(seed){
+    let t = seed >>> 0;
+    return () => {
+      t += 0x6D2B79F5;
+      let r = Math.imul(t ^ t >>> 15, 1 | t);
+      r ^= r + Math.imul(r ^ r >>> 7, 61 | r);
+      return ((r ^ r >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  // 文字数で折り返す（「、」を優先）
+  function wrap(text, n=14){
+    const segs = String(text).split("、");
+    const lines = [];
+    let cur = "";
+    segs.forEach((s, i) => {
+      const piece = s + (i < segs.length-1 ? "、" : "");
+      if(cur && (cur+piece).length > n){ lines.push(cur); cur = piece; }
+      else cur += piece;
+      while(cur.length > n+4){ lines.push(cur.slice(0,n+2)); cur = cur.slice(n+2); }
+    });
+    if(cur) lines.push(cur);
+    return lines;
+  }
+
+  // ---- storage (always guarded) ----
+  function loadLS(key, def){
+    try{ const v = localStorage.getItem(key); return v === null ? def : JSON.parse(v); }
+    catch(e){ return def; }
+  }
+  function saveLS(key, val){
+    try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){}
+  }
+
+  // ---- plugin event bus ----
+  const listeners = new Map();
+  function on(name, fn){
+    if(!listeners.has(name)) listeners.set(name, []);
+    listeners.get(name).push(fn);
+  }
+  function emit(name, arg){
+    for(const f of listeners.get(name) || []){
+      try{ f(arg); }catch(err){ console.error(`[plugin handler for "${name}"]`, err); }
+    }
+  }
+
+  // ====================================================================
+  //  corpora — tags, pantry, worlds, lines
+  // ====================================================================
+  const TAG_GROUPS = [
+    ["温","冷"],
+    ["ぬるぬる","かりかり","ふわふわ"],
+    ["甘い","しょっぱい","にがい","なつかしい"],
+    ["光る","静かな","にぎやかな"],
+  ];
+  const TAGS = TAG_GROUPS.flat();
+  const TAG_FRAGS = {
+    "温":["あたたかくて","湯気の立つ"],
+    "冷":["ひんやりした","つめたい"],
+    "ぬるぬる":["ぬるぬるした"],
+    "かりかり":["かりかりの"],
+    "ふわふわ":["ふわふわした"],
+    "甘い":["甘い","甘めの"],
+    "しょっぱい":["しょっぱい","塩のきいた"],
+    "にがい":["すこし苦い"],
+    "なつかしい":["なつかしい味の","故郷の味に、すこし似ていて、すこし違う"],
+    "光る":["光る","ほのかに光る"],
+    "静かな":["静かな","いちばん静かな"],
+    "にぎやかな":["にぎやかな","祭りみたいな"],
+  };
+  const ORDER_ENDINGS = [
+    "ものをください","ものを。急ぎません","のがいいです",
+    "やつを。名前は知りません","ものはありますか。なければ似たもので",
+    "のを。夢で食べた気がします","ものを。医者には内緒で",
+  ];
+  const REG_LINES = [
+    "いつもの。","いつものを。説明は省きます。","あれです。あの、いつもの。",
+    "今日も、例のやつを。","いつもの。変えないでください。","……（うなずいた。いつものだ）",
+  ];
+  const INGREDIENT_POOL = [
+    {name:"月見うどん玉", dn:"月見", tags:["温","なつかしい"]},
+    {name:"発光きのこ", dn:"きのこ", tags:["光る","にがい"]},
+    {name:"凍った波", dn:"波", tags:["冷","静かな"]},
+    {name:"歩くワカメ", dn:"ワカメ", tags:["ぬるぬる","にぎやかな"]},
+    {name:"星屑ふりかけ", dn:"星屑", tags:["光る","甘い"]},
+    {name:"思い出の出汁", dn:"思い出", tags:["温","なつかしい"]},
+    {name:"揚げたての流れ星", dn:"流れ星", tags:["かりかり","光る"]},
+    {name:"雲の白玉", dn:"白玉", tags:["ふわふわ","甘い"]},
+    {name:"深海の塩", dn:"塩", tags:["しょっぱい","静かな"]},
+    {name:"黙りこむ豆腐", dn:"豆腐", tags:["静かな","ふわふわ"]},
+    {name:"祭囃子の佃煮", dn:"佃煮", tags:["にぎやかな","しょっぱい"]},
+    {name:"昨日の雨", dn:"雨", tags:["冷","なつかしい"]},
+    {name:"よく喋る山椒", dn:"山椒", tags:["にぎやかな","にがい"]},
+    {name:"真夜中の温泉卵", dn:"温玉", tags:["静かな","温"]},
+    {name:"砂浜のクッキー", dn:"砂浜", tags:["かりかり","甘い"]},
+    {name:"苦労した昆布", dn:"昆布", tags:["にがい","ぬるぬる"]},
+    {name:"毛糸のそうめん", dn:"そうめん", tags:["温","ふわふわ"]},
+    {name:"凍み月のかけら", dn:"月", tags:["冷","光る"]},
+    {name:"焼いた木枯らし", dn:"木枯らし", tags:["かりかり","冷"]},
+    {name:"うろこ雲の南蛮漬け", dn:"南蛮", tags:["しょっぱい","ぬるぬる"]},
+    {name:"初恋の砂糖漬け", dn:"初恋", tags:["甘い","なつかしい"]},
+    {name:"雷おこし（本物）", dn:"雷", tags:["かりかり","にぎやかな"]},
+    {name:"蛍イカの寝言", dn:"寝言", tags:["光る","静かな"]},
+    {name:"あの日の給食カレー", dn:"カレー", tags:["温","なつかしい"]},
+    {name:"泣いた塩むすび", dn:"むすび", tags:["しょっぱい","なつかしい"]},
+    {name:"ふくらむ闇", dn:"闇", tags:["ふわふわ","にがい"]},
+  ];
+  const FORMS = ["和え","鍋","茶漬け","蒸し","椀","丼","スープ","定食"];
+
+  const WORLDS = {
+    shinkai:  {label:"深海の客",   cur:"currency-shinkai",   hues:[210,225,195],
+               tip:"チップに真珠を置いていきました"},
+    shima:    {label:"島の客",     cur:"currency-shima",     hues:[35,28,45],
+               tip:"チップに貝殻と小銭を置いていきました"},
+    rekishi:  {label:"年代記の客", cur:"currency-rekishi",   hues:[275,290,260],
+               tip:"チップに古い銀貨を置いていきました。元号が読めません"},
+    hoshizora:{label:"星空の客",   cur:"currency-hoshizora", hues:[230,250,215],
+               tip:"チップに星のかけらを置いていきました。まだ温かい"},
+    kinjo:    {label:"ご近所の常連", cur:null, hues:[25,30,20],
+               tip:"チップに葉っぱを置いていきました。あとで数えます"},
+  };
+  const WORLD_KEYS = ["shinkai","shima","rekishi","hoshizora","kinjo"];
+  const NAMES = {
+    shinkai:  ()=> pick(["ヒレ","ウロコ","シオ","ナミ","フカ","クラゲ"]) + pick(["ナガ","マル","スケ","コ","ジマ"]) + "さん",
+    shima:    ()=> pick(["磯野","浜田","椰子田","南風原","渚","潮見"]) + "さん",
+    rekishi:  ()=> pick(["遍歴の","引退した","三代目","袖すれの","匿名の"]) + pick(["勇者","魔導士","写本師","吟遊詩人","騎士"]),
+    hoshizora:()=> pick(["こと座の","ベガ似の","等級不明の","流れそこねた","北寄りの"]) + pick(["ひと","星","客","灯り"]),
+    kinjo:    ()=> "タヌキの" + pick(["ポン","マメ","ブン","チャ","ドン"]) + pick(["タ","キチ","スケ","マル"]),
+  };
+  const MOODS = ["腹ぺこ","しずか","上機嫌","眠そう","旅疲れ","物思い"];
+
+  const REACTIONS = {
+    3: ["……故郷より故郷でした。困ります","星のあじがする。たぶん合ってる",
+        "器まで食べていいか、3秒考えました","これを知らない頃の自分のことは、忘れます",
+        "無言になりましたが、いい無言です","明日もこの席は空いていますか。空けてください",
+        "涙が出ました。成分はだいたい出汁です"],
+    2: ["おいしいです。事実として","悪くない。むしろ良い。語彙が追いつきません",
+        "故郷の味に、すこし勝っています。内緒にします","湯気の角度が良かった",
+        "八割がた正解です。残り二割は私の問題です","ごちそうさま。皿は光るほど空です"],
+    1: ["……方向性は感じました。方向だけ","嫌いではないです。好きへの道は遠いですが",
+        "半分は当たりです。どの半分かは言えません","これはこれで。これはこれとして",
+        "故郷を思い出しかけて、やめました","水がおいしかったです"],
+    0: ["お皿は綺麗です。それだけは","……今日はそういう日だったのだと思います",
+        "箸が一度も迷いませんでした。戻る方向に","これの得意な人を知っています。私ではないです",
+        "注文を、覚えていますか。いえ、いいんです","持ち帰りはできますか。できなくていいです"],
+  };
+  const CLOSE_LINES = [
+    "のれんを下ろした。湯気はまだ立っている。","看板の灯を消した。猫はまだいる。",
+    "売上を数えた。葉っぱが混ざっていた。","椅子を拭いた。一脚だけ、まだ温かい。",
+    "鍋の底に夜が少し残った。明日の出汁にする。","外は静かだ。異界も寝る時間らしい。",
+  ];
+
+  // ====================================================================
+  //  scene — viewBox 1000x620, counter mid, stools, noren, lantern, window
+  // ====================================================================
+  const defs   = mk("defs");
+  const gBack  = mk("g");   // wall, window, noren, lantern
+  const gStool = mk("g");   // stools
+  const gCust  = mk("g");   // customers
+  const gCount = mk("g");   // counter top (overlaps customers' laps)
+  const gFx    = mk("g");   // bubbles, steam, stars
+  stage.append(defs, gBack, gStool, gCust, gCount, gFx);
+
+  defs.innerHTML = `
+    <linearGradient id="wallG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1b1838"/><stop offset="70%" stop-color="#120f28"/>
+      <stop offset="100%" stop-color="#0c0a1d"/>
+    </linearGradient>
+    <linearGradient id="woodG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8a5a30"/><stop offset="35%" stop-color="#6e4423"/>
+      <stop offset="100%" stop-color="#4e2f17"/>
+    </linearGradient>
+    <linearGradient id="skyG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0a1034"/><stop offset="100%" stop-color="#141a4a"/>
+    </linearGradient>
+    <radialGradient id="lantG" cx=".5" cy=".42" r=".75">
+      <stop offset="0%" stop-color="#ffe9b0"/><stop offset="55%" stop-color="#ffb45e"/>
+      <stop offset="100%" stop-color="#c96f2a"/>
+    </radialGradient>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="5"/></filter>
+    <filter id="softglow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>`;
+
+  function buildScene(){
+    // wall + floor
+    gBack.append(mk("rect",{x:0,y:0,width:1000,height:620,fill:"url(#wallG)"}));
+    gBack.append(mk("rect",{x:0,y:548,width:1000,height:72,fill:"#171024"}));
+    for(let i=0;i<7;i++)
+      gBack.append(mk("line",{x1:60+i*140,y1:548,x2:40+i*140,y2:620,stroke:"#221833","stroke-width":2}));
+
+    // window (right) with night sky
+    const win = mk("g",{transform:"translate(700,84)"});
+    win.innerHTML = `
+      <rect x="-8" y="-8" width="216" height="186" rx="10" fill="#2c1f16"/>
+      <rect x="0" y="0" width="200" height="170" rx="5" fill="url(#skyG)"/>
+      <path d="M 156 36 a 22 22 0 1 0 10 40 a 18 18 0 1 1 -10 -40" fill="#f5ecc9" opacity=".9"/>
+      <line x1="100" y1="0" x2="100" y2="170" stroke="#2c1f16" stroke-width="7"/>
+      <line x1="0" y1="86" x2="200" y2="86" stroke="#2c1f16" stroke-width="7"/>
+      <rect x="-14" y="172" width="228" height="12" rx="4" fill="#3a2a1c"/>`;
+    for(let i=0;i<14;i++){
+      const s = mk("circle",{cx:8+Math.random()*184, cy:6+Math.random()*158,
+        r:.8+Math.random()*1.2, fill:"#e8e6ff"});
+      s.animate([{opacity:.9},{opacity:.25},{opacity:.9}],
+        {duration:2400+Math.random()*3600, iterations:Infinity, easing:"ease-in-out"});
+      win.append(s);
+    }
+    gBack.append(win);
+
+    // noren (top center)
+    const noren = mk("g",{transform:"translate(330,0)"});
+    noren.innerHTML = `
+      <rect x="-12" y="4" width="364" height="36" rx="6" fill="#241a14"/>
+      <text x="170" y="29" text-anchor="middle" font-size="20" fill="#ffd27a"
+        letter-spacing="14" font-weight="600">異界食堂</text>`;
+    for(let i=0;i<4;i++){
+      const strip = mk("g");
+      const x = i*88;
+      strip.innerHTML = `
+        <path d="M ${x} 40 h 80 v 58 q -8 10 -20 4 q -10 8 -20 0 q -10 8 -20 0 q -12 6 -20 -4 Z"
+          fill="${i%2 ? "#6e2a2a" : "#7a2f2f"}"/>` +
+        (i===1 ? `<circle cx="${x+40}" cy="68" r="14" fill="none" stroke="#e8d9bd" stroke-width="2.5"/>` : "");
+      strip.style.transformOrigin = `${330+x+40}px 40px`;
+      strip.style.transformBox = "view-box";
+      strip.animate([{transform:"rotate(0deg)"},{transform:`rotate(${i%2? -1.4:1.4}deg)`},{transform:"rotate(0deg)"}],
+        {duration:5200+i*700, iterations:Infinity, easing:"ease-in-out"});
+      noren.append(strip);
+    }
+    gBack.append(noren);
+
+    // lantern (left)
+    const lant = mk("g");
+    lant.innerHTML = `
+      <line x1="150" y1="0" x2="150" y2="46" stroke="#3a2a1c" stroke-width="3"/>
+      <ellipse cx="150" cy="96" rx="34" ry="44" fill="url(#lantG)" filter="url(#glow)" opacity=".55"/>
+      <ellipse cx="150" cy="96" rx="27" ry="38" fill="url(#lantG)"/>
+      <path d="M 126 80 q 24 8 48 0 M 124 96 q 26 9 52 0 M 126 112 q 24 8 48 0"
+        stroke="#a05420" stroke-width="1.4" fill="none" opacity=".7"/>
+      <rect x="138" y="52" width="24" height="9" rx="3" fill="#33241a"/>
+      <rect x="138" y="129" width="24" height="8" rx="3" fill="#33241a"/>
+      <text x="150" y="103" text-anchor="middle" font-size="19" fill="#5a1f1f" font-weight="600">食</text>`;
+    lant.style.transformOrigin = "150px 46px";
+    lant.style.transformBox = "view-box";
+    lant.animate([{transform:"rotate(-2.4deg)"},{transform:"rotate(2.4deg)"},{transform:"rotate(-2.4deg)"}],
+      {duration:7600, iterations:Infinity, easing:"ease-in-out"});
+    gBack.append(lant);
+
+    // stools
+    for(const x of SEATS){
+      const st = mk("g");
+      st.innerHTML = `
+        <rect x="${x-7}" y="482" width="14" height="72" fill="#3c2615"/>
+        <ellipse cx="${x}" cy="554" rx="26" ry="6" fill="#2a1a0e"/>
+        <ellipse cx="${x}" cy="480" rx="34" ry="11" fill="#5e3a22"/>
+        <ellipse cx="${x}" cy="477" rx="34" ry="10" fill="#7a4c2b"/>`;
+      gStool.append(st);
+    }
+
+    // counter top + legs + pot
+    gCount.append(mk("rect",{x:50,y:412,width:900,height:8,fill:"#3a2412"}));
+    gCount.append(mk("rect",{x:50,y:386,width:900,height:28,rx:6,fill:"url(#woodG)"}));
+    gCount.append(mk("rect",{x:50,y:388,width:900,height:4,rx:2,fill:"#a97a45",opacity:.6}));
+    gCount.append(mk("rect",{x:84,y:418,width:16,height:134,fill:"#3a2412"}));
+    gCount.append(mk("rect",{x:900,y:418,width:16,height:134,fill:"#3a2412"}));
+    const pot = mk("g");
+    pot.innerHTML = `
+      <rect x="108" y="352" width="64" height="34" rx="8" fill="#4a4a55"/>
+      <rect x="104" y="348" width="72" height="9" rx="4" fill="#5c5c68"/>
+      <ellipse cx="140" cy="344" rx="9" ry="4" fill="#5c5c68"/>`;
+    gCount.append(pot);
+    // pot steam (eternal)
+    for(let i=0;i<3;i++){
+      const w = mk("path",{d:`M ${126+i*14} 340 q ${i%2? 7:-7} -14 0 -26 q ${i%2? -7:7} -12 0 -24`,
+        stroke:"#d8cfd8", "stroke-width":3, fill:"none", "stroke-linecap":"round", opacity:0});
+      w.animate([
+        {opacity:0, transform:"translateY(6px)"},
+        {opacity:.45, offset:.3},
+        {opacity:0, transform:"translateY(-26px)"},
+      ],{duration:3000+i*640, iterations:Infinity, delay:i*900, easing:"ease-out"});
+      gFx.append(w);
+    }
+  }
+
+  const SEATS = [265, 422, 580, 737];
+
+  // ---- the cat outside the window (occasional) ----
+  function catVisit(){
+    const cat = mk("g",{transform:"translate(760,176)", opacity:0});
+    cat.innerHTML = `
+      <path d="M 0 0 q -4 -22 14 -26 l 3 -10 7 8 q 7 -2 14 0 l 7 -8 3 10 q 16 5 12 26 q 22 6 18 14 h -84 q -6 -8 6 -14" fill="#07060f"/>
+      <circle cx="22" cy="-12" r="2.2" fill="#ffd27a"/>
+      <circle cx="38" cy="-12" r="2.2" fill="#ffd27a"/>`;
+    const tail = mk("path",{d:"M 92 8 q 16 -4 14 -20", stroke:"#07060f",
+      "stroke-width":7, fill:"none", "stroke-linecap":"round"});
+    tail.style.transformOrigin = "852px 184px";
+    tail.style.transformBox = "view-box";
+    tail.animate([{transform:"rotate(0deg)"},{transform:"rotate(14deg)"},{transform:"rotate(0deg)"}],
+      {duration:2600, iterations:Infinity, easing:"ease-in-out"});
+    cat.append(tail);
+    gBack.append(cat);
+    cat.animate([{opacity:0},{opacity:1}],{duration:1200, fill:"forwards", easing:"ease-out"});
+    setTimeout(()=>{
+      const a = cat.animate([{opacity:1},{opacity:0}],{duration:1400, easing:"ease-in"});
+      a.onfinish = () => cat.remove();
+    }, 9000+Math.random()*7000);
+    if(Math.random() < .4) toast("窓の外に猫が来ています。客ではないようです");
+  }
+  function scheduleCat(){
+    setTimeout(()=>{ try{ catVisit(); }catch(e){} scheduleCat(); }, 35000+Math.random()*55000);
+  }
+
+  // ====================================================================
+  //  customers
+  // ====================================================================
+  const customers = [];          // currently in the shop (usually 1)
+  const regulars  = loadLS("shokudo-regulars-v1", []);   // {name,world,hue,seed,tags,dish,visits,lastNight}
+  let nextId = 1;
+
+  function zukanCameo(){
+    const z = loadLS("sea-zukan-v1", null);
+    if(Array.isArray(z) && z.length && Math.random() < .3){
+      const e = pick(z);
+      if(e && e.name) return String(e.name) + "さん";
+    }
+    return null;
+  }
+
+  function makeOrderTags(){
+    const k = 2 + (Math.random() < .55 ? 1 : 0);
+    return shuffle(TAG_GROUPS).slice(0, k).map(g => pick(g));
+  }
+  function orderText(tags){
+    const frags = tags.map(t => pick(TAG_FRAGS[t]));
+    return frags.join("、") + pick(ORDER_ENDINGS);
+  }
+
+  function makeCustomer(over){
+    over = over || {};
+    const world = over.world || pick(WORLD_KEYS);
+    const seed  = over.seed != null ? over.seed : (Math.random()*1e9)|0;
+    let name = over.name;
+    if(!name && world === "shinkai") name = zukanCameo();
+    if(!name) name = NAMES[world]();
+    const c = {
+      id: nextId++, name, world, seed,
+      hue: over.hue != null ? over.hue : pick(WORLDS[world].hues),
+      mood: pick(MOODS),
+      seat: over.seat != null ? over.seat : pick(SEATS),
+      regular: over.regular || null,        // ref into regulars[]
+      order: null, el: null, served: false,
+    };
+    if(c.regular){
+      const t = c.regular.tags.slice();
+      c.order = { tags: shuffle(t).slice(0, Math.min(3, t.length)),
+                  text: pick(REG_LINES), isUsual: true };
+    } else {
+      const tags = makeOrderTags();
+      c.order = { tags, text: orderText(tags), isUsual: false };
+    }
+    return c;
+  }
+
+  // genome -> <g>; deterministic from seed so regulars look the same
+  function customerGroup(c){
+    const rng = mulberry32(c.seed);
+    const outer = mk("g",{class:"shokudo-customer"});
+    const inner = mk("g");
+    outer.append(inner);
+    const L = 30 + rng()*45;        // lightness jitter base
+    const body = `hsl(${c.hue}, ${28+rng()*20|0}%, ${30+rng()*12|0}%)`;
+    const dark = `hsl(${c.hue}, 30%, 18%)`;
+    const wob = .9 + rng()*.25;     // width wobble
+
+    // behind-pieces
+    if(c.world === "shinkai"){
+      inner.append(mk("path",{d:`M -28 -60 q -26 -6 -34 14 q 16 2 22 12 q 6 -16 12 -26 Z`,
+        fill:body, opacity:.85}));
+    }
+    if(c.world === "kinjo"){
+      const tail = mk("path",{d:"M 30 -28 q 30 4 26 28 q -16 8 -30 -4", fill:"#5e4226"});
+      inner.append(tail, mk("path",{d:"M 42 -22 q 10 6 10 16", stroke:"#3a2a16",
+        "stroke-width":4, fill:"none", "stroke-linecap":"round"}));
+    }
+    // body blob (seated) + head
+    inner.append(mk("path",{d:`M ${-38*wob} 0 C ${-46*wob} -48, -34 -94, 0 -98
+      C 34 -94, ${46*wob} -48, ${38*wob} 0 Z`, fill:body, stroke:dark, "stroke-width":1.5}));
+    inner.append(mk("circle",{cx:0, cy:-126, r:29, fill:body, stroke:dark, "stroke-width":1.5}));
+
+    // face
+    const eyes = mk("g");
+    const eyeR = c.world === "shinkai" ? 4.6 : 3.2;
+    const eyeFill = c.world === "shinkai" ? "#bfeaff" : "#171022";
+    eyes.append(mk("circle",{cx:-10.5, cy:-130, r:eyeR, fill:eyeFill}));
+    eyes.append(mk("circle",{cx: 10.5, cy:-130, r:eyeR, fill:eyeFill}));
+    if(c.world === "shinkai"){
+      eyes.append(mk("circle",{cx:-9, cy:-131, r:1.8, fill:"#10293a"}));
+      eyes.append(mk("circle",{cx:12, cy:-131, r:1.8, fill:"#10293a"}));
+    }
+    if(c.mood === "眠そう"){ eyes.style.transform = "scaleY(.5)"; }
+    eyes.style.transformBox = "fill-box";
+    eyes.style.transformOrigin = "center";
+    eyes.animate([
+      {transform:"scaleY(1)"},{transform:"scaleY(1)", offset:.92},
+      {transform:"scaleY(.12)", offset:.95},{transform:"scaleY(1)"},
+    ],{duration:3600+rng()*2800, iterations:Infinity});
+    inner.append(eyes);
+    const smile = c.mood === "上機嫌" ? "M -7 -116 q 7 7 14 0" : "M -5 -115 q 5 4 10 0";
+    inner.append(mk("path",{d:smile, stroke:dark, "stroke-width":2, fill:"none", "stroke-linecap":"round"}));
+    inner.append(mk("circle",{cx:-19, cy:-119, r:4, fill:"#ff9e7a", opacity:.25}));
+    inner.append(mk("circle",{cx: 19, cy:-119, r:4, fill:"#ff9e7a", opacity:.25}));
+
+    // world accessories
+    if(c.world === "shinkai"){
+      inner.append(mk("path",{d:"M -6 -154 L 0 -172 L 8 -153 Z", fill:dark, opacity:.9}));
+      inner.append(mk("path",{d:"M -27 -122 q 4 4 0 8 M -23 -120 q 3 3 0 6",
+        stroke:dark, "stroke-width":1.6, fill:"none"}));
+      for(let i=0;i<3;i++){
+        const d = mk("circle",{cx:-18+i*18, cy:-58+((i%2)*12), r:2.2,
+          fill:"#7fe8ff", filter:"url(#softglow)"});
+        d.animate([{opacity:.9},{opacity:.3},{opacity:.9}],
+          {duration:1800+rng()*1800, iterations:Infinity, easing:"ease-in-out"});
+        inner.append(d);
+      }
+    } else if(c.world === "shima"){
+      inner.append(mk("path",{d:"M -26 -148 q 26 -22 52 0 q -26 8 -52 0 Z", fill:"#d8b25e", stroke:"#b08c3c","stroke-width":1.2}));
+      inner.append(mk("ellipse",{cx:0, cy:-147, rx:44, ry:8.5, fill:"#e2c06c", stroke:"#b08c3c","stroke-width":1.2}));
+      inner.append(mk("circle",{cx:24, cy:-150, r:4, fill:"#ff7a7a"}));
+    } else if(c.world === "rekishi"){
+      inner.append(mk("path",{d:"M -30 -122 Q -32 -162 0 -160 Q 32 -162 30 -122 Q 18 -146 0 -147 Q -18 -146 -30 -122 Z",
+        fill:dark, opacity:.95}));
+      inner.append(mk("line",{x1:50, y1:-150, x2:44, y2:-6, stroke:"#6b5436", "stroke-width":4.5, "stroke-linecap":"round"}));
+      inner.append(mk("circle",{cx:51, cy:-153, r:6, fill:"#ffd27a", filter:"url(#softglow)", opacity:.85}));
+      inner.append(mk("path",{d:"M -14 -90 v 70 M 14 -90 v 70", stroke:dark, "stroke-width":1.4, opacity:.5}));
+    } else if(c.world === "hoshizora"){
+      outer.setAttribute("filter","url(#softglow)");
+      for(let i=0;i<3;i++){
+        const sx = -34+rng()*68, sy = -176+rng()*26;
+        const sp = mk("path",{d:`M ${sx} ${sy-5} l 1.6 3.4 3.6 .5 -2.6 2.6 .6 3.6 -3.2 -1.7 -3.2 1.7 .6 -3.6 -2.6 -2.6 3.6 -.5 Z`,
+          fill:"#fff3c8"});
+        sp.animate([{opacity:.95},{opacity:.15},{opacity:.95}],
+          {duration:1600+rng()*2200, iterations:Infinity, easing:"ease-in-out"});
+        inner.append(sp);
+      }
+    } else { // kinjo (tanuki)
+      inner.append(mk("path",{d:"M -27 -144 l -7 -17 17 7 Z M 27 -144 l 7 -17 -17 7 Z", fill:"#5e4226"}));
+      inner.append(mk("ellipse",{cx:-10.5, cy:-130, rx:8.5, ry:6.5, fill:"#3a2a16", opacity:.55}));
+      inner.append(mk("ellipse",{cx: 10.5, cy:-130, rx:8.5, ry:6.5, fill:"#3a2a16", opacity:.55}));
+      inner.append(mk("circle",{cx:-10.5, cy:-130, r:2.6, fill:"#f5ecd9"}));
+      inner.append(mk("circle",{cx: 10.5, cy:-130, r:2.6, fill:"#f5ecd9"}));
+      inner.append(mk("ellipse",{cx:0, cy:-114, rx:10, ry:7, fill:"#cdb38e", opacity:.8}));
+      inner.append(mk("circle",{cx:0, cy:-117, r:2.6, fill:"#2a1c10"}));
+      inner.append(mk("ellipse",{cx:1, cy:-156, rx:8, ry:4, fill:"#7fae62", transform:"rotate(-18 1 -156)"}));
+    }
+    // gentle bob (wall-time WAAPI)
+    inner.animate([{transform:"translateY(0px)"},{transform:"translateY(-3.5px)"},{transform:"translateY(0px)"}],
+      {duration:3200+rng()*1400, iterations:Infinity, easing:"ease-in-out"});
+    return outer;
+  }
+
+  // ---- speech bubble (pure SVG, wraps text) ----
+  let bubbleEl = null;
+  function showBubble(c, text, opts){
+    opts = opts || {};
+    hideBubble();
+    const lines = wrap(text, 14);
+    const header = `${c.name}（${c.mood}）`;
+    const lineH = 21, padX = 16, padY = 12;
+    const wMax = Math.max(header.length*11.5, ...lines.map(l=>l.length*14.8), 110);
+    const bw = Math.min(wMax + padX*2, 360);
+    const bh = padY*2 + 15 + lines.length*lineH + (opts.stars ? 22 : 0);
+    const bx = Math.max(70 + bw/2, Math.min(930 - bw/2, c.seat));
+    const by = 232;                        // bubble bottom
+    const g = mk("g");
+    g.append(mk("polygon",{points:`${c.seat-9},${by+4} ${c.seat+9},${by+4} ${c.seat},${by+22}`,
+      fill:"#f5ecd9"}));
+    g.append(mk("rect",{x:bx-bw/2, y:by-bh, width:bw, height:bh, rx:13,
+      fill:"#f5ecd9", stroke:"rgba(40,25,20,.35)", "stroke-width":1.5}));
+    const hd = mk("text",{x:bx, y:by-bh+padY+9, "text-anchor":"middle",
+      "font-size":11, fill:"#8a7a68", "letter-spacing":1});
+    hd.textContent = c.regular ? header + "・常連" : header;
+    g.append(hd);
+    lines.forEach((l,i)=>{
+      const t = mk("text",{x:bx, y:by-bh+padY+32+i*lineH, "text-anchor":"middle",
+        "font-size":14.5, fill:"#2a2034", "font-weight":600});
+      t.textContent = l;
+      g.append(t);
+    });
+    if(opts.stars != null){
+      const t = mk("text",{x:bx, y:by-padY-3, "text-anchor":"middle","font-size":15,
+        fill:"#d99a2b", "letter-spacing":3});
+      t.textContent = opts.stars > 0 ? "★".repeat(opts.stars) : "…";
+      g.append(t);
+    }
+    g.style.transformOrigin = `${c.seat}px ${by+22}px`;
+    g.style.transformBox = "view-box";
+    g.animate([{transform:"scale(.6)", opacity:0},{transform:"scale(1)", opacity:1}],
+      {duration:340, easing:"cubic-bezier(.34,1.5,.6,1)"});
+    gFx.append(g);
+    bubbleEl = g;
+    return g;
+  }
+  function hideBubble(){ if(bubbleEl){ bubbleEl.remove(); bubbleEl = null; } }
+
+  function steamBurst(x, y){
+    for(let i=0;i<3;i++){
+      const w = mk("path",{d:`M ${x-12+i*12} ${y} q ${i%2?6:-6} -10 0 -20`,
+        stroke:"#e8dde8","stroke-width":2.6, fill:"none","stroke-linecap":"round"});
+      const a = w.animate([
+        {opacity:0, transform:"translateY(4px)"},{opacity:.6, offset:.3},
+        {opacity:0, transform:"translateY(-22px)"},
+      ],{duration:1500+i*300, easing:"ease-out"});
+      a.onfinish = () => w.remove();
+      gFx.append(w);
+    }
+  }
+  function starFloat(x, y, n){
+    for(let i=0;i<n;i++){
+      const t = mk("text",{x:x-20+i*20, y, "font-size":17, fill:"#ffd27a",
+        filter:"url(#softglow)"});
+      t.textContent = "★";
+      const a = t.animate([
+        {opacity:0, transform:"translateY(8px)"},{opacity:1, offset:.25},
+        {opacity:0, transform:"translateY(-46px)"},
+      ],{duration:1700+i*260, delay:i*140, easing:"ease-out", fill:"backwards"});
+      a.onfinish = () => t.remove();
+      gFx.append(t);
+    }
+  }
+
+  // ====================================================================
+  //  game state & night flow
+  // ====================================================================
+  const state = {
+    night: loadLS("shokudo-night", 1),
+    rep:   loadLS("shokudo-rep", 0),
+    phase: "closed",            // closed | empty | waiting | react
+    specials: [],
+    pantry: [],
+    current: null,
+    tonight: null,              // {served, satisfied, star3, tips, repGained, queue}
+  };
+  const life = loadLS("shokudo-life-v1", {nights:0, served:0, star3:0});
+  const visitedTonight = new Set();
+
+  const repPill = document.getElementById("repPill");
+  function renderRep(pop){
+    repPill.textContent = `⭐ 評判 ${state.rep}`;
+    if(pop) repPill.animate([{transform:"scale(1)"},{transform:"scale(1.14)"},{transform:"scale(1)"}],
+      {duration:380, easing:"ease-out"});
+  }
+
+  function award(world, amt){
+    const w = WORLDS[world];
+    if(!w || !w.cur) return false;
+    try{
+      const cur = parseInt(localStorage.getItem(w.cur) || "0", 10) || 0;
+      localStorage.setItem(w.cur, String(cur + amt));
+      return true;
+    }catch(e){ return false; }
+  }
+
+  // ---- pantry ----
+  const pantryEl = document.getElementById("pantry");
+  const dishNameEl = document.getElementById("dishName");
+  const serveBtn = document.getElementById("serveBtn");
+  let sel = [];                 // indices into state.pantry, in pick order
+
+  function dishFrom(cards){
+    const tags = [...new Set(cards.flatMap(c=>c.tags))];
+    const name = `${cards[0].name}と${cards[1].name}の${cards[2].dn}${pick(FORMS)}`;
+    return {name, tags, cards};
+  }
+  let previewDish = null;
+
+  function renderPantry(){
+    pantryEl.innerHTML = state.pantry.map((ing,i)=>`
+      <div class="ing${sel.includes(i)?" sel":""}" data-i="${i}">
+        <div class="nm">${esc(ing.name)}</div>
+        <div class="tg">${ing.tags.map(t=>`<span>${esc(t)}</span>`).join("")}</div>
+      </div>`).join("");
+    previewDish = sel.length === 3 ? dishFrom(sel.map(i=>state.pantry[i])) : null;
+    dishNameEl.textContent = previewDish ? "→ " + previewDish.name : (sel.length ? `（あと${3-sel.length}品）` : "");
+    serveBtn.disabled = !(previewDish && state.phase === "waiting");
+    syncKitchenHeight();
+  }
+  // keep --kh in sync with the kitchen's real height (dock/toast/stage sit on top of it)
+  function syncKitchenHeight(){
+    try{
+      const h = Math.ceil(document.getElementById("kitchen").getBoundingClientRect().height);
+      document.documentElement.style.setProperty("--kh", h + "px");
+    }catch(e){}
+  }
+  window.addEventListener("resize", syncKitchenHeight);
+
+  pantryEl.addEventListener("click", e => {
+    const card = e.target.closest(".ing");
+    if(!card) return;
+    const i = +card.dataset.i;
+    const at = sel.indexOf(i);
+    if(at >= 0) sel.splice(at, 1);
+    else if(sel.length >= 3){ toast("両手と盆がふさがっています（3品まで）"); return; }
+    else sel.push(i);
+    renderPantry();
+  });
+
+  const boardEl = document.getElementById("board");
+  function renderBoard(){
+    boardEl.innerHTML = `本日のおすすめ <b>${state.specials.map(esc).join("・")}</b> ＋評判1`;
+  }
+
+  // ---- customer arrival / departure ----
+  let flowT = null;
+  function spawnCustomer(over){
+    let c;
+    if(over){ c = makeCustomer(over); }
+    else {
+      const back = regulars.filter(r => !visitedTonight.has(r.name) && Math.random() < .5);
+      if(regulars.length && back.length && Math.random() < .38){
+        const r = pick(back);
+        c = makeCustomer({name:r.name, world:r.world, hue:r.hue, seed:r.seed, regular:r});
+      } else c = makeCustomer();
+    }
+    const el = customerGroup(c);
+    c.el = el;
+    el.style.transform = `translate(${c.seat}px, 470px)`;
+    gCust.append(el);
+    el.animate([
+      {transform:"translate(1090px, 470px)"},
+      {transform:`translate(${c.seat}px, 470px)`},
+    ],{duration:1150, easing:"cubic-bezier(.22,.9,.35,1)"});
+    customers.push(c);
+    state.current = c;
+    setTimeout(()=>{
+      if(state.current !== c) return;
+      showBubble(c, c.order.text);
+      state.phase = "waiting";
+      renderPantry();
+    }, 1280);
+    if(c.regular){
+      visitedTonight.add(c.name);
+      toast(`常連の${c.name}が来ました。覚えていますか`);
+      emit("regular-returned", c);
+    } else {
+      toast(`${c.name}（${WORLDS[c.world].label}）が来店しました`);
+    }
+    emit("customer-arrived", c);
+    return c;
+  }
+
+  function customerLeaves(c){
+    hideBubble();
+    const a = c.el.animate([
+      {transform:`translate(${c.seat}px, 470px)`, opacity:1},
+      {transform:"translate(1090px, 470px)", opacity:1},
+    ],{duration:1050, easing:"cubic-bezier(.55,.06,.7,.4)"});
+    a.onfinish = () => c.el.remove();
+    const at = customers.indexOf(c);
+    if(at >= 0) customers.splice(at, 1);
+    if(state.current === c) state.current = null;
+    emit("customer-left", c);
+  }
+
+  // ---- serving & judging ----
+  function serve(){
+    if(state.phase !== "waiting" || !previewDish || !state.current) {
+      if(!state.current) toast("お客さんがまだ来ていません");
+      return;
+    }
+    const c = state.current, dish = previewDish;
+    state.phase = "react";
+    serveBtn.disabled = true;
+    const matches = c.order.tags.filter(t => dish.tags.includes(t)).length;
+    const need = c.order.tags.length;
+    const tier = matches >= need ? 3 : (matches >= 2 ? 2 : matches);
+    const bonus = state.specials.every(t => dish.tags.includes(t)) ? 1 : 0;
+
+    steamBurst(c.seat, 372);
+    setTimeout(()=>{
+      showBubble(c, pick(REACTIONS[tier]), {stars:tier});
+      if(tier > 0) starFloat(c.seat, 250, tier);
+      state.rep += tier + bonus;
+      saveLS("shokudo-rep", state.rep);
+      renderRep(tier + bonus > 0);
+      if(bonus) setTimeout(()=>toast("本日のおすすめと一致。黒板の面目が立ちました（評判+1）"), 600);
+
+      const T = state.tonight;
+      T.served++; life.served++;
+      if(tier >= 2) T.satisfied++;
+      if(tier === 3){ T.star3++; life.star3++; registerRegular(c, dish); }
+      T.repGained += tier + bonus;
+
+      // tip
+      const tipChance = tier === 3 ? .6 : tier === 2 ? .25 : 0;
+      if(Math.random() < tipChance){
+        const amt = 2 + ((Math.random()*5)|0);
+        const w = WORLDS[c.world];
+        if(award(c.world, amt)){
+          T.tips += amt;
+          setTimeout(()=>toast(`${w.tip}（+${amt}）`), 1500);
+        } else {
+          setTimeout(()=>toast(w.tip), 1500);
+        }
+        emit("tip", {customer:c, world:c.world, amount:w.cur ? amt : 0});
+      }
+      saveLS("shokudo-life-v1", life);
+      emit("dish-served", {customer:c, dish, score:tier});
+
+      sel = []; previewDish = null; renderPantry();
+      setTimeout(()=>{
+        customerLeaves(c);
+        state.phase = "empty";
+        flowT = setTimeout(nextStep, 1500 + Math.random()*1700);
+      }, 3000);
+    }, 700);
+  }
+  serveBtn.addEventListener("click", serve);
+  window.addEventListener("keydown", e => {
+    if(e.key === "Enter" && !serveBtn.disabled) serve();
+  });
+
+  function registerRegular(c, dish){
+    let r = regulars.find(r => r.name === c.name);
+    if(r){ r.visits++; r.tags = dish.tags.slice(); r.dish = dish.name; r.lastNight = state.night; }
+    else {
+      r = {name:c.name, world:c.world, hue:c.hue, seed:c.seed,
+           tags:dish.tags.slice(), dish:dish.name, visits:1, lastNight:state.night};
+      regulars.push(r);
+      setTimeout(()=>toast(`${c.name}は常連になりそうです（常連帳に記載）`), 2400);
+    }
+    visitedTonight.add(c.name);
+    saveLS("shokudo-regulars-v1", regulars);
+    renderRegulars();
+  }
+
+  // ---- night flow ----
+  function startNight(n){
+    customers.slice().forEach(c => { try{ c.el && c.el.remove(); }catch(e){} });
+    customers.length = 0; state.current = null; hideBubble();
+    state.night = n;
+    saveLS("shokudo-night", n);
+    state.pantry = shuffle(INGREDIENT_POOL).slice(0, 18);
+    state.specials = shuffle(TAG_GROUPS).slice(0,2).map(g => pick(g));
+    state.tonight = {night:n, total:5+((Math.random()*5)|0), served:0, satisfied:0,
+                     star3:0, tips:0, repGained:0};
+    visitedTonight.clear();
+    sel = []; previewDish = null;
+    state.phase = "empty";
+    renderPantry(); renderBoard(); renderRep();
+    toast(`第${n}夜。のれんを出しました（お客 ${state.tonight.total}名の気配）`);
+    emit("night-start", {night:n});
+    clearTimeout(flowT);
+    flowT = setTimeout(nextStep, 2400);
+  }
+  function nextStep(){
+    if(state.phase !== "empty") return;
+    if(state.tonight.served >= state.tonight.total){ endNight(); return; }
+    spawnCustomer();
+  }
+  function endNight(){
+    state.phase = "closed";
+    const T = state.tonight;
+    life.nights++; saveLS("shokudo-life-v1", life);
+    const rate = T.served ? Math.round(T.satisfied / T.served * 100) : 0;
+    const inner = document.getElementById("ncInner");
+    inner.innerHTML = `
+      <h3>本日の営業成績 — 第${T.night}夜</h3>
+      <div class="row"><span>来店</span><b>${T.served} 名</b></div>
+      <div class="row"><span>満足率</span><b>${rate}%</b></div>
+      <div class="row"><span>大満足（★3）</span><b>${T.star3} 名</b></div>
+      <div class="row"><span>チップ</span><b>${T.tips}</b></div>
+      <div class="row"><span>評判</span><b>+${T.repGained} → ⭐${state.rep}</b></div>
+      <div class="foot">${esc(pick(CLOSE_LINES))}</div>
+      <button class="btn" id="nextNightBtn">また明日も開ける</button>`;
+    document.getElementById("nightcard").classList.add("show");
+    document.getElementById("nextNightBtn").addEventListener("click", ()=>{
+      document.getElementById("nightcard").classList.remove("show");
+      startNight(state.night + 1);
+    });
+    emit("night-end", {stats:{...T, rate, rep:state.rep}});
+  }
+
+  // ---- regulars panel ----
+  const regularsList = document.getElementById("regularsList");
+  function renderRegulars(){
+    if(!regulars.length){
+      regularsList.innerHTML = `<div class="empty">まだ誰も。★3の一皿が、人を常連にします。</div>`;
+      return;
+    }
+    regularsList.innerHTML = regulars.map(r=>`
+      <div class="rcard">
+        <div class="nm">${esc(r.name)}<em>${esc(WORLDS[r.world] ? WORLDS[r.world].label : "?")}・${r.visits}回</em></div>
+        <div class="meta">いつもの：${r.tags.map(esc).join("・")}<br>（${esc(r.dish)}）</div>
+      </div>`).join("");
+  }
+  document.getElementById("toggleRegulars").addEventListener("click", ()=>{
+    document.getElementById("panel").classList.toggle("hidden");
+    renderRegulars();
+  });
+
+  // ---- dock ----
+  const dock = document.getElementById("dock");
+  const dockToggle = document.createElement("button");
+  dockToggle.className = "btn dock-toggle";
+  dockToggle.textContent = "🧰";
+  dockToggle.title = "おもちゃ箱をひらく／たたむ";
+  dockToggle.addEventListener("click", () => dock.classList.toggle("folded"));
+  dock.append(dockToggle);
+  function addButton(label, onClick){
+    const b = document.createElement("button");
+    b.className = "btn";
+    b.textContent = label;
+    b.addEventListener("click", onClick);
+    dock.append(b);
+    return b;
+  }
+
+  // ---- hint & toast ----
+  const hint = document.getElementById("hint");
+  let hintT = setTimeout(hideHint, 11000);
+  function hideHint(){ clearTimeout(hintT); hint.style.opacity = 0; }
+  pantryEl.addEventListener("click", hideHint, {once:true});
+
+  const toastEl = document.getElementById("toast");
+  let toastT = null;
+  function toast(msg){
+    toastEl.textContent = msg; toastEl.classList.add("show");
+    clearTimeout(toastT); toastT = setTimeout(()=>toastEl.classList.remove("show"), 2600);
+  }
+
+  // ==================================================================
+  //  plugin API
+  // ==================================================================
+  window.SHOKUDO = {
+    stage, defs, gBack, gStool, gCust, gCount, gFx,
+    kitchen: document.getElementById("kitchen"), pantryEl,
+    SEATS,
+    customers, regulars,             // live arrays (do not reassign)
+    state,                           // {night, rep, phase, specials, pantry, current, tonight}
+    mk, toast, pick, esc, wrap, shuffle,
+    makeCustomer, customerGroup,     // pure-ish: customer -> fresh <g> (origin = seat, feet y0)
+    spawnCustomer, serve, startNight, endNight,
+    showBubble, hideBubble, steamBurst, starFloat,
+    award,                           // award(worldKey, amount) -> bool (world currencies)
+    addButton,
+    lore: {TAGS, TAG_GROUPS, TAG_FRAGS, INGREDIENT_POOL, FORMS, WORLDS, NAMES, MOODS,
+           ORDER_ENDINGS, REG_LINES, REACTIONS, CLOSE_LINES},
+    on, emit,                        // events: customer-arrived(c), dish-served({customer,dish,score}),
+                                     //   customer-left(c), night-start({night}), night-end({stats}),
+                                     //   regular-returned(c), tip({customer,world,amount})
+                                     // plugins may emit custom namespaced events (e.g. "okami:special")
+  };
+
+  // ---- opening ----
+  buildScene();
+  renderRegulars();
+  renderRep();
+  scheduleCat();
+  setTimeout(()=>{ try{ catVisit(); }catch(e){} }, 14000);
+  startNight(state.night);
+})();
+</script>
+</body>
+</html>
