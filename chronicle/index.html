@@ -82,6 +82,7 @@
   <button class="btn" id="seed">🌱 文明の種を蒔く</button>
   <button class="btn" id="pause">⏸ 時を止める</button>
   <button class="btn" id="speed">▶ 等速</button>
+  <button class="btn" id="reset">⟲ 白紙にもどす</button>
 </div>
 
 <div class="hint" id="hint">
@@ -399,7 +400,8 @@
 
   function redrawTerritory(c){
     c.tEl.replaceChildren();
-    const r = 26 + Math.sqrt(Math.max(0,c.pop))*.9;
+    // bounded growth — great empires deserve presence, not the whole continent
+    const r = 20 + Math.min(55, Math.sqrt(Math.max(0, c.pop)) * 0.5);
     for(const ct of c.cities){
       c.tEl.append(mk("circle",{cx:ct.x, cy:ct.y, r:r*ct.size, fill:c.color, opacity:.13}));
     }
@@ -496,7 +498,9 @@
     for(const c of alive){
       // population drift
       const atWar = wars.some(w=>w.a===c || w.b===c);
-      c.pop = Math.round(c.pop * (atWar ? .97 : 1.012 + Math.random()*.02));
+      // logistic-ish: the continent feeds only so many — keeps the book's numbers believable
+      const crowd = c.pop > 50000 ? 0.25 : c.pop > 20000 ? 0.6 : 1;
+      c.pop = Math.round(c.pop * (atWar ? .97 : 1 + (0.012 + Math.random()*.02) * crowd));
 
       // random yearly events
       const roll = Math.random();
@@ -628,6 +632,32 @@
     speed = speed === 1 ? 4 : 1;
     speedBtn.textContent = speed === 1 ? "▶ 等速" : "⏩ 駆け足";
     toast(speed === 1 ? "等速にもどしました" : "歴史が駆け足になりました");
+  });
+
+  document.getElementById("reset").addEventListener("click", () => {
+    if(!confirm("大陸を白紙にもどしますか？ 歴史は失われます。\n（年代記の書き手は、別の紙に書き写したと主張しています）")) return;
+    // close the books: let plugins hear each fall, then wipe the slate
+    for(const c of civs.filter(c => c.alive)) killCiv(c, true);
+    civs.length = 0;
+    wars.length = 0;
+    for(const r of ruins){ try{ if(r.el) r.el.remove(); }catch(_){} }
+    ruins.length = 0;
+    gRuins.replaceChildren(); gCities.replaceChildren(); gTerritory.replaceChildren(); gFx.replaceChildren();
+    year = 0; eraIdx = 0; eraStartYear = 0; eraLen = 80 + (Math.random()*40|0);
+    lonelyYears = 0;
+    usedNames.clear();
+    entriesEl.replaceChildren();
+    continent = null; buildContinent();          // a brand-new landmass rises
+    // refresh the political-map clip if the patch installed one
+    try{
+      const clip = document.querySelector("#kokkyo-landclip path");
+      const land = gLand.querySelector("path");
+      if(clip && land) clip.setAttribute("d", land.getAttribute("d"));
+    }catch(_){}
+    updateHeader();
+    write("― ここに、まだ誰もいない大陸の記録を始める ―", "era");
+    emit("reset", {});
+    toast("大陸は白紙にもどりました。海だけが、前の大陸を覚えています");
   });
 
   // ---- dock ----
@@ -3571,18 +3601,10 @@ function censorNow(el, rec){
   stamp.style.animationDelay = sweepMs+"ms";                // 墨が乾いてから判を押す
   el.append(stamp);
 
-  const censor = mostPopulous();
+  const censor = rec.censor || mostPopulous();
   archive.push({year: rec.year, text: rec.text, type: rec.type, censor, at: R.year|0});
   try{ R.emit("kenetsu:censored", {year: rec.year, text: rec.text, censor}); }catch(err){ console.error(TAG, err); }
   if(isOpen) renderList();
-
-  setTimeout(()=>{
-    try{
-      writingSelf = true;
-      R.write(`（なお、先の記述は${censor}の意向により一部が墨で塗られた。墨の質は良い。）`, "civic");
-    }catch(err){ console.error(TAG, "follow-up", err); }
-    finally{ writingSelf = false; }
-  }, sweepMs + 250);
 }
 
 // ----------------------------------------------------------- the watch
@@ -3604,7 +3626,13 @@ R.on("written", e => {
 
     sinceCensor = 0;
     el.dataset.kenetsu = "1";
-    const rec = {year: e.year|0, text: e.text, type: t};
+    const rec = {year: e.year|0, text: e.text, type: t, censor: mostPopulous()};
+    // 注記は当該記事の直後に同期で置く — 早送りでも注記が末尾に溜まらない
+    try{
+      writingSelf = true;
+      R.write(`（なお、先の記述は${rec.censor}の意向により一部が墨で塗られた。墨の質は良い。）`, "civic");
+    }catch(err){ console.error(TAG, "follow-up", err); }
+    finally{ writingSelf = false; }
     setTimeout(()=>{ try{ censorNow(el, rec); }catch(err){ console.error(TAG, "censor", err); } },
       1000 + Math.random()*2000);
   }catch(err){ console.error(TAG, "written", err); }
@@ -7019,6 +7047,1588 @@ onSafe("kami:power",   ()=> questBump("kami2"));
 ensureDaily();
 
 }catch(err){ console.error("[game-rekishi] init failed", err); }
+})();
+</script>
+
+
+<script>
+// ════ plugin: rek-toshi-keikan (keikan) ════ Paste into its own <script> tag before </body> in /Users/airuky/Documents/Playground/sandbox/Tenchi Department Store/chronicle/index.html (after all existing pl
+// ════ plugin: rek-toshi-keikan ════ 🏘 都市の景観 — cities grow from hamlet to castle town
+(() => {
+"use strict";
+if(!window.REKISHI) return;
+const R = window.REKISHI;
+const TAG = "[rek-toshi-keikan]";
+try{
+
+const INK = "#4a3b28";
+const TIER_NAME = ["集落","町","都","城下"];
+
+// ---------------------------------------------------------------- utils
+const KJ = ["","一","二","三","四","五","六","七","八","九"];
+function charm(n){ // 推定人口の風雅な丸め:「四千人ばかり」
+  n = Math.max(0, Math.round(n));
+  if(n < 120) return "百人に満たぬ";
+  if(n < 950){ const h = Math.max(1, Math.round(n/100)); return (h===1?"百":KJ[h]+"百")+"人ばかり"; }
+  const t = Math.round(n/1000);
+  if(t < 10) return (t===1?"千":KJ[t]+"千")+"人ばかり";
+  const m = (t/10)|0, r = t%10;
+  let s = (m < 10 ? KJ[m] : String(m)) + "万";
+  if(r) s += (r===1?"千":KJ[r]+"千");
+  return s + "人あまり";
+}
+function hashStr(s){
+  let h = 2166136261 >>> 0;
+  s = String(s);
+  for(let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function rng(seed){ // mulberry32
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// ---------------------------------------------------------------- css
+const style = document.createElement("style");
+style.textContent = `
+.rek-toshi-keikan-tip{position:fixed;z-index:6;pointer-events:none;display:none;
+  padding:6px 11px 7px;border:1.5px solid rgba(74,59,40,.45);border-radius:7px;
+  background:linear-gradient(115deg,rgba(244,234,210,.96),rgba(228,214,180,.96));
+  color:#4a3b28;font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
+  font-size:11.5px;letter-spacing:.05em;line-height:1.7;white-space:nowrap;
+  box-shadow:0 3px 10px rgba(74,59,40,.25)}`;
+document.head.append(style);
+
+// ---------------------------------------------------------------- layers
+// roads: just under gDetail = above gTerritory AND above kokkyo's political grid,
+// still beneath rivers/ruins/city marks. buildings: first child of gCities (under
+// every civ's diamonds+labels). hit areas: in gFx so hover wins over the marks.
+let gRoads = null, gBuild = null, gHit = null;
+function mountLayers(){
+  if(!gRoads) gRoads = R.mk("g", {"class":"rek-toshi-keikan-roads", "pointer-events":"none"});
+  gRoads.replaceChildren();
+  if(!gRoads.isConnected) R.svg.insertBefore(gRoads, R.gDetail);
+  if(!gBuild) gBuild = R.mk("g", {"class":"rek-toshi-keikan-build", "pointer-events":"none"});
+  gBuild.replaceChildren();
+  if(!gBuild.isConnected) R.gCities.insertBefore(gBuild, R.gCities.firstChild);
+  if(!gHit) gHit = R.mk("g", {"class":"rek-toshi-keikan-hit"});
+  gHit.replaceChildren();
+  if(!gHit.isConnected) R.gFx.append(gHit);
+}
+mountLayers();
+
+// ---------------------------------------------------------------- state
+const cityStates = new Map();   // city object -> st (cities never move; objects live until they fall)
+const civRoads   = new Map();   // civ.id -> {n, el}
+const pairRoads  = new Map();   // "loId-hiId" -> {el, na, nb}
+let puffs = 0, dust = 0;
+
+// ---------------------------------------------------------------- tooltip
+const tip = document.createElement("div");
+tip.className = "rek-toshi-keikan-tip";
+document.body.append(tip);
+let tipSt = null;
+function showTip(st){
+  const civ = st.civ, city = st.city;
+  const share = civ.pop / Math.max(1, civ.cities.length || 1);
+  // textContent only — no innerHTML, no escaping worries
+  tip.textContent = `${city.name}（${civ.name}）　${TIER_NAME[Math.max(0, st.tier)]}・推定${charm(share)}`;
+  const rect = R.svg.getBoundingClientRect();
+  tip.style.display = "block";
+  let lx = rect.left + city.x + 13, ly = rect.top + city.y - 36;
+  const w = tip.offsetWidth || 170;
+  if(lx + w > rect.left + R.W - 8) lx = rect.left + city.x - w - 13;
+  if(ly < 6) ly = rect.top + city.y + 18;
+  tip.style.left = lx + "px"; tip.style.top = ly + "px";
+  tipSt = st;
+}
+function hideTip(){ tip.style.display = "none"; tipSt = null; }
+
+// ---------------------------------------------------------------- tiers
+function computeTier(civ, city){
+  const share = civ.pop / Math.max(1, civ.cities.length || 1);
+  let t = share >= 6000 ? 2 : share >= 1500 ? 1 : 0;
+  if(city.capital && civ.pop >= 15000) t = 3;   // 城下 — the capital of a great realm
+  return t;
+}
+
+function houseEl(hx, hy, r){ // tiny gabled ink house, hand-wobbled
+  const s = (.85 + r()*.4).toFixed(2), rot = ((r()-.5)*16).toFixed(1);
+  return R.mk("path", {d:"M -2.1 1.5 L -2.1 -0.8 L 0 -2.5 L 2.1 -0.8 L 2.1 1.5 Z",
+    fill:"#e2d4b2", stroke:INK, "stroke-width":.75, opacity:.92,
+    transform:`translate(${hx.toFixed(1)} ${hy.toFixed(1)}) rotate(${rot}) scale(${s})`});
+}
+
+function rebuildTierG(st){
+  st.gB.replaceChildren();
+  const t = st.tier;
+  if(t < 1) return;                              // 集落: core diamond only
+  const {city, civ} = st, x = city.x, y = city.y;
+  const r = rng(st.seed);
+  // houses clustered by the diamond; slots dodge the label below (≈ +55°..+125°)
+  const slots = [-25, -70, -115, -160, 155, 20];
+  for(let i = slots.length-1; i > 0; i--){ const j = (r()*(i+1))|0; const tmp = slots[i]; slots[i] = slots[j]; slots[j] = tmp; }
+  const count = t === 1 ? 2 + ((r()*2)|0) : 5 + ((r()*2)|0);   // 町: 2-3 / 都・城下: 5-6
+  for(let i=0;i<count;i++){
+    const ang = (slots[i % slots.length] + (r()-.5)*22) * Math.PI/180;
+    const d = (t >= 3 ? 8.5 : 7.2) + r()*3.4;
+    st.gB.append(houseEl(x + Math.cos(ang)*d, y + Math.sin(ang)*d, r));
+  }
+  if(t >= 2){                                    // faint rough wall ring
+    const pts = [], N = 12;
+    for(let i=0;i<N;i++){
+      const a = i/N*Math.PI*2;
+      pts.push([x + Math.cos(a)*(13.6 + (r()-.5)*2.2), y + Math.sin(a)*(10.3 + (r()-.5)*1.6)]);
+    }
+    st.gB.append(R.mk("path", {d:R.smoothPath(pts), fill:"none", stroke:INK,
+      "stroke-width":1, opacity:.34, "stroke-linecap":"round"}));
+  }
+  if(t === 3){                                   // keep + banner pole + waving pennant
+    st.gB.append(R.mk("path", {d:`M ${x-3.1} ${y-4.6} L ${x-3.1} ${y-9.2} L ${x-2.1} ${y-9.2} L ${x-2.1} ${y-10.6} L ${x-.7} ${y-10.6} L ${x-.7} ${y-9.2} L ${x+.7} ${y-9.2} L ${x+.7} ${y-10.6} L ${x+2.1} ${y-10.6} L ${x+2.1} ${y-9.2} L ${x+3.1} ${y-9.2} L ${x+3.1} ${y-4.6} Z`,
+      fill:"#5c4d38", stroke:INK, "stroke-width":.6, opacity:.85}));
+    st.gB.append(R.mk("path", {d:`M ${x+4.1} ${y-4.6} L ${x+4.1} ${y-16}`,
+      stroke:INK, "stroke-width":.7, opacity:.8, "stroke-linecap":"round"}));
+    const pen = R.mk("path", {d:`M ${x+4.1} ${y-16} L ${x+10.5} ${y-14.6} L ${x+4.1} ${y-13.1} Z`,
+      fill:civ.color || "#8a4a32", opacity:.88});
+    pen.style.transformBox = "fill-box";
+    pen.style.transformOrigin = "0% 50%";
+    try{
+      pen.animate([
+        {transform:"rotate(0deg) scaleX(1)"},
+        {transform:"rotate(7deg) scaleX(.92)"},
+        {transform:"rotate(0deg) scaleX(1)"},
+      ], {duration:2300 + ((r()*900)|0), iterations:Infinity, easing:"ease-in-out"});
+    }catch(_){}
+    st.gB.append(pen);
+  }
+}
+
+// ---------------------------------------------------------------- harbor (checked at founding + reset)
+function coastward(x, y){ // march outward in 20 directions until water; nearest hit = the shore
+  let bd = 1e9, ba = 0;
+  for(let k=0;k<20;k++){
+    const a = k/20*Math.PI*2;
+    for(let t=4; t<=22; t+=3){
+      if(!R.inLand(x + Math.cos(a)*t, y + Math.sin(a)*t)){
+        if(t < bd){ bd = t; ba = a; }
+        break;
+      }
+    }
+  }
+  return bd <= 19 ? {d:bd, a:ba} : null;
+}
+function buildHarbor(st){
+  const c = coastward(st.city.x, st.city.y);
+  if(!c) return;
+  const cos = Math.cos(c.a), sin = Math.sin(c.a);
+  const P = (t,o)=>`${(st.city.x + cos*t - sin*o).toFixed(1)} ${(st.city.y + sin*t + cos*o).toFixed(1)}`;
+  const d0 = Math.max(3, c.d - 2), d1 = c.d + 6;
+  st.gH.append(R.mk("path", {d:`M ${P(d0,-1.2)} L ${P(d1,-1.2)} M ${P(d0,1.2)} L ${P(d1,1.2)}`,
+    stroke:INK, "stroke-width":.8, opacity:.55, fill:"none", "stroke-linecap":"round"}));
+  const bo = rng(st.seed ^ 0x5a5a)() < .5 ? -3.2 : 3.2;
+  const bx = st.city.x + cos*(d1+3.2) - sin*bo, by = st.city.y + sin*(d1+3.2) + cos*bo;
+  st.gH.append(R.mk("ellipse", {cx:bx.toFixed(1), cy:by.toFixed(1), rx:2.1, ry:1,
+    fill:"#5c4d38", opacity:.6, transform:`rotate(${(c.a*180/Math.PI).toFixed(0)} ${bx.toFixed(1)} ${by.toFixed(1)})`}));
+}
+
+// ---------------------------------------------------------------- fx
+function poof(x, y){ // growth moment: a little dust
+  if(dust >= 10) return;
+  for(let i=0;i<4;i++){
+    const c = R.mk("circle", {cx:(x+(Math.random()-.5)*6).toFixed(1), cy:(y+(Math.random()-.5)*5).toFixed(1),
+      r:(1.3+Math.random()*1.2).toFixed(1), fill:"#8d8273", opacity:.5});
+    R.gFx.append(c); dust++;
+    c.style.transformBox = "fill-box"; c.style.transformOrigin = "center";
+    const done = ()=>{ try{ c.remove(); }catch(_){} dust--; };
+    try{
+      const a = c.animate([
+        {transform:"translate(0,0) scale(.6)", opacity:.5},
+        {transform:`translate(${((Math.random()-.5)*14).toFixed(1)}px,${(-3-Math.random()*7).toFixed(1)}px) scale(1.7)`, opacity:0},
+      ], {duration:650 + Math.random()*350, easing:"ease-out"});
+      a.onfinish = a.oncancel = done;
+    }catch(_){ done(); }
+  }
+}
+function puffAt(st){ // hearth smoke from a 都/城下
+  if(puffs >= 6) return;
+  const c = R.mk("circle", {cx:(st.city.x+(Math.random()-.5)*9).toFixed(1),
+    cy:(st.city.y-5-Math.random()*4).toFixed(1), r:(1.2+Math.random()*.9).toFixed(1),
+    fill:"#7a6a52", opacity:.28});
+  R.gFx.append(c); puffs++;
+  c.style.transformBox = "fill-box"; c.style.transformOrigin = "center";
+  const done = ()=>{ try{ c.remove(); }catch(_){} puffs--; };
+  try{
+    const a = c.animate([
+      {transform:"translate(0,0) scale(1)", opacity:.28},
+      {transform:`translate(${((Math.random()-.5)*10).toFixed(1)}px,-14px) scale(2.1)`, opacity:0},
+    ], {duration:3200 + Math.random()*1400, easing:"ease-out"});
+    a.onfinish = a.oncancel = done;
+  }catch(_){ done(); }
+}
+
+// ---------------------------------------------------------------- city states
+function ensureState(civ, city){
+  if(!civ || !city || cityStates.has(city)) return;
+  const seed = hashStr(city.name + "|" + (city.x|0) + "," + (city.y|0));
+  const gWrap = R.mk("g"), gH = R.mk("g"), gB = R.mk("g");
+  gWrap.append(gH, gB);
+  gBuild.append(gWrap);
+  const hit = R.mk("circle", {cx:city.x, cy:city.y, r:10.5, fill:"#000",
+    "fill-opacity":0, "pointer-events":"fill"});
+  gHit.append(hit);
+  const st = {civ, city, seed, tier:-1, gWrap, gH, gB, hit, nextPuff:0};
+  hit.addEventListener("pointerdown", ev => {
+    if(ev.button === 0) ev.preventDefault();   // a hover spot is not farmland — no civ seeding
+  });
+  hit.addEventListener("pointerenter", () => { try{ showTip(st); }catch(err){ console.error(TAG, err); } });
+  hit.addEventListener("pointerleave", () => { try{ hideTip(); }catch(_){} });
+  cityStates.set(city, st);
+  buildHarbor(st);
+  st.tier = computeTier(civ, city);
+  if(st.tier > 0) rebuildTierG(st);            // quiet initial build, no poof
+  if(st.tier >= 2) st.nextPuff = performance.now() + 2000 + Math.random()*9000;
+}
+function removeState(city, st){
+  try{ st.gWrap.remove(); }catch(_){}
+  try{ st.hit.remove(); }catch(_){}
+  if(tipSt === st) hideTip();
+  cityStates.delete(city);
+}
+function sweepStates(){ // also catches plugin-side removals (earthquakes splice cities silently)
+  const live = new Set();
+  for(const c of R.civs){
+    if(!c || !c.alive || !Array.isArray(c.cities)) continue;
+    for(const ct of c.cities){ if(ct){ live.add(ct); ensureState(c, ct); } }
+  }
+  for(const [city, st] of cityStates){ if(!live.has(city)) removeState(city, st); }
+}
+function updateTiers(){
+  for(const st of cityStates.values()){
+    const t = computeTier(st.civ, st.city);
+    if(t === st.tier) continue;
+    const grew = t > st.tier;
+    st.tier = t;
+    rebuildTierG(st);
+    if(grew && t >= 1){
+      poof(st.city.x, st.city.y);
+      try{ st.gB.animate([{opacity:0},{opacity:1}], {duration:700, easing:"ease-out"}); }catch(_){}
+    }
+    if(t >= 2){ if(!st.nextPuff) st.nextPuff = performance.now() + 2000 + Math.random()*9000; }
+    else st.nextPuff = 0;
+  }
+}
+
+// ---------------------------------------------------------------- roads
+function roadD(x1, y1, x2, y2){ // wavering ink line, jitter deterministic per endpoints
+  const r = rng(hashStr(`${x1|0},${y1|0},${x2|0},${y2|0}`));
+  const dx = x2-x1, dy = y2-y1, len = Math.hypot(dx, dy) || 1;
+  const px = -dy/len, py = dx/len;
+  const j = () => (r()-.5) * 2 * (2.2 + len*.02);
+  const a = j(), b = j();
+  return `M ${x1.toFixed(1)} ${y1.toFixed(1)} C ${(x1+dx*.34+px*a).toFixed(1)} ${(y1+dy*.34+py*a).toFixed(1)}, ${(x1+dx*.66+px*b).toFixed(1)} ${(y1+dy*.66+py*b).toFixed(1)}, ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+}
+function rebuildCivRoads(civ){ // each city -> its nearest same-civ neighbor
+  const old = civRoads.get(civ.id);
+  if(old && old.el){ try{ old.el.remove(); }catch(_){} }
+  const n = civ.cities.length;
+  if(n < 2){ civRoads.set(civ.id, {n, el:null}); return; }
+  const g = R.mk("g"), done = new Set();
+  for(let i=0;i<n;i++){
+    let bj = -1, bd = 1e9;
+    for(let k=0;k<n;k++){
+      if(k === i) continue;
+      const d = Math.hypot(civ.cities[k].x - civ.cities[i].x, civ.cities[k].y - civ.cities[i].y);
+      if(d < bd){ bd = d; bj = k; }
+    }
+    if(bj < 0) continue;
+    const key = Math.min(i,bj) + "-" + Math.max(i,bj);
+    if(done.has(key)) continue;
+    done.add(key);
+    const A = civ.cities[i], B = civ.cities[bj];
+    g.append(R.mk("path", {d:roadD(A.x, A.y, B.x, B.y), fill:"none", stroke:INK,
+      "stroke-width":.9, opacity:.34, "stroke-linecap":"round"}));
+  }
+  gRoads.append(g);
+  civRoads.set(civ.id, {n, el:g});
+}
+function nearestCross(a, b){
+  let best = null, bd = 1e9;
+  for(const ca of a.cities) for(const cb of b.cities){
+    const d = Math.hypot(ca.x-cb.x, ca.y-cb.y);
+    if(d < bd){ bd = d; best = [ca, cb]; }
+  }
+  return best;
+}
+function updateRoads(){
+  const aliveById = new Map();
+  for(const c of R.civs){ if(c && c.alive) aliveById.set(c.id, c); }
+  // own networks: rebuild only when the city count changed
+  for(const c of aliveById.values()){
+    const rec = civRoads.get(c.id);
+    if(!rec || rec.n !== c.cities.length) rebuildCivRoads(c);
+  }
+  for(const [id, rec] of civRoads){
+    if(!aliveById.has(id)){ if(rec.el){ try{ rec.el.remove(); }catch(_){} } civRoads.delete(id); }
+  }
+  // trade routes: one dashed fainter road per trading pair, nearest cross-civ cities
+  const want = new Map();
+  for(const a of aliveById.values()){
+    for(const bid of a.trades){
+      const b = aliveById.get(bid);
+      if(!b || b === a) continue;
+      const lo = Math.min(a.id, b.id), hi = Math.max(a.id, b.id);
+      want.set(lo + "-" + hi, [aliveById.get(lo), aliveById.get(hi)]);
+    }
+  }
+  for(const [key, ab] of want){
+    const a = ab[0], b = ab[1];
+    if(!a || !b || !a.cities.length || !b.cities.length){
+      const rec = pairRoads.get(key);
+      if(rec){ try{ rec.el.remove(); }catch(_){} pairRoads.delete(key); }
+      continue;
+    }
+    const rec = pairRoads.get(key);
+    if(rec && rec.na === a.cities.length && rec.nb === b.cities.length) continue;
+    if(rec){ try{ rec.el.remove(); }catch(_){} }
+    const pairCities = nearestCross(a, b);
+    if(!pairCities) continue;
+    const p = R.mk("path", {d:roadD(pairCities[0].x, pairCities[0].y, pairCities[1].x, pairCities[1].y),
+      fill:"none", stroke:"#6a5742", "stroke-width":.8, "stroke-dasharray":"3.5 3.2",
+      opacity:.27, "stroke-linecap":"round"});
+    gRoads.append(p);
+    pairRoads.set(key, {el:p, na:a.cities.length, nb:b.cities.length});
+  }
+  for(const [key, rec] of pairRoads){
+    if(!want.has(key)){ try{ rec.el.remove(); }catch(_){} pairRoads.delete(key); }
+  }
+}
+
+// ---------------------------------------------------------------- smoke clock (wall time, ambient)
+setInterval(() => {
+  try{
+    if(document.hidden) return;
+    const now = performance.now();
+    for(const st of cityStates.values()){
+      if(st.tier < 2 || !st.nextPuff || now < st.nextPuff) continue;
+      if(puffs >= 6) break;
+      st.nextPuff = now + 6000 + Math.random()*8000;
+      puffAt(st);
+    }
+  }catch(err){ console.error(TAG, "smoke", err); }
+}, 850);
+
+// ---------------------------------------------------------------- hooks (sim logic rides the "year" event only)
+R.on("year", () => {
+  try{ sweepStates(); updateTiers(); updateRoads(); }
+  catch(err){ console.error(TAG, "year", err); }
+});
+R.on("civ-born", c => {
+  try{ if(c && Array.isArray(c.cities)) for(const ct of c.cities) ensureState(c, ct); }
+  catch(err){ console.error(TAG, "civ-born", err); }
+});
+R.on("city-founded", e => {
+  try{ if(e && e.civ && e.city){ ensureState(e.civ, e.city); updateRoads(); } }
+  catch(err){ console.error(TAG, "city-founded", err); }
+});
+R.on("city-fell", () => { try{ sweepStates(); updateRoads(); }catch(err){ console.error(TAG, err); } });
+R.on("civ-died",  () => { try{ sweepStates(); updateRoads(); }catch(err){ console.error(TAG, err); } });
+R.on("trade-start", () => { try{ updateRoads(); }catch(err){ console.error(TAG, err); } });
+R.on("reset", () => {
+  try{
+    hideTip();
+    cityStates.clear();                     // core already wiped gCities/gFx children
+    for(const rec of civRoads.values()){ if(rec.el){ try{ rec.el.remove(); }catch(_){} } }
+    civRoads.clear();
+    for(const rec of pairRoads.values()){ try{ rec.el.remove(); }catch(_){} }
+    pairRoads.clear();
+    puffs = 0; dust = 0;
+    mountLayers();                          // reattach to the fresh continent's layers
+  }catch(err){ console.error(TAG, "reset", err); }
+});
+
+// bootstrap against whatever already stands (harmless on a fresh page)
+sweepStates(); updateTiers(); updateRoads();
+
+}catch(err){ console.error(TAG, "init failed", err); }
+})();
+</script>
+
+<script>
+// ════ plugin: rek-daichi (keikan) ════ Paste into its own <script> tag before </body> in chronicle/index.html. Layer is inserted right AFTER gDetail (above terrain ink, below gRuins/gCities) — delibe
+(()=>{ "use strict";
+// ════ plugin: rek-daichi ════ 🌾 大地の記憶 — the land itself records habitation.
+if(!window.REKISHI) return;
+const R = window.REKISHI;
+const TAG = "[rek-daichi]";
+const INK = "#5d4c34", FURROW = "#6b5a40";
+
+// ---------------------------------------------------------------- css
+try{
+  const style = document.createElement("style");
+  style.textContent = `.rek-daichi-sheep{transition:transform 1.15s ease-in-out}`;
+  document.head.append(style);
+}catch(err){ console.error(TAG, err); }
+
+// ------------------------------------------- layer: just above gDetail
+// (kokkyo's landclip patch sweeps layers between gTerritory and gDetail —
+//  sitting after gDetail keeps us out of its clip pass.)
+const layer = R.mk("g", {"class":"rek-daichi-layer", "pointer-events":"none"});
+const gHalo   = R.mk("g");   // well-trodden ground (bottom)
+const gField  = R.mk("g");   // tilled plots
+const gStump  = R.mk("g");   // felled-forest stumps
+const gPast   = R.mk("g");   // pastures + sheep (top)
+layer.append(gHalo, gField, gStump, gPast);
+R.svg.insertBefore(layer, R.gDetail.nextSibling);
+
+// halo gradient (defs survive reset; create once)
+try{
+  const grad = R.mk("radialGradient", {id:"rek-daichi-halo"});
+  grad.append(R.mk("stop",{offset:"0%","stop-color":"#3c2f1e","stop-opacity":1}));
+  grad.append(R.mk("stop",{offset:"55%","stop-color":"#3c2f1e","stop-opacity":.45}));
+  grad.append(R.mk("stop",{offset:"100%","stop-color":"#3c2f1e","stop-opacity":0}));
+  R.defs.append(grad);
+}catch(err){ console.error(TAG, err); }
+
+// ---------------------------------------------------------------- state
+const fields   = new Map();  // city -> {civ, city, plots:[{x,y,el}]}
+const pastures = new Map();  // civId -> {civ, city, el, sheep:[...]}
+const halos    = new Map();  // civId -> {civ, cap, el, lastUp}
+const clearRec = new Map();  // city -> {next} forest-clearing schedule
+const announced = new Set(); // civIds whose first field was chronicled
+let forest = [];             // [{el, x, y, gone}] core forest dots
+const sheepList = [];        // live sheep actors
+
+function share(c, ct){
+  let tot = 0;
+  for(const x of c.cities) tot += (x.size || 1);
+  return tot > 0 ? c.pop * (ct.size || 1) / tot : 0;
+}
+function fadeRemove(el, ms){
+  try{
+    el.animate([{opacity: 1},{opacity: 0}], {duration: ms, easing:"ease-out", fill:"forwards"})
+      .onfinish = ()=>{ try{ el.remove(); }catch(_){} };
+  }catch(_){ try{ el.remove(); }catch(_){} }
+}
+
+// ------------------------------------------------------- forest survey
+function scanForest(){
+  forest = [];
+  try{
+    for(const el of R.gDetail.querySelectorAll('circle[fill="#6e7d52"]')){
+      forest.push({el, x:+el.getAttribute("cx"), y:+el.getAttribute("cy"), gone:false});
+    }
+  }catch(err){ console.error(TAG, "scanForest", err); }
+}
+
+// ---------------------------------------------------------------- FARMLAND
+function buildPlot(rec){
+  const ct = rec.city;
+  for(let t=0; t<24; t++){
+    const a = Math.random()*Math.PI*2, d = 13 + Math.random()*24;
+    const x = ct.x + Math.cos(a)*d, y = ct.y + Math.sin(a)*d;
+    if(!R.inLand(x, y)) continue;
+    if(Math.abs(x-ct.x) < 26 && y > ct.y+6 && y < ct.y+20) continue;   // keep the city label clear
+    let ok = true;
+    for(const p of rec.plots){ if(Math.hypot(p.x-x, p.y-y) < 11){ ok = false; break; } }
+    if(!ok) continue;
+    const g = R.mk("g", {transform:`translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${(Math.random()*28-14)|0})`, opacity:0});
+    g.append(R.mk("rect",{x:-6, y:-4, width:12, height:8, rx:1.6,
+      fill:"#d9c99c", "fill-opacity":.5, stroke:INK, "stroke-width":.8}));
+    const n = 3 + (Math.random()*2|0);                                  // 3-4 furrows
+    for(let i=0; i<n; i++){
+      const fy = (-4 + 8*(i+1)/(n+1)).toFixed(2);
+      g.append(R.mk("path",{d:`M -4.6 ${fy} L 4.6 ${fy}`, stroke:FURROW,
+        "stroke-width":.7, opacity:.8, "stroke-linecap":"round"}));
+    }
+    gField.append(g);
+    try{
+      g.animate([{opacity:0},{opacity:.6}], {duration:1400, easing:"ease-out", fill:"forwards"});
+    }catch(_){ g.setAttribute("opacity", .6); }
+    rec.plots.push({x, y, el:g});
+    return true;
+  }
+  return false;
+}
+
+function farmStep(c, ct, sh){
+  const target = sh >= 1500 ? Math.min(6, Math.floor(sh/1200)) : 0;
+  let rec = fields.get(ct);
+  if(!rec){
+    if(target <= 0) return;
+    rec = {civ:c, city:ct, plots:[]};
+    fields.set(ct, rec);
+  }
+  if(rec.plots.length < target){                       // 1 plot per year — gradual
+    if(buildPlot(rec) && !announced.has(c.id)){
+      announced.add(c.id);
+      try{ R.write(`${c.name}の民、${ct.name}のまわりに畑を拓く。畝は曲がっているが、麦は気にしないことにした。`, "civic"); }catch(_){}
+    }
+  } else if(rec.plots.length > target && Math.random() < .5){
+    const p = rec.plots.pop();                          // lean years: fields lie fallow
+    if(p) fadeRemove(p.el, 3000);
+  }
+}
+
+function retireField(city){
+  const rec = fields.get(city);
+  if(!rec) return;
+  fields.delete(city);
+  for(const p of rec.plots){
+    try{                                                // fade to a faint scar, gone after ~30s
+      p.el.animate(
+        [{opacity:.6},{opacity:.13, offset:.05},{opacity:.11, offset:.93},{opacity:0}],
+        {duration:32000, easing:"linear", fill:"forwards"}
+      ).onfinish = ()=>{ try{ p.el.remove(); }catch(_){} };
+    }catch(_){ try{ p.el.remove(); }catch(_){} }
+  }
+  rec.plots.length = 0;
+}
+
+// ------------------------------------------------------- FOREST CLEARING
+function dropStump(x, y){
+  const s = R.mk("path",{
+    d:`M ${(x-2).toFixed(1)} ${(y+1).toFixed(1)} L ${(x+1.6).toFixed(1)} ${(y-1.4).toFixed(1)} M ${(x-1.4).toFixed(1)} ${(y+1.6).toFixed(1)} L ${(x+2).toFixed(1)} ${(y-0.6).toFixed(1)}`,
+    stroke:FURROW, "stroke-width":.8, "stroke-linecap":"round", opacity:.5});
+  gStump.append(s);
+  try{                                                  // lingers a minute, then the ink forgets
+    s.animate([{opacity:.5},{opacity:.42, offset:.75},{opacity:0}],
+      {duration:60000, easing:"linear", fill:"forwards"}).onfinish = ()=>{ try{ s.remove(); }catch(_){} };
+  }catch(_){ setTimeout(()=>{ try{ s.remove(); }catch(_){} }, 60000); }
+}
+
+function forestStep(ct, sh, y){
+  if(sh < 3000) return;
+  let rec = clearRec.get(ct);
+  if(!rec){ rec = {next: y + 6 + (Math.random()*10|0)}; clearRec.set(ct, rec); }
+  if(y < rec.next) return;
+  const cands = [];
+  for(const f of forest){
+    if(f.gone) continue;
+    const d = Math.hypot(f.x-ct.x, f.y-ct.y);
+    if(d < 70) cands.push([d, f]);
+  }
+  if(!cands.length){ rec.next = y + 999; return; }      // nothing left nearby — stop scanning
+  cands.sort((a,b)=>a[0]-b[0]);
+  const n = Math.min(cands.length, 1 + (Math.random()*2|0));   // 1-2 dots
+  for(let i=0; i<n; i++){
+    const f = cands[i][1];
+    f.gone = true;
+    try{
+      f.el.animate([{opacity:.55},{opacity:0}], {duration:2500, easing:"ease-out", fill:"forwards"})
+        .onfinish = ()=>{ try{ f.el.remove(); }catch(_){} };
+    }catch(_){ try{ f.el.remove(); }catch(_){} }
+    dropStump(f.x, f.y);
+  }
+  rec.next = y + 16 + (Math.random()*9|0);              // next felling in ~20 years
+}
+
+// ---------------------------------------------------------------- PASTURE
+const GRAZERS = new Set(["大食らい","商人気質"]);
+
+function buildPasture(c){
+  const anchor = c.cities[0];
+  if(!anchor) return;
+  const RX = 15, RY = 9.5;
+  for(let t=0; t<24; t++){
+    const a = Math.random()*Math.PI*2, d = 28 + Math.random()*16;
+    const x = anchor.x + Math.cos(a)*d, y = anchor.y + Math.sin(a)*d;
+    if(!R.inLand(x,y) || !R.inLand(x-RX,y) || !R.inLand(x+RX,y) || !R.inLand(x,y-RY) || !R.inLand(x,y+RY)) continue;
+    if(Math.abs(x-anchor.x) < 28 && y > anchor.y+4 && y < anchor.y+22) continue;
+    const g = R.mk("g", {transform:`translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${(Math.random()*36-18)|0})`, opacity:0});
+    g.append(R.mk("ellipse",{cx:0, cy:0, rx:RX, ry:RY, fill:"#e9ddb9", "fill-opacity":.22,
+      stroke:FURROW, "stroke-width":1, "stroke-dasharray":"1.4 3.6", "stroke-linecap":"round", opacity:.65}));
+    const rec = {civ:c, city:anchor, el:g, sheep:[]};
+    const n = 2 + (Math.random()*2|0);                  // 2-3 sheep
+    for(let i=0; i<n; i++){
+      const lx = (Math.random()*2-1)*(RX-4), ly = (Math.random()*2-1)*(RY-3.5);
+      const sg = R.mk("g", {"class":"rek-daichi-sheep"});
+      sg.append(R.mk("ellipse",{cx:0, cy:0, rx:2.1, ry:1.5, fill:"#ece4cf", stroke:INK, "stroke-width":.6}));
+      sg.append(R.mk("ellipse",{cx:-.9, cy:-.6, rx:1.2, ry:.9, fill:"#ece4cf", stroke:"none", opacity:.9}));
+      sg.append(R.mk("circle",{cx:1.9, cy:-.4, r:.65, fill:INK}));
+      sg.style.transform = `translate(${lx.toFixed(2)}px, ${ly.toFixed(2)}px)`;
+      g.append(sg);
+      const sh = {el:sg, lx, ly, bx:RX-3.2, by:RY-2.6, due: performance.now() + 1500 + Math.random()*4000};
+      rec.sheep.push(sh); sheepList.push(sh);
+    }
+    gPast.append(g);
+    try{ g.animate([{opacity:0},{opacity:.95}], {duration:1600, easing:"ease-out", fill:"forwards"}); }
+    catch(_){ g.setAttribute("opacity", .95); }
+    pastures.set(c.id, rec);
+    return;
+  }
+}
+
+function retirePasture(civId){
+  const rec = pastures.get(civId);
+  if(!rec) return;
+  pastures.delete(civId);
+  for(const s of rec.sheep){
+    const i = sheepList.indexOf(s);
+    if(i >= 0) sheepList.splice(i, 1);
+  }
+  fadeRemove(rec.el, 4000);
+}
+
+function pastureStep(c){
+  if(!GRAZERS.has(c.temperament)) return;
+  const rec = pastures.get(c.id);
+  if(rec && c.cities.indexOf(rec.city) < 0){ retirePasture(c.id); }
+  if(!pastures.has(c.id) && c.cities.length && share(c, c.cities[0]) >= 800) buildPasture(c);
+}
+
+// shared sheep heartbeat (wall-clock ambience; ~1px steps)
+setInterval(()=>{
+  try{
+    const now = performance.now();
+    for(const s of sheepList){
+      if(now < s.due) continue;
+      s.due = now + 2600 + Math.random()*3800;
+      let dx = Math.random()*2-1, dy = Math.random()*2-1;
+      const m = Math.hypot(dx,dy) || 1, step = .8 + Math.random()*.5;
+      dx = dx/m*step; dy = dy/m*step;
+      let nx = s.lx+dx, ny = s.ly+dy;
+      if((nx*nx)/(s.bx*s.bx) + (ny*ny)/(s.by*s.by) > 1){ nx = s.lx-dx*1.5; ny = s.ly-dy*1.5; }
+      s.lx = nx; s.ly = ny;
+      s.el.style.transform = `translate(${nx.toFixed(2)}px, ${ny.toFixed(2)}px)`;
+    }
+  }catch(err){ console.error(TAG, err); }
+}, 950);
+
+// ---------------------------------------------------------- WELL-TRODDEN
+function ensureHalo(c, y){
+  if(!c.cities.length) return;
+  const cap = c.cities.find(ct=>ct.capital) || c.cities[0];
+  let rec = halos.get(c.id);
+  if(rec && rec.cap !== cap){ try{ rec.el.remove(); }catch(_){} halos.delete(c.id); rec = null; }
+  if(!rec){
+    const el = R.mk("circle",{cx:cap.x, cy:cap.y, r:12, fill:"url(#rek-daichi-halo)", opacity:0});
+    gHalo.append(el);
+    rec = {civ:c, cap, el, lastUp:-99};
+    halos.set(c.id, rec);
+  }
+  if(y - rec.lastUp >= 3){                              // throttle attribute writes
+    rec.lastUp = y;
+    const age = Math.max(0, y - (c.born|0));
+    rec.el.setAttribute("r", (12 + Math.min(22, age*0.07)).toFixed(1));
+    rec.el.setAttribute("opacity", Math.min(.08, .012 + age*.0005).toFixed(4));  // cap: barely-there
+  }
+}
+function retireHalo(civId){
+  const rec = halos.get(civId);
+  if(!rec) return;
+  halos.delete(civId);
+  fadeRemove(rec.el, 5000);
+}
+
+// ---------------------------------------------------------------- yearly
+function sweepDead(){
+  for(const [city, rec] of Array.from(fields)){
+    if(!rec.civ.alive || rec.civ.cities.indexOf(city) < 0) retireField(city);
+  }
+  for(const [id, rec] of Array.from(pastures)){
+    if(!rec.civ.alive) retirePasture(id);
+  }
+  for(const [id, rec] of Array.from(halos)){
+    if(!rec.civ.alive) retireHalo(id);
+  }
+}
+
+R.on("year", e=>{
+  try{
+    const y = (e && e.year)|0;
+    sweepDead();
+    for(const c of R.civs){
+      if(!c || !c.alive) continue;
+      ensureHalo(c, y);
+      for(const ct of c.cities){
+        const sh = share(c, ct);
+        farmStep(c, ct, sh);
+        forestStep(ct, sh, y);
+      }
+      pastureStep(c);
+    }
+  }catch(err){ console.error(TAG, err); }
+});
+
+R.on("city-fell", e=>{
+  try{
+    if(!e || !e.city) return;
+    retireField(e.city);
+    clearRec.delete(e.city);
+    if(e.loser){
+      const pr = pastures.get(e.loser.id);
+      if(pr && pr.city === e.city) retirePasture(e.loser.id);
+    }
+  }catch(err){ console.error(TAG, err); }
+});
+
+R.on("civ-died", c=>{
+  try{
+    if(!c) return;
+    for(const [city, rec] of Array.from(fields)){
+      if(rec.civ === c){ retireField(city); clearRec.delete(city); }
+    }
+    retirePasture(c.id);
+    retireHalo(c.id);
+    announced.delete(c.id);
+  }catch(err){ console.error(TAG, err); }
+});
+
+// ----------------------------------------------------------------- reset
+R.on("reset", ()=>{
+  try{
+    fields.clear(); pastures.clear(); halos.clear(); clearRec.clear(); announced.clear();
+    sheepList.length = 0;
+    gHalo.replaceChildren(); gField.replaceChildren(); gStump.replaceChildren(); gPast.replaceChildren();
+    scanForest();                                       // the new continent's woods
+  }catch(err){ console.error(TAG, err); }
+});
+
+// ------------------------------------------------------------------ init
+scanForest();
+})();
+</script>
+
+<script>
+// ════ plugin: rek-ikusa-kurashi (keikan) ════ Append as one <script> before </body> in chronicle/index.html, after the existing 18 plugins. Own sub-layered <g class="rek-ikusa-layer"> inside gFx (smoke unde
+(()=>{ "use strict";
+if(!window.REKISHI) return;
+const R = window.REKISHI;
+const TAG = "[rek-ikusa-kurashi]";
+// ════ ⚔ 戦と暮らし — 行軍する兵、行き交う荷車、沖の小舟、渡る鳥。歴史が地図の上を歩く ════
+const esc = s => String(s==null?"":s).replace(/[&<>"']/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+void esc; // このパックはinnerHTML不使用（SVG属性とtextContentのみ）
+try{
+
+// ---------------------------------------------------------------- css
+const style = document.createElement("style");
+style.textContent = `.rek-ikusa-layer, .rek-ikusa-layer *{pointer-events:none}`;
+document.head.append(style);
+
+// ---------------------------------------------------------------- ink helpers
+const INK = "#4a3b28";
+function desat(hex, amt){ // 羊皮紙に馴染むよう、文明色を灰墨側へ寄せる
+  try{
+    const n = parseInt(String(hex).replace("#",""), 16);
+    const r = Math.round(((n>>16)&255) + (138-((n>>16)&255))*amt);
+    const g = Math.round(((n>>8)&255)  + (124-((n>>8)&255))*amt);
+    const b = Math.round((n&255)       + (101-(n&255))*amt);
+    return `rgb(${r},${g},${b})`;
+  }catch(e){ return INK; }
+}
+
+// ---------------------------------------------------------------- layer (gFxはreset時に核が一掃する→作り直す)
+let root, gSmoke, gDust, gBoats, gCarts, gArmies, gBirds;
+function buildLayer(){
+  root = R.mk("g", {"class":"rek-ikusa-layer", "pointer-events":"none"});
+  gSmoke = R.mk("g"); gDust = R.mk("g"); gBoats = R.mk("g");
+  gCarts = R.mk("g"); gArmies = R.mk("g"); gBirds = R.mk("g");
+  root.append(gSmoke, gDust, gBoats, gCarts, gArmies, gBirds);
+  R.gFx.append(root);
+}
+buildLayer();
+
+// ---------------------------------------------------------------- state
+const armies = new Map();      // pairKey -> army
+const carts  = new Map();      // pairKey -> cart
+const boats  = new Map();      // civ id  -> boat
+const smokeSrc = [];           // 陥落都市の煙の源 {x,y,born,last}
+const puffs  = [];             // 立ちのぼる煙のひとかたまり
+const flocks = [];             // 渡り鳥
+const tradeSeq = new Map(); let seqN = 1;   // 交易の新しさ（新しい隊商を優先）
+let landC = null;              // 大陸の重心（大陸ごとに一度だけ推定）
+let nextFlock = performance.now() + 60000 + Math.random()*60000;
+
+const pairKey = (a,b)=> Math.min(a.id,b.id) + "-" + Math.max(a.id,b.id);
+const atWar = (a,b)=> (R.wars||[]).some(w=>(w.a===a&&w.b===b)||(w.a===b&&w.b===a));
+const byId = id => (R.civs||[]).find(c=>c && c.id===id);
+
+function centroid(){ // resizeでは大陸は動かないので、大陸ごとに固定
+  if(landC) return landC;
+  let sx=0, sy=0, n=0;
+  const W=R.W, H=R.H;
+  for(let i=1;i<25;i++) for(let j=1;j<17;j++){
+    const x=W*i/25, y=H*j/17;
+    if(R.inLand(x,y)){ sx+=x; sy+=y; n++; }
+  }
+  landC = n ? {x:sx/n, y:sy/n, maxR:Math.max(W,H)} : {x:W*.5, y:H*.52, maxR:Math.max(W,H)};
+  return landC;
+}
+function coastR(theta){ // 重心からこの方角の海岸線までの距離（粗く歩いて二分探索）
+  const c = centroid(), ct = Math.cos(theta), st = Math.sin(theta);
+  let lo = 0, hi = c.maxR;
+  for(let d=12; d<=c.maxR; d+=14){
+    if(R.inLand(c.x+ct*d, c.y+st*d)) lo = d;
+    else { hi = d; break; }
+  }
+  for(let k=0;k<5;k++){
+    const m = (lo+hi)/2;
+    if(R.inLand(c.x+ct*m, c.y+st*m)) lo = m; else hi = m;
+  }
+  return (lo+hi)/2;
+}
+function closestCities(a, b){
+  let best = null, bd = Infinity;
+  for(const ca of a.cities||[]) for(const cb of b.cities||[]){
+    const d = Math.hypot(ca.x-cb.x, ca.y-cb.y);
+    if(d < bd){ bd = d; best = {ax:ca.x, ay:ca.y, bx:cb.x, by:cb.y}; }
+  }
+  return best;
+}
+
+// ════════════════════════════════════════════════════ ARMIES 行軍
+function mkSoldier(col){
+  const g = R.mk("g");
+  g.append(
+    R.mk("path",{d:"M 0 0 L 0 -3.1", stroke:col, "stroke-width":1, "stroke-linecap":"round"}),
+    R.mk("path",{d:"M 1.1 -0.6 L 2.5 -4.9", stroke:col, "stroke-width":.7, "stroke-linecap":"round", opacity:.9}),
+    R.mk("circle",{cx:0, cy:-4, r:1.05, fill:col})
+  );
+  return g;
+}
+function mkColumn(civ, x, y){
+  const g = R.mk("g", {opacity:.92});
+  const colr = desat(civ.color, .3);
+  const n = 4 + (Math.random()*3|0);
+  const soldiers = [];
+  for(let i=0;i<n;i++){
+    const el = mkSoldier(colr);
+    g.append(el);
+    soldiers.push({el, back:i*4, lat:i===0?0:((i%2?1:-1)*(2.1+(i>>1)*.5)),
+      phase:Math.random()*6.28, ang:Math.random()*6.28,
+      spin:(Math.random()<.5?-1:1)*(.5+Math.random()*.6)});
+  }
+  gArmies.append(g);
+  return {civ, g, soldiers, x, y, home:{x,y}, arrived:false, removed:false};
+}
+function createArmy(w){
+  const rt = closestCities(w.a, w.b);
+  if(!rt) return;
+  armies.set(pairKey(w.a,w.b), {
+    key: pairKey(w.a,w.b), a:w.a, b:w.b, state:"march",
+    mid:{x:(rt.ax+rt.bx)/2, y:(rt.ay+rt.by)/2},
+    colA: mkColumn(w.a, rt.ax, rt.ay),
+    colB: mkColumn(w.b, rt.bx, rt.by),
+    dust: null,
+  });
+}
+function ensureDust(ar){ // 矛を交える土埃（核の⚔閃光と同じ中点）
+  if(ar.dust) return;
+  const g = R.mk("g");
+  const e1 = R.mk("ellipse",{rx:9, ry:4.2, fill:"#8a7a5f", opacity:.13});
+  const e2 = R.mk("ellipse",{rx:5.5, ry:2.8, cy:-1.5, fill:"#8a7a5f", opacity:.1});
+  g.append(e1, e2);
+  gDust.append(g);
+  ar.dust = {g, e1, e2, k:Math.random()*6.28};
+}
+function disbandArmy(ar){
+  try{ if(ar.dust) ar.dust.g.remove(); }catch(_){}
+  ar.dust = null;
+  for(const col of [ar.colA, ar.colB]){ col.removed = true; try{ col.g.remove(); }catch(_){} }
+  armies.delete(ar.key);
+}
+function removeColumn(ar, col){
+  if(col.removed) return;
+  col.removed = true;
+  try{
+    const an = col.g.animate([{opacity:.92},{opacity:0}], {duration:900, easing:"ease-out"});
+    an.onfinish = ()=>{ try{ col.g.remove(); }catch(_){} };
+  }catch(e){ try{ col.g.remove(); }catch(_){} }
+  if(ar.colA.removed && ar.colB.removed){
+    try{ if(ar.dust) ar.dust.g.remove(); }catch(_){}
+    ar.dust = null;
+    armies.delete(ar.key);
+  }
+}
+function sendHome(ar){ // 矛を収め、来た道を帰る
+  if(ar.state === "home") return;
+  ar.state = "home";
+  try{ if(ar.dust){ ar.dust.g.remove(); ar.dust = null; } }catch(_){}
+  for(const col of [ar.colA, ar.colB]){
+    col.arrived = false;
+    if(!col.civ.alive) removeColumn(ar, col);   // 国が無いなら帰る先も無い
+  }
+}
+function reconcileArmies(){
+  const seen = new Set();
+  for(const w of R.wars||[]){
+    if(!w || !w.a || !w.b || !w.a.alive || !w.b.alive) continue;
+    const key = pairKey(w.a, w.b);
+    seen.add(key);
+    const ex = armies.get(key);
+    if(ex){
+      if(ex.state !== "home"){ // 都市が落ちると最前線も動く——中点を追従
+        const rt = closestCities(w.a, w.b);
+        if(rt){ ex.mid.x = (rt.ax+rt.bx)/2; ex.mid.y = (rt.ay+rt.by)/2; }
+        continue;
+      }
+      disbandArmy(ex);         // 帰路の老兵は道を譲り、新たな戦へ
+    }
+    let active = 0;
+    for(const a of armies.values()) if(a.state !== "home") active++;
+    if(active >= 4) continue;
+    createArmy(w);
+  }
+  for(const ar of [...armies.values()])
+    if(ar.state !== "home" && !seen.has(ar.key)) sendHome(ar);
+}
+function stepArmies(dt, now){
+  for(const ar of [...armies.values()]){
+    for(const col of [ar.colA, ar.colB]){
+      if(col.removed) continue;
+      const tgt = ar.state === "home" ? col.home : ar.mid;
+      const dx = tgt.x-col.x, dy = tgt.y-col.y, d = Math.hypot(dx, dy);
+      const ux = d>1e-3 ? dx/d : 1, uy = d>1e-3 ? dy/d : 0;
+      const milling = ar.state !== "home" && col.arrived;
+      if(!milling){
+        if(d > 2.5){
+          const step = Math.min(d, 12*dt);            // 12px/s 行軍
+          col.x += ux*step; col.y += uy*step;
+          if(ar.state !== "home" && d-step <= 9){ col.arrived = true; ensureDust(ar); }
+        } else if(ar.state === "home"){ removeColumn(ar, col); continue; }
+        else { col.arrived = true; ensureDust(ar); }
+      }
+      const pxv = -uy, pyv = ux;
+      for(const s of col.soldiers){
+        let sx, sy;
+        if(milling){ // 中点の周りで揉み合う
+          s.ang += dt*s.spin;
+          const rad = 3.2 + 2.6*((Math.sin(now/640+s.phase)+1)/2);
+          sx = ar.mid.x + Math.cos(s.ang)*rad + Math.sin(now/90+s.phase)*.5;
+          sy = ar.mid.y + Math.sin(s.ang)*rad*.72;
+        } else {     // 縦列、すこし上下に揺れて
+          sx = col.x - ux*s.back + pxv*s.lat;
+          sy = col.y - uy*s.back + pyv*s.lat + Math.sin(now/110+s.phase)*.55;
+        }
+        s.el.setAttribute("transform", `translate(${sx.toFixed(1)} ${sy.toFixed(1)})`);
+      }
+    }
+    if(ar.dust){
+      const du = ar.dust, t = now/1000;
+      du.g.setAttribute("transform", `translate(${ar.mid.x.toFixed(1)} ${ar.mid.y.toFixed(1)})`);
+      du.e1.setAttribute("rx", (8.5+Math.sin(t*.8+du.k)*1.8).toFixed(2));
+      du.e1.setAttribute("cx", (Math.sin(t*.6+du.k)*2.2).toFixed(2));
+      du.e2.setAttribute("rx", (5.5+Math.cos(t*.7+du.k)*1.4).toFixed(2));
+      du.e2.setAttribute("cx", (Math.cos(t*.5+du.k)*2.6).toFixed(2));
+    }
+  }
+}
+
+// ════════════════════════════════════════════════════ TRADE CARTS 隊商
+function mkCartEl(civ){
+  const g = R.mk("g");
+  g.append(
+    R.mk("path",{d:"M 2 -1.8 L 4.6 -1.3", stroke:INK, "stroke-width":.6, opacity:.7}),           // 牽き棒
+    R.mk("rect",{x:-3.6, y:-3.6, width:5.4, height:2.6, rx:.6, fill:desat(civ.color,.45),
+      stroke:INK, "stroke-width":.7}),                                                           // 荷台
+    R.mk("circle",{cx:-2.3, cy:-.5, r:1.1, fill:INK, opacity:.85}),                              // 車輪
+    R.mk("circle",{cx:.9,  cy:-.5, r:1.1, fill:INK, opacity:.85}),
+    R.mk("circle",{cx:5.4, cy:-1.5, r:1.25, fill:"#6b5b40"})                                     // 牛
+  );
+  gCarts.append(g);
+  return g;
+}
+function desiredTradePairs(){
+  const out = [], done = new Set();
+  for(const a of R.civs||[]){
+    if(!a || !a.alive || !a.trades) continue;
+    for(const id of a.trades){
+      const b = byId(id);
+      if(!b || !b.alive) continue;
+      const key = pairKey(a, b);
+      if(done.has(key)) continue;
+      done.add(key);
+      out.push({a, b, key, seq: tradeSeq.get(key)||0});
+    }
+  }
+  out.sort((p,q)=>q.seq-p.seq);   // 新しい交易を優先
+  return out.slice(0, 4);         // 荷車は4台まで
+}
+function reconcileCarts(){
+  const want = desiredTradePairs();
+  const keys = new Set(want.map(p=>p.key));
+  for(const [key, c] of [...carts])
+    if(!keys.has(key)){ try{ c.g.remove(); }catch(_){} carts.delete(key); }
+  for(const p of want){
+    let c = carts.get(p.key);
+    const rt = closestCities(p.a, p.b);
+    if(!c){
+      if(!rt) continue;
+      c = {key:p.key, a:p.a, b:p.b, rt, t:.5, dir:Math.random()<.5?1:-1,
+        pauseUntil:0, parked:false, g:mkCartEl(p.a)};
+      carts.set(p.key, c);
+    } else if(rt) c.rt = rt;
+    c.parked = atWar(p.a, p.b);   // 戦のあいだ、商人は荷を降ろして待つ
+  }
+}
+function stepCarts(dt, now){
+  for(const c of carts.values()){
+    const rt = c.rt;
+    const dx = rt.bx-rt.ax, dy = rt.by-rt.ay, L = Math.hypot(dx, dy)||1;
+    if(!c.parked && now >= c.pauseUntil){
+      c.t += c.dir*(8/L)*dt;                       // 8px/s
+      if(c.t >= 1){ c.t = 1; c.dir = -1; c.pauseUntil = now+3000; }
+      else if(c.t <= 0){ c.t = 0; c.dir = 1; c.pauseUntil = now+3000; }
+    }
+    const x = rt.ax + dx*c.t, y = rt.ay + dy*c.t;
+    const vx = dx*c.dir, vy = dy*c.dir;
+    const facing = vx >= 0 ? 1 : -1;               // 牛が常に先頭・車輪は常に下
+    let rot = Math.atan2(vy, vx*facing)*180/Math.PI;
+    rot = Math.max(-28, Math.min(28, rot));
+    c.g.setAttribute("opacity", c.parked ? .4 : .9);
+    c.g.setAttribute("transform",
+      `translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${facing} 1) rotate(${rot.toFixed(1)})`);
+  }
+}
+
+// ════════════════════════════════════════════════════ FISHING BOATS 小舟
+function cityCoastal(ct){
+  for(let k=0;k<8;k++){
+    const a = k/8*Math.PI*2;
+    if(!R.inLand(ct.x+Math.cos(a)*30, ct.y+Math.sin(a)*30)) return true;
+    if(!R.inLand(ct.x+Math.cos(a)*44, ct.y+Math.sin(a)*44)) return true;
+  }
+  return false;
+}
+function civCoastCity(c){
+  for(const ct of c.cities||[]) if(ct && cityCoastal(ct)) return ct;
+  return null;
+}
+function mkBoatEl(civ){
+  const g = R.mk("g", {opacity:.85});
+  g.append(
+    R.mk("path",{d:"M -8.5 .9 Q -11.5 1.8 -14 1.2", stroke:"#7d99a8", "stroke-width":.8,
+      fill:"none", opacity:.4, "stroke-linecap":"round"}),                                       // 航跡
+    R.mk("path",{d:"M -5 1.5 Q -8 2.1 -10.4 1.7", stroke:"#7d99a8", "stroke-width":.7,
+      fill:"none", opacity:.28, "stroke-linecap":"round"}),
+    R.mk("path",{d:"M -3.6 0 Q 0 2.4 3.6 0 L 2.6 -1 L -2.6 -1 Z", fill:"#a8946c",
+      stroke:INK, "stroke-width":.8}),                                                           // 船体
+    R.mk("path",{d:"M 0 -1 L 0 -5.2", stroke:INK, "stroke-width":.8, "stroke-linecap":"round"}), // 帆柱
+    R.mk("path",{d:"M .4 -5 Q 2.8 -3.6 .4 -1.6 Z", fill:desat(civ.color,.5),
+      stroke:INK, "stroke-width":.5, opacity:.9})                                                // 帆
+  );
+  gBoats.append(g);
+  return g;
+}
+function reconcileBoats(){
+  const want = [];
+  for(const c of R.civs||[]){
+    if(!c || !c.alive) continue;
+    const ct = civCoastCity(c);
+    if(ct) want.push({civ:c, ct});
+  }
+  want.sort((p,q)=>(p.civ.born|0)-(q.civ.born|0));
+  const keep = new Set();
+  for(const w of want) if(boats.has(w.civ.id) && keep.size < 3) keep.add(w.civ.id);
+  for(const w of want){
+    if(keep.size >= 3) break;
+    if(boats.has(w.civ.id)) continue;
+    const cen = centroid();
+    boats.set(w.civ.id, {civ:w.civ,
+      theta: Math.atan2(w.ct.y-cen.y, w.ct.x-cen.x),
+      dirS: Math.random()<.5?1:-1, phase: Math.random()*6.28,
+      flipAt: performance.now()+25000+Math.random()*30000, g: mkBoatEl(w.civ)});
+    keep.add(w.civ.id);
+  }
+  for(const [id, b] of [...boats])
+    if(!keep.has(id)){ try{ b.g.remove(); }catch(_){} boats.delete(id); }
+}
+function stepBoats(dt, now){
+  for(const b of boats.values()){
+    if(now >= b.flipAt){ b.dirS *= -1; b.flipAt = now+25000+Math.random()*35000; }
+    const cen = centroid();
+    const rr = coastR(b.theta) + 9;                          // 沖合9px、必ず海側
+    b.theta += b.dirS*(4/Math.max(40, rr))*dt;               // ~4px/s で沿岸を流す
+    const bob = Math.sin(now/900+b.phase)*1.1;
+    const x = cen.x + Math.cos(b.theta)*rr;
+    const y = cen.y + Math.sin(b.theta)*rr + bob;
+    const tx = -Math.sin(b.theta)*b.dirS, ty = Math.cos(b.theta)*b.dirS;
+    const facing = tx >= 0 ? 1 : -1;                         // 帆柱は常に上
+    let rot = Math.atan2(ty, tx*facing)*180/Math.PI;
+    rot = Math.max(-22, Math.min(22, rot)) + Math.sin(now/900+b.phase)*4;
+    b.g.setAttribute("transform",
+      `translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${facing} 1) rotate(${rot.toFixed(1)})`);
+  }
+}
+
+// ════════════════════════════════════════════════════ SMOKE 陥落の煙（壁時計~60秒）
+function spawnPuff(s, now, age){
+  if(puffs.length >= 60) return;
+  const el = R.mk("ellipse", {fill:"#3d3226", opacity:0});
+  gSmoke.append(el);
+  puffs.push({el, x:s.x+(Math.random()-.5)*2.4, y:s.y-2, born:now,
+    dur:5200+Math.random()*2600, drift:(Math.random()-.5)*1.2,
+    wob:Math.random()*6.28, maxO:.3*Math.max(0, 1-age/64)});
+}
+function stepSmoke(now){
+  for(let i=smokeSrc.length-1;i>=0;i--){
+    const s = smokeSrc[i], age = (now-s.born)/1000;
+    if(age > 60){ smokeSrc.splice(i,1); continue; }
+    if(now-s.last > 420+age*26){ s.last = now; spawnPuff(s, now, age); }  // 歳とともに細る
+  }
+  for(let i=puffs.length-1;i>=0;i--){
+    const p = puffs[i], k = (now-p.born)/p.dur;
+    if(k >= 1){ try{ p.el.remove(); }catch(_){} puffs.splice(i,1); continue; }
+    p.el.setAttribute("cx", (p.x+p.drift*k*16+Math.sin(k*6+p.wob)*1.6).toFixed(1));
+    p.el.setAttribute("cy", (p.y-k*40).toFixed(1));
+    p.el.setAttribute("rx", (2+k*6).toFixed(1));
+    p.el.setAttribute("ry", (1.4+k*4).toFixed(1));
+    p.el.setAttribute("opacity", (p.maxO*Math.min(1, k*5)*(1-k)).toFixed(3));
+  }
+}
+
+// ════════════════════════════════════════════════════ BIRDS 渡り鳥（ただの命）
+function spawnFlock(now){
+  const W = R.W, H = R.H;
+  if(!W || !H) return;
+  const dirX = Math.random()<.5?1:-1, slant = Math.random()<.5;
+  const ax = dirX>0 ? -70 : W+70, bx = dirX>0 ? W+70 : -70;
+  const ay = slant ? 60+Math.random()*H*.3 : H*.6+Math.random()*H*.3;
+  const by = slant ? H*.6+Math.random()*H*.3 : 60+Math.random()*H*.3;
+  const dx = bx-ax, dy = by-ay, L = Math.hypot(dx,dy)||1;
+  const ux = dx/L, uy = dy/L, pxv = -uy, pyv = ux;
+  const g = R.mk("g"), items = [], n = 4+(Math.random()*3|0);
+  for(let i=0;i<n;i++){
+    const t = R.mk("text", {"font-size":(7.5+Math.random()*2).toFixed(1), fill:"#5e4f3a",
+      opacity:.55, "text-anchor":"middle"});
+    t.textContent = "︶";
+    g.append(t);
+    const back = i*7, lat = i===0?0:(i%2?1:-1)*Math.ceil(i/2)*4.5;
+    items.push({el:t, ox:-ux*back+pxv*lat, oy:-uy*back+pyv*lat, ph:Math.random()*6.28});
+  }
+  gBirds.append(g);
+  flocks.push({g, items, ax, ay, bx, by, born:now, dur:12000});
+}
+function stepBirds(now){
+  if(now >= nextFlock){
+    nextFlock = now + 60000 + Math.random()*60000;
+    try{ spawnFlock(now); }catch(e){ console.error(TAG, e); }
+  }
+  for(let i=flocks.length-1;i>=0;i--){
+    const f = flocks[i], k = (now-f.born)/f.dur;
+    if(k >= 1){ try{ f.g.remove(); }catch(_){} flocks.splice(i,1); continue; }
+    const x = f.ax+(f.bx-f.ax)*k, y = f.ay+(f.by-f.ay)*k;
+    for(const it of f.items){
+      it.el.setAttribute("x", (x+it.ox).toFixed(1));
+      it.el.setAttribute("y", (y+it.oy+Math.sin(now/260+it.ph)*1.6).toFixed(1));
+    }
+  }
+}
+
+// ---------------------------------------------------------------- clock (壁時計＝見た目の動き専用)
+let lastNow = performance.now(), errN = 0;
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt = Math.min(.08, (now-lastNow)/1000 || 0);
+  lastNow = now;
+  try{
+    stepArmies(dt, now);
+    stepCarts(dt, now);
+    stepBoats(dt, now);
+    stepSmoke(now);
+    stepBirds(now);
+  }catch(err){ if(errN++ < 5) console.error(TAG, err); }
+}
+requestAnimationFrame(frame);
+
+// ---------------------------------------------------------------- sim hooks (歴史は"year"でだけ進む)
+R.on("year", ()=>{
+  try{ reconcileArmies(); reconcileCarts(); reconcileBoats(); }
+  catch(err){ console.error(TAG, err); }
+});
+R.on("war-start", ()=>{ try{ reconcileArmies(); }catch(err){ console.error(TAG, err); } });
+R.on("war-end", e=>{
+  try{ const ar = armies.get(pairKey(e.a, e.b)); if(ar) sendHome(ar); }
+  catch(err){ console.error(TAG, err); }
+});
+R.on("city-fell", e=>{
+  try{
+    if(!e || !e.city) return;
+    smokeSrc.push({x:e.city.x, y:e.city.y, born:performance.now(), last:0});
+    while(smokeSrc.length > 6) smokeSrc.shift();
+  }catch(err){ console.error(TAG, err); }
+});
+R.on("trade-start", e=>{
+  try{ tradeSeq.set(pairKey(e.a, e.b), seqN++); reconcileCarts(); }
+  catch(err){ console.error(TAG, err); }
+});
+R.on("civ-died", c=>{
+  try{
+    if(!c) return;
+    const b = boats.get(c.id);
+    if(b){ try{ b.g.remove(); }catch(_){} boats.delete(c.id); }
+    for(const [key, cart] of [...carts])
+      if(cart.a===c || cart.b===c){ try{ cart.g.remove(); }catch(_){} carts.delete(key); }
+    for(const ar of [...armies.values()])
+      if(ar.a===c || ar.b===c) sendHome(ar);   // 生き残りは帰郷、亡国の隊列は即時消滅
+  }catch(err){ console.error(TAG, err); }
+});
+R.on("reset", ()=>{
+  try{
+    armies.clear(); carts.clear(); boats.clear();
+    smokeSrc.length = 0; puffs.length = 0; flocks.length = 0;
+    tradeSeq.clear();
+    landC = null;                       // 新大陸の重心を測り直す
+    try{ root.remove(); }catch(_){}     // 核がgFxを一掃済みでも冪等
+    buildLayer();
+    nextFlock = performance.now() + 30000 + Math.random()*60000;
+  }catch(err){ console.error(TAG, err); }
+});
+
+// 既に歴史が動いていた場合に備えて一度だけ照合
+reconcileArmies(); reconcileCarts(); reconcileBoats();
+
+}catch(err){ console.error(TAG, "init", err); }
+})();
+</script>
+
+
+<script>
+// ════ plugin: rek-fude (keikan) ════ Verified live in the browser against the full 18-plugin index.html (temporary test copy, since deleted; source also saved at chronicle/plugin-rek-fude.js). IMPO
+// ════ plugin: rek-fude ════ 🖋 帳面の筆触 — the chronicle gains marginalia; the map learns to answer a glance.
+(()=>{ "use strict";
+if(!window.REKISHI) return;
+const R = window.REKISHI;
+const TAG = "[rek-fude]";
+try{
+
+const INK = "#4a3b28";
+const esc = s => String(s==null?"":s).replace(/[&<>"']/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+const entriesEl = document.getElementById("entries");
+if(!entriesEl){ console.error(TAG, "no entries container"); return; }
+
+// ------------------------------------------------------------------ css
+const style = document.createElement("style");
+style.textContent = `
+/* ---- margin glyphs ---- */
+.rek-fude-dec{position:relative;}
+.rek-fude-g{position:absolute;left:-14px;top:3px;width:12px;height:13px;opacity:.6;
+  color:#5d4c35;font-size:11px;line-height:13px;text-align:center;pointer-events:none;
+  font-family:"Hiragino Mincho ProN","Yu Mincho",serif;}
+.rek-fude-g svg{display:block;width:12px;height:12px;margin-top:1px;}
+/* ---- founding mini-map ---- */
+.rek-fude-mini{float:right;margin:2px 0 2px 7px;line-height:0;padding:1px;opacity:.9;
+  border:1px solid rgba(74,59,40,.3);border-radius:3px;background:rgba(207,220,202,.35);}
+.rek-fude-mini svg{display:block;}
+/* ---- illuminated era separators ---- */
+.ent.rek-fude-era{font-size:12.6px;letter-spacing:.22em;padding:9px 0 11px;
+  border-top:3px double rgba(74,59,40,.45);border-bottom:3px double rgba(74,59,40,.45);}
+.rek-fude-eraname{font-size:14px;font-weight:700;letter-spacing:.18em;color:#4a3b28;}
+.rek-fude-flo{display:flex;align-items:center;justify-content:center;gap:8px;margin:0 0 5px;}
+.rek-fude-flo i{display:block;width:30px;height:1px;background:rgba(74,59,40,.35);}
+.rek-fude-flo b{font-size:7.5px;font-weight:400;color:rgba(74,59,40,.55);line-height:1;}
+/* ---- floating civ name chip ---- */
+.rek-fude-chip{position:fixed;z-index:7;pointer-events:none;display:none;white-space:nowrap;
+  padding:5px 12px 6px;border:1.5px solid rgba(74,59,40,.45);border-radius:7px;
+  background:linear-gradient(115deg,rgba(244,234,210,.96),rgba(228,214,180,.96));
+  color:#4a3b28;font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
+  font-size:11.5px;letter-spacing:.05em;line-height:1.6;
+  box-shadow:0 3px 10px rgba(74,59,40,.25);}
+.rek-fude-chip b{font-weight:700;letter-spacing:.07em;}
+.rek-fude-chip span{color:#7a6a52;}
+/* ---- map legend chips (yields the slot to kokkyo's legend) ---- */
+.rek-fude-legend{position:fixed;left:12px;bottom:118px;z-index:5;display:flex;flex-wrap:wrap;
+  gap:5px;max-width:min(46vw,560px);align-items:flex-end;}
+.rek-fude-chiplet{display:inline-flex;align-items:center;gap:5px;padding:3px 9px 4px;
+  border:1.5px solid rgba(74,59,40,.35);border-radius:999px;cursor:pointer;
+  background:linear-gradient(115deg,rgba(244,234,210,.92),rgba(228,214,180,.92));
+  color:#4a3b28;font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
+  font-size:11px;letter-spacing:.04em;line-height:1.5;
+  box-shadow:0 2px 6px rgba(74,59,40,.18);transition:border-color .18s, background .18s;}
+.rek-fude-chiplet:hover{border-color:#8a4a32;}
+.rek-fude-chiplet.rek-fude-on{border-color:#8a4a32;background:rgba(138,74,50,.16);box-shadow:inset 0 1px 3px rgba(74,59,40,.2);}
+.rek-fude-chiplet i{flex:none;width:8px;height:8px;border-radius:50%;border:1px solid rgba(74,59,40,.5);}
+.rek-fude-chiplet em{font-style:normal;font-size:9.5px;color:#7a6a52;letter-spacing:.02em;}
+/* ---- quiet-continent watermark ---- */
+.rek-fude-water{position:fixed;left:calc((100vw - 374px)/2);top:55%;transform:translate(-50%,-50%);
+  z-index:2;pointer-events:none;display:none;color:rgba(74,59,40,.32);
+  font-family:"Hiragino Mincho ProN","Yu Mincho",serif;font-size:15px;
+  letter-spacing:.4em;padding-left:.4em;}
+`;
+document.head.append(style);
+
+// ==================================================================
+//  1) entry glyphs — small ink marginalia per entry type
+// ==================================================================
+const gsvg = inner => `<svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg" fill="none" `+
+  `stroke="${INK}" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+const GLYPHS = {
+  war:   "⚔︎",                             // ⚔ forced text presentation
+  birth: "✦",                                   // ✦
+  doom:  gsvg(`<path d="M3.7 2.6h4.6M4.6 2.6c.2 1.7-.9 2.5-.9 4 0 1.6 1 2.6 2.3 2.6s2.3-1 2.3-2.6c0-1.5-1.1-2.3-.9-4M4.3 10.1h3.4"/>`),
+  good:  gsvg(`<path d="M6 10.6C6 8 6 5.4 6.3 2.6M6.1 4.1 4.5 3M6.1 5.8 4.4 4.8M6.1 7.5 4.6 6.6M6.2 4.1 7.8 3M6.2 5.8 7.9 4.8M6.2 7.5 7.7 6.6"/>`),
+  bad:   gsvg(`<path d="M4.4 10.6c0-3 .2-5.2 2-6.6 1.2-.9 2.6-.5 2.7.4.1.8-.9 1.5-2.2 1.2M9.3 7.9l-.6 1.6"/>`),
+  trade: gsvg(`<circle cx="4.4" cy="6" r="2.3"/><circle cx="7.6" cy="6" r="2.3"/>`),
+  peace: gsvg(`<path d="M2.8 9.4C2.8 5.8 5.6 3 9.4 2.8 9.2 6.6 6.4 9.4 2.8 9.4ZM3.7 8.5C5.3 6.9 6.9 5.3 8.5 3.7"/>`),
+};
+
+function addGlyph(el, t){
+  const g = GLYPHS[t];
+  if(!g) return;
+  el.classList.add("rek-fude-dec");
+  const s = document.createElement("span");
+  s.className = "rek-fude-g";
+  s.innerHTML = g;                               // own static markup only
+  el.prepend(s);                                 // before .y; text nodes untouched (kenetsu-safe)
+}
+
+// ==================================================================
+//  2) founding mini-map — where on the continent the cradle stood
+// ==================================================================
+function addMini(el, e){
+  const civ = (R.civs || [])[(R.civs || []).length - 1];
+  if(!civ || !Array.isArray(civ.cities) || !civ.cities[0]) return;
+  if(e && e.text && civ.name && String(e.text).indexOf(civ.name) < 0) return;  // not this civ's line
+  const land = R.gLand && R.gLand.querySelector("path");
+  const d = land && land.getAttribute("d");
+  if(!d) return;
+  const W = Math.max(1, R.W|0), H = Math.max(1, R.H|0);
+  const cap = civ.cities[0];
+  const sc = Math.min(28/W, 22/H);               // display px per map unit
+  const dotR = 1.5/Math.max(1e-6, sc);
+  const wrap = document.createElement("span");
+  wrap.className = "rek-fude-mini";
+  wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="28" height="22" preserveAspectRatio="xMidYMid meet" aria-hidden="true">`+
+    `<path d="${d}" fill="rgba(74,59,40,.12)" stroke="${INK}" stroke-width=".7" vector-effect="non-scaling-stroke" stroke-opacity=".6"/>`+
+    `<circle cx="${(+cap.x).toFixed(1)}" cy="${(+cap.y).toFixed(1)}" r="${dotR.toFixed(1)}" fill="#8a4a32" opacity=".85"/></svg>`;
+  el.insertBefore(wrap, el.firstChild);          // floats right, text wraps around it
+}
+
+// ==================================================================
+//  3) illuminated era separators
+// ==================================================================
+function decorateEra(el){
+  el.classList.add("rek-fude-era");
+  const txt = el.textContent || "";
+  const m = /^(.*「)(.+?)(」.*)$/.exec(txt);
+  if(m){                                          // enlarge the era name itself (DOM nodes, no innerHTML)
+    el.textContent = "";
+    const b = document.createElement("span");
+    b.className = "rek-fude-eraname";
+    b.textContent = m[2];
+    el.append(document.createTextNode(m[1]), b, document.createTextNode(m[3]));
+  }
+  const f = document.createElement("span");
+  f.className = "rek-fude-flo";
+  f.innerHTML = "<i></i><b>◆</b><i></i>";    // ── ◆ ──
+  el.prepend(f);
+}
+
+R.on("written", e => {
+  try{
+    if(!e) return;
+    const el = entriesEl.lastElementChild;
+    if(!el || !el.classList || !el.classList.contains("ent") || el.dataset.rekFude) return;
+    const t = String(e.type || "");
+    if(t && !el.classList.contains("t-" + t)) return;  // make sure this is the entry we heard about
+    el.dataset.rekFude = "1";
+    if(t === "era"){ decorateEra(el); return; }
+    if(t === "birth") addMini(el, e);
+    addGlyph(el, t);
+  }catch(err){ console.error(TAG, "written", err); }
+});
+
+// ==================================================================
+//  4) civ highlight — hover the wash or a city, the rest fades
+//     (pure geometric hit-test on pointermove: no proxies, never
+//      steals events from toshi-keikan's city tooltips or land clicks)
+// ==================================================================
+let hoverCiv = null, stickyCiv = null;
+const bornEra = new Map();                        // civ.id -> era name at founding
+
+function setOp(el, o){
+  if(!el) return;
+  try{
+    if(!el.style.transition) el.style.transition = "opacity .25s ease";
+    el.style.opacity = o;
+  }catch(_){}
+}
+function currentTarget(){
+  if(stickyCiv && stickyCiv.alive) return stickyCiv;
+  if(hoverCiv && hoverCiv.alive) return hoverCiv;
+  return null;
+}
+function reapply(){
+  const tgt = currentTarget();
+  for(const c of R.civs || []){
+    if(!c) continue;
+    const o = tgt ? (c === tgt ? "1" : ".35") : "";
+    setOp(c.el, o); setOp(c.tEl, o);
+  }
+}
+
+// territory radius mirrors core redrawTerritory: r = 20 + min(55, sqrt(pop)*.5), per-city * ct.size
+function civAt(x, y){
+  let best = null, bestScore = 1e9;
+  for(const c of R.civs || []){
+    if(!c || !c.alive || !Array.isArray(c.cities)) continue;
+    const r = 20 + Math.min(55, Math.sqrt(Math.max(0, c.pop)) * .5);
+    for(const ct of c.cities){
+      if(!ct) continue;
+      const d = Math.hypot(ct.x - x, ct.y - y);
+      if(d < 13){                                 // city mark / label zone wins outright
+        const s = d/13 - 2;
+        if(s < bestScore){ bestScore = s; best = c; }
+      } else {
+        const rr = r * (ct.size || 1);
+        if(d <= rr){
+          const s = d/rr;
+          if(s < bestScore){ bestScore = s; best = c; }
+        }
+      }
+    }
+  }
+  return best;
+}
+
+// ---- floating name chip ----
+const chip = document.createElement("div");
+chip.className = "rek-fude-chip";
+document.body.append(chip);
+let chipHtml = "";
+function showChip(civ){
+  const since = bornEra.get(civ.id) || `${civ.born|0}年`;
+  const h = `<b>${esc(civ.name)}</b>　<span>${(Math.max(0, civ.pop)|0).toLocaleString()}人・${esc(since)}より</span>`;
+  if(h !== chipHtml){ chipHtml = h; chip.innerHTML = h; }
+  chip.style.display = "block";
+}
+function hideChip(){ chip.style.display = "none"; chipHtml = ""; }
+function placeChip(){
+  if(chip.style.display === "none") return;
+  const rect = R.svg.getBoundingClientRect();
+  const w = chip.offsetWidth || 150, h = chip.offsetHeight || 30;
+  let lx = pmX + 16, ly = pmY + 20;
+  const maxX = rect.left + Math.min(R.W, rect.width) - w - 8;
+  if(lx > maxX) lx = pmX - w - 14;
+  if(ly + h > window.innerHeight - 8) ly = pmY - h - 14;
+  chip.style.left = lx + "px"; chip.style.top = ly + "px";
+}
+
+let pmX = 0, pmY = 0, pmQueued = false;
+function onMove(){
+  const rect = R.svg.getBoundingClientRect();
+  const c = civAt(pmX - rect.left, pmY - rect.top);
+  if(!stickyCiv && c !== hoverCiv){ hoverCiv = c; reapply(); }
+  const tgt = currentTarget();
+  if(tgt && c === tgt) showChip(tgt); else hideChip();
+  placeChip();
+}
+R.svg.addEventListener("pointermove", e => {
+  pmX = e.clientX; pmY = e.clientY;
+  if(pmQueued) return;
+  pmQueued = true;
+  requestAnimationFrame(() => {
+    pmQueued = false;
+    try{ onMove(); }catch(err){ console.error(TAG, "move", err); }
+  });
+});
+R.svg.addEventListener("pointerleave", () => {
+  try{
+    if(!stickyCiv && hoverCiv){ hoverCiv = null; reapply(); }
+    hideChip();
+  }catch(err){ console.error(TAG, "leave", err); }
+});
+
+// ==================================================================
+//  5) map legend — parchment chips, click = sticky highlight
+// ==================================================================
+const legend = document.createElement("div");
+legend.className = "rek-fude-legend";
+document.body.append(legend);
+const water = document.createElement("div");
+water.className = "rek-fude-water";
+water.textContent = "大陸は、まだ静かです";
+document.body.append(water);
+
+function fmtPop(p){
+  p = Math.max(0, p|0);
+  return p >= 10000 ? (p/10000).toFixed(1).replace(/\.0$/, "") + "万" : String(p);
+}
+function syncVisibility(){
+  const alive = (R.civs || []).some(c => c && c.alive);
+  const kok = document.querySelector(".kokkyo-legend");          // political map legend owns the same corner
+  const kokOn = !!(kok && kok.style.display !== "none");
+  legend.style.display = (alive && !kokOn) ? "" : "none";
+  const hint = document.getElementById("hint");
+  const hintGone = !hint || hint.style.opacity === "0";          // don't stack on the opening hint
+  water.style.display = (!alive && hintGone) ? "block" : "none";
+}
+function renderLegend(){
+  try{
+    const alive = (R.civs || []).filter(c => c && c.alive);
+    legend.innerHTML = alive.map(c =>
+      `<button type="button" class="rek-fude-chiplet${stickyCiv === c ? " rek-fude-on" : ""}" data-id="${c.id|0}">`+
+      `<i style="background:${esc(c.color)}"></i><span>${esc(c.name)}</span><em>${fmtPop(c.pop)}</em></button>`).join("");
+    syncVisibility();
+  }catch(err){ console.error(TAG, "legend", err); }
+}
+legend.addEventListener("click", e => {
+  try{
+    const b = e.target && e.target.closest && e.target.closest(".rek-fude-chiplet");
+    if(!b) return;
+    const id = +b.dataset.id;
+    const civ = (R.civs || []).find(c => c && c.alive && c.id === id);
+    if(!civ) return;
+    stickyCiv = (stickyCiv === civ) ? null : civ;                // sticky until clicked again
+    hoverCiv = null;
+    hideChip();
+    reapply();
+    renderLegend();
+  }catch(err){ console.error(TAG, "chip click", err); }
+});
+
+// UI-only visibility sync (kokkyo toggling, hint fading) — wall clock is fine for chrome
+setInterval(() => { try{ if(!document.hidden) syncVisibility(); }catch(_){} }, 1000);
+
+// ==================================================================
+//  hooks
+// ==================================================================
+let lastLegendYear = -1e9;
+R.on("year", e => {
+  try{
+    const y = (e && typeof e.year === "number") ? e.year : (R.year|0);
+    if(y - lastLegendYear >= 3){ lastLegendYear = y; renderLegend(); }   // throttled pop refresh
+  }catch(err){ console.error(TAG, "year", err); }
+});
+R.on("civ-born", c => {
+  try{
+    if(c && typeof c.id === "number") bornEra.set(c.id, String(R.era || ""));
+    renderLegend();
+    reapply();                                    // a newborn joins an active highlight correctly dimmed
+  }catch(err){ console.error(TAG, "civ-born", err); }
+});
+R.on("civ-died", c => {
+  try{
+    if(stickyCiv === c) stickyCiv = null;
+    if(hoverCiv === c) hoverCiv = null;
+    hideChip();
+    reapply();
+    renderLegend();
+  }catch(err){ console.error(TAG, "civ-died", err); }
+});
+R.on("reset", () => {
+  try{
+    stickyCiv = null; hoverCiv = null;
+    bornEra.clear();
+    hideChip();
+    lastLegendYear = -1e9;
+    renderLegend();                               // empty -> hidden; watermark takes over via sync
+  }catch(err){ console.error(TAG, "reset", err); }
+});
+
+// bootstrap against whatever already stands
+for(const c of R.civs || []){ if(c && c.alive) bornEra.set(c.id, String(R.era || "")); }
+renderLegend();
+
+}catch(err){ console.error(TAG, "init failed", err); }
 })();
 </script>
 
