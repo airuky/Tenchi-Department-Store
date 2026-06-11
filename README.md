@@ -2,6 +2,11 @@
 
 > **宇宙から太古まで、ぜんぶ売り場。** 創業138億年。
 
+<p align="center">
+  <a href="https://airuky.github.io/Tenchi-Department-Store/"><strong>▶ 天地百貨店に入店する(24時間営業)</strong></a>
+  <br><sub>入店無料・予約不要・靴のままどうぞ ｜ 新館直通口は <a href="https://airuky.github.io/Tenchi-Department-Store/#yokocho">こちら🏮</a></sub>
+</p>
+
 ![営業状況](https://img.shields.io/badge/営業-年中無休-brightgreen)
 ![価格](https://img.shields.io/badge/全品-%C2%A50(税込)-red)
 ![構造](https://img.shields.io/badge/建築様式-単一HTML×10棟-gold)
@@ -30,6 +35,15 @@ python3 -m http.server 8741
 `index.html` をダブルクリックするだけでも開店しますが、
 お魚のお持ち帰り（Picture-in-Picture）や外商部（WebRTC）など一部のサービスは
 HTTPサーバー経由・Chrome系ブラウザでのご利用をおすすめいたします。
+
+### 推奨環境(お使いのブラウザについて)
+
+| 環境 | 営業状況 |
+|---|---|
+| Chrome / Edge | **全館フル営業**(推奨) |
+| Firefox | 営業中(お魚のお持ち帰り(PiP)など一部サービス休止) |
+| Safari | 営業中(一部のWeb APIが「前向きに検討中」の場合がございます) |
+| スマートフォン | 営業中(通路がやや狭うございます。エレベーターをご利用ください) |
 
 ---
 

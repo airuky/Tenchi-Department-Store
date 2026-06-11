@@ -143,6 +143,8 @@ body.sale .pricetag{display:block; animation:tagpop .5s cubic-bezier(.2,1.6,.4,1
 }
 #floor-mantle dl{display:grid; grid-template-columns:auto auto; gap:.3em 1.2em; font-size:.84rem; text-align:left; background:rgba(20,6,2,.6); padding:1rem 1.5rem; border-radius:10px}
 #floor-mantle dt{opacity:.7}
+#floor-mantle dd a{color:#ffb46a; text-decoration:underline dotted; text-underline-offset:3px}
+#floor-mantle dd a:hover{color:#ffd9a0}
 #floor-mantle .fine{font-size:.72rem; opacity:.65; line-height:1.9}
 
 /* ---------- fixed chrome ---------- */
@@ -533,6 +535,7 @@ header .guests{color:#ffd76a; white-space:nowrap; display:none; font-weight:700}
     <dt>売場面積</dt><dd>約5.1億km²(地表換算)</dd>
     <dt>営業日数</dt><dd id="bizdays">計算中…</dd>
     <dt>お問い合わせ</dt><dd>星に願いを</dd>
+    <dt>設計図</dt><dd><a href="https://github.com/airuky/Tenchi-Department-Store" target="_blank" rel="noopener">GitHubにて公開中(閲覧無料)</a></dd>
   </dl>
   <div class="fine">
     あなたは <span id="visits">?</span> 人目のお客様です(当ブラウザ調べ)。<br>
@@ -1507,7 +1510,10 @@ if(bc){
   setInterval(()=>{ bc.postMessage({id:myId,e:myGhost,f:clamp(scrollY/Math.max(1,docH-H),0,1)}); },600);
   setInterval(()=>{
     let removed=false;
-    for(const [id,o] of others) if(Date.now()-o.seen>2500){others.delete(id); removed=true;}
+    for(const [id,o] of others){
+      const limit=id==='rtc'?90000:2500; // 外商のお客様はタブ裏で送信が間遠になるので長めに待つ(切断はdc.oncloseが面倒を見る)
+      if(Date.now()-o.seen>limit){others.delete(id); removed=true;}
+    }
     if(removed) paintGhosts();
   },2000);
   addEventListener('pagehide',()=>bc.postMessage({id:myId,bye:1}));
@@ -1715,19 +1721,24 @@ $('#gaishoBtn').addEventListener('click',()=>gaisho.classList.add('open'));
 $('#gClose').addEventListener('click',()=>gaisho.classList.remove('open'));
 gaisho.addEventListener('click',e=>{ if(e.target===gaisho)gaisho.classList.remove('open') });
 const enc=o=>btoa(unescape(encodeURIComponent(JSON.stringify(o))));
-const dec=s=>JSON.parse(decodeURIComponent(escape(atob(s.trim()))));
+const dec=s=>JSON.parse(decodeURIComponent(escape(atob(s.replace(/\s+/g,''))))); // チャットの行折り返しに耐える
 function setState(s){ gState.textContent='状態: '+s }
 function newPC(){
   if(pc){try{pc.close()}catch(e){}}
   pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
   pc.ondatachannel=e=>bindDC(e.channel);
-  pc.onconnectionstatechange=()=>setState(pc.connectionState);
+  pc.onconnectionstatechange=()=>{ // 接続成功の良い言葉はdc.onopenが言うので、ここは困った時だけ喋る
+    const cs=pc.connectionState;
+    if(cs==='failed') setState('つながりませんでした(回線の相性かもしれません。もう一度お試しください)');
+    else if(cs==='disconnected') setState('回線が不安定です…');
+    else if(cs==='connecting') setState('接続中…');
+  };
   return pc;
 }
 function iceDone(p){
   return new Promise(res=>{
     if(p.iceGatheringState==='complete')return res();
-    const to=setTimeout(res,2000);
+    const to=setTimeout(res,4000); // 候補集めに少し長めの猶予(遠回りな回線ほど効く)
     p.addEventListener('icegatheringstatechange',()=>{
       if(p.iceGatheringState==='complete'){clearTimeout(to); res()}
     });
@@ -1767,6 +1778,8 @@ $('#gMakeOffer').addEventListener('click',async()=>{
   setState('招待状ができました。お相手にお送りください');
 });
 $('#gTakeAnswer').addEventListener('click',async()=>{
+  if(!pc){ setState('先に「招待状を作る」からお願いいたします'); return; }
+  if(pc.signalingState==='stable'){ setState(dc&&dc.readyState==='open'?'接続済み(ご来客中)':'その返信状は読み込み済みです'); return; }
   try{ await pc.setRemoteDescription(dec($('#gAnswerIn').value)); setState('接続中…'); }
   catch(err){ setState('返信状が読めません(コピー漏れかもしれません)'); }
 });
@@ -2361,7 +2374,7 @@ ov.innerHTML=
   '<canvas id="yk-world"></canvas>'+
   '<div class="yk-head">'+
     '<span class="yk-sign">新館 — 夜の横丁 <small>ANNEX</small></span>'+
-    '<span class="yk-hint">⟷ 横にお進みください(ホイール可)。屋台・自販機・妖怪・猫はクリックできます(自己責任)</span>'+
+    '<span class="yk-hint">⟷ 横にお進みください(ホイール可)。屋台・自販機・妖怪・猫はクリックできます(自己責任)。提灯は貸出無料です</span>'+
     '<button class="yk-photo">📷 記念写真(無料)</button>'+
     '<button class="yk-back">← 本館へ戻る</button>'+
   '</div>'+
@@ -3278,6 +3291,35 @@ scroller.addEventListener('click',e=>{
     blip(880,.12,0,'sine',.05); blip(1240,.1,.1,'sine',.04);
   }
 });
+
+/* ---------- 夜歩き用カーソル(提灯は貸出無料) ---------- */
+const ykCurCache={};
+function ykEmojiCur(emoji){
+  if(ykCurCache[emoji])return ykCurCache[emoji];
+  const c=document.createElement('canvas'); c.width=c.height=32;
+  const g=c.getContext('2d');
+  g.font='24px serif'; g.textAlign='center'; g.textBaseline='middle';
+  g.fillText(emoji,16,18);
+  return ykCurCache[emoji]=`url(${c.toDataURL('image/png')}) 16 16, auto`;
+}
+let alleyCur='';
+function setAlleyCursor(emoji){
+  if(alleyCur===emoji)return;
+  alleyCur=emoji;
+  ov.style.cursor=ykEmojiCur(emoji);
+}
+scroller.addEventListener('mousemove',e=>{
+  if(e.target.closest('.yk-shop')){ setAlleyCursor('🏮'); return; }
+  const gy=H*.72;
+  const wx=e.clientX+scroller.scrollLeft, wy=e.clientY;
+  let em='🏮';                                              // 基本は提灯
+  if(Math.abs(wx-DECO.yatai)<95&&wy>H*.42)em='🥢';          // 屋台: 箸の構え
+  else if(Math.abs(wx-DECO.vend)<55&&wy>H*.45)em='🪙';      // 自販機: 小銭(全品0円ですが気持ち)
+  else if(walker&&Math.abs(wx-walker.x)<50)em='👋';         // 妖怪: ご挨拶
+  else if(Math.abs(wx-cat.x)<46&&Math.abs(wy-(gy+30))<46)em='🐟'; // 猫: 貢ぎ物
+  setAlleyCursor(em);
+});
+setAlleyCursor('🏮');
 
 /* ---------- のれん転換(入店演出) ---------- */
 ov.querySelectorAll('.yk-go').forEach(a=>a.addEventListener('click',e=>{
